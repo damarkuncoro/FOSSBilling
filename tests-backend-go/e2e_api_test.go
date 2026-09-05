@@ -32,7 +32,37 @@ func TestE2E_HealthCheck(t *testing.T) {
 	}
 }
 
-func TestE2E_LiveAuthAndProfileFlow(t *testing.T) {
+func TestE2E_GuestCurrenciesAndNews(t *testing.T) {
+	baseURL := getBaseURL()
+	resp, err := http.Get(baseURL + "/health")
+	if err != nil {
+		t.Skipf("API server is not running at %s (skipping live e2e test): %v", baseURL, err)
+		return
+	}
+	_ = resp.Body.Close()
+
+	// 1. Get Guest Currencies
+	currResp, err := http.Get(baseURL + "/api/v1/guest/currencies")
+	if err != nil {
+		t.Fatalf("Guest currencies failed: %v", err)
+	}
+	defer currResp.Body.Close()
+	if currResp.StatusCode != http.StatusOK {
+		t.Errorf("Currencies status = %d; want 200", currResp.StatusCode)
+	}
+
+	// 2. Get Guest News
+	newsResp, err := http.Get(baseURL + "/api/v1/guest/news")
+	if err != nil {
+		t.Fatalf("Guest news failed: %v", err)
+	}
+	defer newsResp.Body.Close()
+	if newsResp.StatusCode != http.StatusOK {
+		t.Errorf("News status = %d; want 200", newsResp.StatusCode)
+	}
+}
+
+func TestE2E_LiveAuthProfileAndAPIKeysFlow(t *testing.T) {
 	baseURL := getBaseURL()
 	resp, err := http.Get(baseURL + "/health")
 	if err != nil {
@@ -102,5 +132,36 @@ func TestE2E_LiveAuthAndProfileFlow(t *testing.T) {
 
 	if profileResp.StatusCode != http.StatusOK {
 		t.Fatalf("Profile status = %d; want 200", profileResp.StatusCode)
+	}
+
+	// 4. Generate API Key
+	keyReqBody, _ := json.Marshal(map[string]interface{}{
+		"name":        "Test Integration Key",
+		"expire_days": 30,
+	})
+	keyReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/client/api-keys", bytes.NewBuffer(keyReqBody))
+	keyReq.Header.Set("Authorization", "Bearer "+token)
+	keyReq.Header.Set("Content-Type", "application/json")
+	keyResp, err := http.DefaultClient.Do(keyReq)
+	if err != nil {
+		t.Fatalf("API Key generation failed: %v", err)
+	}
+	defer keyResp.Body.Close()
+
+	if keyResp.StatusCode != http.StatusCreated {
+		t.Fatalf("API Key status = %d; want 201", keyResp.StatusCode)
+	}
+
+	// 5. List API Keys
+	listReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/client/api-keys", nil)
+	listReq.Header.Set("Authorization", "Bearer "+token)
+	listResp, err := http.DefaultClient.Do(listReq)
+	if err != nil {
+		t.Fatalf("List API Keys failed: %v", err)
+	}
+	defer listResp.Body.Close()
+
+	if listResp.StatusCode != http.StatusOK {
+		t.Fatalf("List API Keys status = %d; want 200", listResp.StatusCode)
 	}
 }
