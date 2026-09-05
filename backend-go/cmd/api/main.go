@@ -118,6 +118,33 @@ func main() {
 		}, nil)
 	})
 
+	mux.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		data, err := os.ReadFile("docs/openapi.json")
+		if err != nil {
+			response.Error(w, http.StatusNotFound, "NOT_FOUND", "OpenAPI spec not found", nil)
+			return
+		}
+		_, _ = w.Write(data)
+	})
+
+	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		html := `<!doctype html>
+<html>
+  <head>
+    <title>FOSSBilling Next-Gen API Documentation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script id="api-reference" data-url="/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`
+		_, _ = w.Write([]byte(html))
+	})
+
 	mux.HandleFunc("GET /api/v1", func(w http.ResponseWriter, r *http.Request) {
 		response.JSON(w, http.StatusOK, map[string]string{
 			"message": "FOSSBilling Next-Gen API v1 (Golang)",

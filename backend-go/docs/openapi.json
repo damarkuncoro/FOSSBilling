@@ -1,0 +1,195 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FOSSBilling Next-Gen API (Golang)",
+    "description": "High-performance, Cloud-Native RESTful API for FOSSBilling Client and Hosting Management System.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "FOSSBilling Community",
+      "url": "https://fossbilling.org"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/api/v1",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/guest/auth/register": {
+      "post": {
+        "tags": ["Guest Auth"],
+        "summary": "Register a new client account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "first_name", "last_name"],
+                "properties": {
+                  "email": { "type": "string", "example": "john@example.com" },
+                  "password": { "type": "string", "example": "StrongPass123!" },
+                  "first_name": { "type": "string", "example": "John" },
+                  "last_name": { "type": "string", "example": "Doe" },
+                  "company": { "type": "string", "example": "ACME Corp" },
+                  "country": { "type": "string", "example": "US" },
+                  "currency": { "type": "string", "example": "USD" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Account created successfully" },
+          "400": { "description": "Invalid input or email already in use" }
+        }
+      }
+    },
+    "/guest/auth/login": {
+      "post": {
+        "tags": ["Guest Auth"],
+        "summary": "Client login & JWT token generation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "john@example.com" },
+                  "password": { "type": "string", "example": "StrongPass123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Authentication successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/guest/currencies": {
+      "get": {
+        "tags": ["Guest Currencies"],
+        "summary": "List active system currencies",
+        "responses": {
+          "200": { "description": "List of active currencies" }
+        }
+      }
+    },
+    "/guest/news": {
+      "get": {
+        "tags": ["Guest News"],
+        "summary": "List published announcements & news",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "List of published news posts" }
+        }
+      }
+    },
+    "/guest/news/{slug}": {
+      "get": {
+        "tags": ["Guest News"],
+        "summary": "Get published news article by slug",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "News article details" },
+          "404": { "description": "Article not found" }
+        }
+      }
+    },
+    "/client/profile": {
+      "get": {
+        "tags": ["Client Profile"],
+        "summary": "Get authenticated client profile",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile information" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "put": {
+        "tags": ["Client Profile"],
+        "summary": "Update client profile details",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile updated" }
+        }
+      }
+    },
+    "/client/downloads/{id}/link": {
+      "get": {
+        "tags": ["Client Downloads"],
+        "summary": "Generate HMAC-SHA256 signed download link for active purchases",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Signed download URL with expiration" },
+          "403": { "description": "Product not owned or order inactive" }
+        }
+      }
+    },
+    "/client/api-keys": {
+      "get": {
+        "tags": ["Client API Keys"],
+        "summary": "List active API keys",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of client API keys" }
+        }
+      },
+      "post": {
+        "tags": ["Client API Keys"],
+        "summary": "Generate new API key token",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "CI/CD Deployment Bot" },
+                  "expire_days": { "type": "integer", "example": 90 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "API key generated" }
+        }
+      }
+    },
+    "/admin/stats/dashboard": {
+      "get": {
+        "tags": ["Admin Analytics"],
+        "summary": "Get executive business metrics, MRR, ARR, and health indicators",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Dashboard analytics payload" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+name: Go Backend CI & Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend-go/**'
+      - 'tests-backend-go/**'
+      - '.github/workflows/backend-go.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-go/**'
+      - 'tests-backend-go/**'
+      - '.github/workflows/backend-go.yml'
+
+jobs:
+  test:
+    name: Unit Tests & Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache-dependency-path: backend-go/go.sum
+
+    - name: Run Unit Tests
+      working-directory: backend-go
+      run: |
+        go test -v -race -covermode=atomic ./...
+
+    - name: Build Binaries (API & Worker)
+      working-directory: backend-go
+      run: |
+        CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/api ./cmd/api
+        CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/worker ./cmd/worker

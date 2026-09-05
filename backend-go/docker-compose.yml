@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fossbilling-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fossbilling
+      POSTGRES_USER: fossbilling
+      POSTGRES_PASSWORD: secretpassword123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fossbilling -d fossbilling"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fossbilling-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fossbilling-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      APP_ENV: "production"
+      DATABASE_URL: "postgres://fossbilling:secretpassword123@postgres:5432/fossbilling?sslmode=disable"
+      JWT_SECRET: "production-ready-super-secret-jwt-key-32-chars"
+    ports:
+      - "8080:8080"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fossbilling-worker
+    restart: unless-stopped
+    command: ["/app/worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: "production"
+      DATABASE_URL: "postgres://fossbilling:secretpassword123@postgres:5432/fossbilling?sslmode=disable"
+      JWT_SECRET: "production-ready-super-secret-jwt-key-32-chars"
+
+volumes:
+  pgdata:
