@@ -56,8 +56,9 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 
 	clientProfileHandler := client.NewProfileHandler(authUc)
 	clientOrderHandler := client.NewOrderHandler(orderRepo)
-	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, invoiceService)
+	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService)
 	clientSupportHandler := client.NewSupportHandler(supportService)
+
 
 	adminStaffHandler := admin.NewStaffHandler(staffService, clientRepo, orderRepo, orderService, supportService)
 
@@ -85,7 +86,9 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	mux.Handle("GET /api/v1/client/orders/{id}", clientAuthMiddleware(http.HandlerFunc(clientOrderHandler.GetOrder)))
 	mux.Handle("GET /api/v1/client/invoices", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.ListInvoices)))
 	mux.Handle("GET /api/v1/client/invoices/{id}", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.GetInvoice)))
+	mux.Handle("GET /api/v1/client/invoices/{id}/pdf", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.DownloadPDF)))
 	mux.Handle("POST /api/v1/client/invoices/{id}/pay-balance", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.PayWithBalance)))
+
 	mux.Handle("POST /api/v1/client/support/tickets", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.OpenTicket)))
 	mux.Handle("GET /api/v1/client/support/tickets", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.ListTickets)))
 	mux.Handle("GET /api/v1/client/support/tickets/{id}", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.GetTicket)))

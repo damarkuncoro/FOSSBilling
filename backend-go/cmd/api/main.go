@@ -22,6 +22,7 @@ import (
 	orderUsecase "github.com/fossbilling/backend-go/internal/usecase/order"
 	paymentUsecase "github.com/fossbilling/backend-go/internal/usecase/payment"
 	staffUsecase "github.com/fossbilling/backend-go/internal/usecase/staff"
+	statsUsecase "github.com/fossbilling/backend-go/internal/usecase/stats"
 	supportUsecase "github.com/fossbilling/backend-go/internal/usecase/support"
 	"github.com/fossbilling/backend-go/pkg/response"
 )
@@ -45,7 +46,6 @@ func main() {
 	clientRepo := postgres.NewClientRepository(pgPool)
 	_ = postgres.NewProductRepository(pgPool)
 	orderRepo := postgres.NewOrderRepository(pgPool)
-
 	invoiceRepo := postgres.NewInvoiceRepository(pgPool)
 	txnRepo := postgres.NewTransactionRepository(pgPool)
 	promoRepo := postgres.NewPromoRepository(pgPool)
@@ -62,6 +62,7 @@ func main() {
 	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, orderService, orderRepo)
 	supportService := supportUsecase.NewSupportService(supportRepo, clientRepo)
 	staffService := staffUsecase.NewStaffService(staffRepo, cfg.JWTSecret)
+	statsService := statsUsecase.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
 	authUc := authUsecase.NewAuthUsecase(clientRepo, cfg.JWTSecret)
 
 	// 4. Initialize Handlers
@@ -71,12 +72,16 @@ func main() {
 
 	clientProfileHandler := client.NewProfileHandler(authUc)
 	clientOrderHandler := client.NewOrderHandler(orderRepo)
-	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, invoiceService)
+	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService)
 	clientSupportHandler := client.NewSupportHandler(supportService)
 
 	adminStaffHandler := admin.NewStaffHandler(staffService, clientRepo, orderRepo, orderService, supportService)
+	adminStatsHandler := admin.NewStatsHandler(statsService, staffService)
 
-	// 5. Setup HTTP Router (Go 1.22 enhanced ServeMux)
+	// 5. Rate Limiter for public endpoints (60 req / min)
+	rateLimiter := middleware.NewRateLimiter(60, time.Second)
+
+	// 6. Setup HTTP Router (Go 1.22 enhanced ServeMux)
 	mux := http.NewServeMux()
 
 	// System & Health Endpoints
@@ -95,15 +100,15 @@ func main() {
 		}, nil)
 	})
 
-	// Public / Guest Routes
-	mux.HandleFunc("POST /api/v1/guest/auth/register", guestAuthHandler.Register)
-	mux.HandleFunc("POST /api/v1/guest/auth/login", guestAuthHandler.Login)
-	mux.HandleFunc("POST /api/v1/guest/cart/calculate", guestCartHandler.Calculate)
-	mux.HandleFunc("POST /api/v1/guest/cart/checkout", guestCartHandler.Checkout)
-	mux.HandleFunc("POST /api/v1/guest/gateways/{gateway}/webhook", guestWebhookHandler.HandleGatewayWebhook)
+	// Public / Guest Routes (Rate Limited)
+	mux.Handle("POST /api/v1/guest/auth/register", rateLimiter.RateLimit(http.HandlerFunc(guestAuthHandler.Register)))
+	mux.Handle("POST /api/v1/guest/auth/login", rateLimiter.RateLimit(http.HandlerFunc(guestAuthHandler.Login)))
+	mux.Handle("POST /api/v1/guest/cart/calculate", rateLimiter.RateLimit(http.HandlerFunc(guestCartHandler.Calculate)))
+	mux.Handle("POST /api/v1/guest/cart/checkout", rateLimiter.RateLimit(http.HandlerFunc(guestCartHandler.Checkout)))
+	mux.Handle("POST /api/v1/guest/gateways/{gateway}/webhook", http.HandlerFunc(guestWebhookHandler.HandleGatewayWebhook))
 
 	// Admin Auth (Public Login)
-	mux.HandleFunc("POST /api/v1/admin/auth/login", adminStaffHandler.Login)
+	mux.Handle("POST /api/v1/admin/auth/login", rateLimiter.RateLimit(http.HandlerFunc(adminStaffHandler.Login)))
 
 	// Protected Client Routes
 	clientAuthMiddleware := middleware.RequireAuth(cfg.JWTSecret, "client", "admin", "superadmin")
@@ -115,6 +120,7 @@ func main() {
 
 	mux.Handle("GET /api/v1/client/invoices", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.ListInvoices)))
 	mux.Handle("GET /api/v1/client/invoices/{id}", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.GetInvoice)))
+	mux.Handle("GET /api/v1/client/invoices/{id}/pdf", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.DownloadPDF)))
 	mux.Handle("POST /api/v1/client/invoices/{id}/pay-balance", clientAuthMiddleware(http.HandlerFunc(clientInvoiceHandler.PayWithBalance)))
 
 	mux.Handle("POST /api/v1/client/support/tickets", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.OpenTicket)))
@@ -125,6 +131,7 @@ func main() {
 
 	// Protected Admin Routes
 	adminAuthMiddleware := middleware.RequireAuth(cfg.JWTSecret, "admin", "superadmin", "support", "billing")
+	mux.Handle("GET /api/v1/admin/stats/dashboard", adminAuthMiddleware(http.HandlerFunc(adminStatsHandler.GetDashboard)))
 	mux.Handle("GET /api/v1/admin/clients", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.ListClients)))
 	mux.Handle("GET /api/v1/admin/orders", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.ListOrders)))
 	mux.Handle("POST /api/v1/admin/orders/{id}/suspend", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.SuspendOrder)))
