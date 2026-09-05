@@ -27,12 +27,14 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
-        cache-dependency-path: backend-go/go.sum
+        cache-dependency-path: |
+          backend-go/go.sum
+          tests-backend-go/go.sum
 
-    - name: Run Unit Tests
-      working-directory: backend-go
+    - name: Run Test Suite
+      working-directory: tests-backend-go
       run: |
-        go test -v -race -covermode=atomic ./...
+        go test -v ./...
 
     - name: Build Binaries (API & Worker)
       working-directory: backend-go

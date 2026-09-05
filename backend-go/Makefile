@@ -1,4 +1,4 @@
-.PHONY: run test build docker-up docker-down
+.PHONY: run worker test build docker-up docker-down
 
 run:
 	go run ./cmd/api
@@ -7,7 +7,7 @@ worker:
 	go run ./cmd/worker
 
 test:
-	go test -v ./...
+	cd ../tests-backend-go && go test -v ./...
 
 build:
 	mkdir -p bin
@@ -15,7 +15,7 @@ build:
 	go build -o bin/worker ./cmd/worker
 
 docker-up:
-	docker compose -f ../deploy/docker-compose.yml up --build -d
+	docker compose up --build -d
 
 docker-down:
-	docker compose -f ../deploy/docker-compose.yml down
+	docker compose down

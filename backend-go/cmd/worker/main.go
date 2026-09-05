@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/config"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/postgres"
-	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/billing"
-	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/order"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/service/scheduler"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
+	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
 )
 
 func main() {
