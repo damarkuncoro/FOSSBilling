@@ -26,7 +26,17 @@ func (m Money) ToFloat() float64 {
 }
 
 func (m Money) String() string {
-	return fmt.Sprintf("%.2f", m.ToFloat())
+	val := int64(m)
+	sign := ""
+	if val < 0 {
+		sign = "-"
+		val = -val
+	}
+	// Round to nearest 2 decimal places (hundredths of a dollar = cents)
+	cents := (val + 50) / 100
+	dollars := cents / 100
+	remainderCents := cents % 100
+	return fmt.Sprintf("%s%d.%02d", sign, dollars, remainderCents)
 }
 
 func (m Money) FormatPrecision(decimals int) string {
