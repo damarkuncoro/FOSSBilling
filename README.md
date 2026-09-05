@@ -11,21 +11,25 @@
 
 <div align="center">
 
-<a href="https://fossbilling.org/downloads/"><img src="https://raw.githubusercontent.com/FOSSBilling/fossbilling.org/main/public/img/gh/download-button.png" alt="Download button" width="400"/></a>
-
 [![Go CI & Tests](https://github.com/damarkuncoro/FOSSBilling/actions/workflows/backend-go.yml/badge.svg)](https://github.com/damarkuncoro/FOSSBilling/actions/workflows/backend-go.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8.svg?logo=go)](https://golang.org)
-[![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-777BB4.svg?logo=php)](https://php.net)
-[![Discord](https://img.shields.io/discord/747432407757488179?color=%237289FA&logo=discord&logoColor=%23FFF)](https://fossbilling.org/discord)
+[![Vite](https://img.shields.io/badge/Vite-8.x-646CFF.svg?logo=vite)](https://vitejs.dev)
+[![React](https://img.shields.io/badge/React-18%2F19-61DAFB.svg?logo=react)](https://react.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4%2Fshadcn-38B2AC.svg?logo=tailwind-css)](https://ui.shadcn.com)
 
 </div>
 
 ---
 
-**FOSSBilling** is a free, open-source billing, subscription, and client management solution designed for hosting businesses, digital goods sellers, and online service providers.
+**FOSSBilling** is a modern, high-performance, open-source billing, subscription, and client management platform designed for hosting providers, domain registrars, SaaS businesses, and digital goods merchants.
 
-This repository features the **Next-Generation Cloud-Native Golang Backend** alongside the legacy PHP engine, offering lightning-fast execution, Clean Architecture, complete REST API endpoints, and a dedicated testing suite.
+This repository features the **100% PHP-Free Modern Cloud-Native Ecosystem**:
+- ⚡ **Backend Engine:** Golang 1.22+ Clean Architecture REST API & Background Worker (`backend-go`)
+- 🖥️ **Administrator Portal:** Vite + React + TypeScript + shadcn/ui Dashboard (`frontend-administrator`)
+- 🛍️ **Customer Client Portal:** Vite + React + TypeScript + shadcn/ui Storefront & Client Hub (`frontend-client`)
+- 🧪 **Automated Testing:** 25/25 Comprehensive Unit & E2E Test Suites (`tests-backend-go`)
+- 🐳 **One-Click Deployment:** Multi-container Docker Compose with PostgreSQL 16 & Redis 7 (`deploy/`)
 
 ---
 
@@ -33,83 +37,102 @@ This repository features the **Next-Generation Cloud-Native Golang Backend** alo
 
 ```text
 .
-├── backend-go/          # High-performance Next-Gen Golang REST API & Daemon
+├── backend-go/                # High-Performance Golang Backend (:8080)
 │   ├── cmd/
-│   │   ├── api/         # HTTP REST API server
-│   │   ├── demo/        # End-to-End live business simulation
-│   │   └── worker/      # Scheduled background cron daemon
-│   ├── core/            # Domain Entities, UseCases, Repositories & Handlers
-│   ├── docs/            # OpenAPI 3.0 specification
-│   ├── pkg/             # Shared packages (Auth, Decimal, PDF, Events, Mailer)
-│   ├── Dockerfile       # Production multi-stage Docker build
-│   └── docker-compose.yml
+│   │   ├── api/               # HTTP REST API server
+│   │   ├── demo/              # End-to-End live business simulation
+│   │   └── worker/            # Scheduled cron & background job worker
+│   ├── core/                  # Domain Entities, UseCases, Repositories & Handlers
+│   ├── docs/                  # OpenAPI 3.0 specification & Scalar reference
+│   ├── pkg/                   # Shared packages (Auth, Decimal, PDF, Events, Mailer)
+│   ├── migrations/            # PostgreSQL schema migrations
+│   └── Dockerfile             # Multi-stage production build
 │
-├── tests-backend-go/    # Centralized Golang Test Suites (100% Passing)
-│   ├── Unit/            # Unit tests for Handlers, Services, UseCases, Pkg
-│   └── E2E/             # Live REST API integration tests
+├── frontend-administrator/    # Modern Staff/Admin Portal (:3000)
+│   ├── src/                   # React + TypeScript + Tailwind + shadcn/ui
+│   │   ├── components/ui/     # Radix UI primitives (Button, Card, Dialog, Table, etc.)
+│   │   ├── pages/             # Dashboard, Clients, Orders, Invoices, Support, etc.
+│   │   └── lib/               # API client & Staff auth context
+│   └── Dockerfile             # Alpine Nginx production image
 │
-├── backend-php/         # Modular PHP Backend
-├── tests-backend-php/   # PHP Pest / PHPUnit test suites
-└── frontend/            # Shared browser assets & themes
+├── frontend-client/           # Customer Storefront & Client Portal (:3001)
+│   ├── src/                   # React + TypeScript + Tailwind + shadcn/ui
+│   │   ├── pages/             # Storefront, Domain Checker, Cart, Services, Invoices
+│   │   └── lib/               # API client, Cart state & Customer auth context
+│   └── Dockerfile             # Alpine Nginx production image
+│
+├── tests-backend-go/          # Centralized Go Test Suites (25/25 Passing)
+├── deploy/                    # Unified Docker Compose orchestration
+└── Makefile                   # Quick-start workflow automation commands
 ```
 
 ---
 
-## ⚡ Quick Start: Golang Backend
+## ⚡ Quick Start: Running the Ecosystem
 
-### 1. Run the API Server
+### 1. Run via Docker Compose (Recommended)
+Launch all 6 services with one command:
 ```bash
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+### 2. Run Locally in Development Mode
+Start each service in dedicated terminal tabs:
+
+```bash
+# 1. Start Golang REST API Server (Port :8080)
 cd backend-go
 go run ./cmd/api
-```
-Server runs at `http://localhost:8080`.
-* 📖 **Interactive Scalar API Docs:** [http://localhost:8080/docs](http://localhost:8080/docs)
-* ⚙️ **OpenAPI 3.0 Spec:** `http://localhost:8080/openapi.json`
-* 🩺 **Health Check:** `http://localhost:8080/health`
 
-### 2. Run the End-to-End Business Simulation
-Simulates the entire customer journey (Registration, Multi-Currency, Invoicing, Tax, Payment Webhook, cPanel/DirectAdmin/Plesk Provisioning, Signed Digital Downloads, API Keys, Mass Mailer, and Analytics Dashboard):
-```bash
-cd backend-go
-go run ./cmd/demo/main.go
-```
+# 2. Start Admin Portal (Port :3000)
+cd frontend-administrator
+npm run dev
 
-### 3. Run Full-Stack with Docker Compose
-Starts API, Background Worker, PostgreSQL 16 (with auto-migrations), and Redis 7:
-```bash
-cd backend-go
-docker compose up -d
+# 3. Start Customer Portal (Port :3001)
+cd frontend-client
+npm run dev
 ```
 
 ---
 
-## 🧪 Testing
+## 🌐 Live URLs & Access
 
-All Golang tests are organized inside `tests-backend-go/`:
+| Portal | URL | Default Credentials | Description |
+| :--- | :--- | :--- | :--- |
+| 🛍️ **Customer Portal** | `http://localhost:3001` | `client@fossbilling.org` / `client123` | Storefront, Domain Lookup, Cart, Hosting Dashboard, Invoices |
+| 🖥️ **Administrator Portal** | `http://localhost:3000` | `admin@fossbilling.org` / `admin123` | Executive MRR/ARR Dashboard, Service Provisioning, Currencies |
+| ⚡ **Golang REST API** | `http://localhost:8080` | - | High-performance JSON REST API |
+| 📖 **Scalar API Documentation** | `http://localhost:8080/docs` | - | Interactive OpenAPI 3.0 Reference & Test Console |
+
+---
+
+## 🧪 Testing & Verification
+
+Run the entire 25-suite unit and integration test suite:
 ```bash
-# Run all Go unit & E2E tests
 cd tests-backend-go
 go test -v ./...
+```
 
-# Or using Makefile from backend-go
-cd backend-go
-make test
+Run frontend production builds:
+```bash
+# Build Admin Portal
+cd frontend-administrator && npm run build
+
+# Build Customer Portal
+cd frontend-client && npm run build
 ```
 
 ---
 
-## 🚀 Key Modules & Endpoints
+## 🚀 Key Modules & Capabilities
 
-| Category | Endpoints | Description |
-| :--- | :--- | :--- |
-| **Auth & Profile** | `/api/v1/guest/auth/register`<br>`/api/v1/guest/auth/login`<br>`/api/v1/client/profile` | JWT-based client authentication and profile management |
-| **Multi-Currency** | `/api/v1/guest/currencies`<br>`/api/v1/admin/currencies` | Dynamic exchange rates, custom price formatting, base currency rules |
-| **News & Announcements**| `/api/v1/guest/news`<br>`/api/v1/guest/news/{slug}`<br>`/api/v1/admin/news` | SEO friendly slug publishing, drafts, and staff authoring |
-| **Digital Downloads** | `/api/v1/client/downloads/{id}/link`<br>`/api/v1/client/downloads/{id}/file` | Secure HMAC-SHA256 signed digital delivery with expiration TTL |
-| **API Keys** | `/api/v1/client/api-keys` | Token generator (`fb_*`) with secret hashing for third-party bots |
-| **Billing & Cart** | `/api/v1/guest/cart/checkout`<br>`/api/v1/client/invoices` | Automated tax calculator, coupons, prorata, and PDF generation |
-| **Provisioning** | cPanel, DirectAdmin, Plesk, License | Multi-driver server provisioning & hosting account automation |
-| **Mass Mailer** | `/api/v1/admin/mass-mail` | Broadcast newsletter and batch notification system |
+- **Automated Multi-Driver Provisioning:** Instant creation and management for cPanel/WHM, DirectAdmin, Plesk, and Enterprise Serial Licenses.
+- **Secure Digital Downloads:** HMAC-SHA256 encrypted temporary download links with expiration TTL.
+- **Tax Engine & Multi-Currency:** Real-time PPN 11% tax calculation, multi-currency conversion (USD, IDR, EUR, SGD), and promo discount vouchers (`MERDEKA20`).
+- **Support Helpdesk:** Threaded two-way conversation between customers and staff with priority escalation.
+- **Mass Mailer & Campaigns:** Broadcast transactional and promotional campaigns to verified customer segments.
+- **Audit Logging:** Immutable security audit trail recording staff actions, entity modifications, and IP addresses.
 
 ---
 
