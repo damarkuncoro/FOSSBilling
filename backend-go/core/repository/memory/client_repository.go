@@ -111,6 +111,17 @@ func (r *MockClientRepository) Update(ctx context.Context, c *domain.Client) err
 	return nil
 }
 
+func (r *MockClientRepository) Delete(ctx context.Context, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.clients[id]; !ok {
+		return appErrors.ErrNotFound
+	}
+	delete(r.clients, id)
+	return nil
+}
+
 func (r *MockClientRepository) GetBalance(ctx context.Context, clientID int64) (decimal.Money, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

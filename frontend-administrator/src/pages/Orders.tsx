@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Package, RefreshCw, CheckCircle, PauseCircle, PlayCircle, AlertCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { useOrders } from '@/hooks/useOrders';
 import { formatMoney, formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,68 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export const Orders: React.FC = () => {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getOrders();
-      setOrders(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const handleActivate = async (id: number) => {
-    setActionLoading(id);
-    setMessage(null);
-    try {
-      await api.activateOrder(id);
-      setMessage(`Order #${id} successfully activated and provisioned!`);
-      await fetchOrders();
-    } catch (err: any) {
-      setMessage(`Error activating order: ${err.message}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleSuspend = async (id: number) => {
-    setActionLoading(id);
-    setMessage(null);
-    try {
-      await api.suspendOrder(id, 'Admin manual suspension');
-      setMessage(`Order #${id} has been suspended.`);
-      await fetchOrders();
-    } catch (err: any) {
-      setMessage(`Error suspending order: ${err.message}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleUnsuspend = async (id: number) => {
-    setActionLoading(id);
-    setMessage(null);
-    try {
-      await api.unsuspendOrder(id);
-      setMessage(`Order #${id} has been reactivated.`);
-      await fetchOrders();
-    } catch (err: any) {
-      setMessage(`Error unsuspending order: ${err.message}`);
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const {
+    orders,
+    loading,
+    actionLoading,
+    message,
+    fetchOrders,
+    handleActivate,
+    handleSuspend,
+    handleUnsuspend,
+  } = useOrders();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -210,3 +158,5 @@ export const Orders: React.FC = () => {
     </div>
   );
 };
+
+export default Orders;

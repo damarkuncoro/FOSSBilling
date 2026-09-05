@@ -142,7 +142,10 @@ func (h *InvoiceHandler) PayWithBalance(w http.ResponseWriter, r *http.Request) 
 
 func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
+	role := middleware.GetRole(r.Context())
+	isAdmin := role == "admin" || role == "superadmin" || role == "staff" || role == "billing" || role == "support"
+
+	if clientID == 0 && !isAdmin {
 		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
 		return
 	}
@@ -164,26 +167,26 @@ func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Invoice not found", nil)
 		return
 	}
-	if invoice.ClientID != clientID {
+	if !isAdmin && invoice.ClientID != clientID {
 		response.Error(w, http.StatusForbidden, "FORBIDDEN", "You do not have access to this invoice", nil)
 		return
 	}
 
-	client, err := h.clientRepo.GetByID(r.Context(), clientID)
+	client, err := h.clientRepo.GetByID(r.Context(), invoice.ClientID)
 	if err != nil {
 		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Client not found", nil)
 		return
 	}
 
-	htmlContent, err := pdf.GenerateInvoiceHTML(invoice, client, "", "", "")
+	pdfContent, err := pdf.GenerateInvoicePDF(invoice, client, "", "", "")
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "RENDER_ERROR", "Failed to generate invoice PDF/HTML", err.Error())
+		response.Error(w, http.StatusInternalServerError, "RENDER_ERROR", "Failed to generate invoice PDF", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=Invoice-%s.html", invoice.Nr))
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=Invoice-%s.pdf", invoice.Nr))
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(htmlContent)
+	_, _ = w.Write(pdfContent)
 }
 

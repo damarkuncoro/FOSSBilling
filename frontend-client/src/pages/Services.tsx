@@ -1,53 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Server,
-  Download,
-  Key,
-  ExternalLink,
-  Shield,
-  CheckCircle,
-  Copy,
-  Clock,
-  RefreshCw,
-} from 'lucide-react';
-import { api } from '@/lib/api';
-import { formatDate, formatMoney } from '@/lib/utils';
+import React from 'react';
+import { RefreshCw, Download, CheckCircle } from 'lucide-react';
+import { useClientServices } from '@/hooks/useClientServices';
+import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export const Services: React.FC = () => {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [downloadLink, setDownloadLink] = useState<string | null>(null);
-  const [downloadModal, setDownloadModal] = useState(false);
-
-  const fetchServices = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getOrders();
-      setOrders(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchServices();
-  }, []);
-
-  const handleGetDownload = async (id: number) => {
-    try {
-      const res = await api.getDownloadLink(id);
-      setDownloadLink(res.download_url);
-      setDownloadModal(true);
-    } catch (err: any) {
-      alert(`Download generation failed: ${err.message}`);
-    }
-  };
+  const {
+    orders,
+    loading,
+    downloadLink,
+    downloadModal,
+    setDownloadModal,
+    fetchServices,
+    handleGetDownload,
+  } = useClientServices();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">

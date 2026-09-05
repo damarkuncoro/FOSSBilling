@@ -1,68 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { Mail, RefreshCw, Plus, Send, CheckCircle, AlertCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import React from 'react';
+import { Mail, RefreshCw, Send, AlertCircle } from 'lucide-react';
+import { useMassMail } from '@/hooks/useMassMail';
+import { AddCampaignDialog } from '@/components/massmail/AddCampaignDialog';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export const MassMail: React.FC = () => {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openModal, setOpenModal] = useState(false);
-  const [form, setForm] = useState({ subject: '', content: '' });
-  const [saving, setSaving] = useState(false);
-  const [sendingId, setSendingId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const fetchCampaigns = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getMassMailCampaigns();
-      setCampaigns(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.createMassMailCampaign(form);
-      setOpenModal(false);
-      setForm({ subject: '', content: '' });
-      await fetchCampaigns();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSend = async (id: number) => {
-    setSendingId(id);
-    setMessage(null);
-    try {
-      await api.sendMassMailCampaign(id);
-      setMessage(`Campaign #${id} has been broadcasted to all active clients!`);
-      await fetchCampaigns();
-    } catch (err: any) {
-      setMessage(`Error sending campaign: ${err.message}`);
-    } finally {
-      setSendingId(null);
-    }
-  };
+  const {
+    campaigns,
+    loading,
+    openModal,
+    setOpenModal,
+    form,
+    setForm,
+    saving,
+    sendingId,
+    message,
+    fetchCampaigns,
+    handleCreate,
+    handleSend,
+  } = useMassMail();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -79,49 +39,14 @@ export const MassMail: React.FC = () => {
             Refresh
           </Button>
 
-          <Dialog open={openModal} onOpenChange={setOpenModal}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 shadow-sm">
-                <Plus className="h-4 w-4" />
-                New Campaign
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Draft Email Campaign</DialogTitle>
-                <DialogDescription>Create a transactional or promotional broadcast message</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Subject Line</label>
-                  <Input
-                    required
-                    placeholder="e.g. Exclusive Special Discounts for Cloud VPS"
-                    value={form.subject}
-                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Email Content Body</label>
-                  <Textarea
-                    required
-                    rows={6}
-                    placeholder="Write email body text..."
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setOpenModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? 'Drafting...' : 'Save Draft'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <AddCampaignDialog
+            open={openModal}
+            onOpenChange={setOpenModal}
+            form={form}
+            setForm={setForm}
+            onSave={handleCreate}
+            saving={saving}
+          />
         </div>
       </div>
 
@@ -210,3 +135,5 @@ export const MassMail: React.FC = () => {
     </div>
   );
 };
+
+export default MassMail;

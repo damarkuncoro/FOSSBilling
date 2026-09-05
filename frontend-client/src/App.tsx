@@ -13,6 +13,13 @@ import { Services } from '@/pages/Services';
 import { Invoices } from '@/pages/Invoices';
 import { Support } from '@/pages/Support';
 import { Settings } from '@/pages/Settings';
+import { Knowledgebase } from '@/pages/Knowledgebase';
+import { News } from '@/pages/News';
+import { Domains } from '@/pages/Domains';
+import { Downloads } from '@/pages/Downloads';
+import { Licenses } from '@/pages/Licenses';
+import { PaymentSuccess } from '@/pages/PaymentSuccess';
+import { PaymentFailed } from '@/pages/PaymentFailed';
 
 export const App: React.FC = () => {
   return (
@@ -21,9 +28,14 @@ export const App: React.FC = () => {
         <BrowserRouter>
           <Routes>
             <Route element={<ClientLayout />}>
-              {/* Public Storefront & Cart Routes */}
+              {/* Public Storefront, Knowledgebase, News & Cart */}
               <Route path="/" element={<Storefront />} />
+              <Route path="/kb" element={<Knowledgebase />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/domains" element={<Domains />} />
               <Route path="/cart" element={<Cart />} />
+              <Route path="/payment/success" element={<PaymentSuccess />} />
+              <Route path="/payment/failed" element={<PaymentFailed />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
@@ -31,6 +43,8 @@ export const App: React.FC = () => {
               <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/services" element={<Services />} />
+                <Route path="/licenses" element={<Licenses />} />
+                <Route path="/downloads" element={<Downloads />} />
                 <Route path="/invoices" element={<Invoices />} />
                 <Route path="/support" element={<Support />} />
                 <Route path="/settings" element={<Settings />} />

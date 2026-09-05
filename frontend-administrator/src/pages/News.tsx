@@ -1,62 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { Newspaper, RefreshCw, Plus, Trash2, Globe } from 'lucide-react';
-import { api } from '@/lib/api';
+import React from 'react';
+import { Newspaper, RefreshCw, Trash2, Globe } from 'lucide-react';
+import { useNews } from '@/hooks/useNews';
+import { AddArticleDialog } from '@/components/news/AddArticleDialog';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export const News: React.FC = () => {
-  const [articles, setArticles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [openModal, setOpenModal] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '' });
-  const [saving, setSaving] = useState(false);
-
-  const fetchNews = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getNews();
-      setArticles(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchNews();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.createNews(form);
-      setOpenModal(false);
-      setForm({ title: '', content: '' });
-      await fetchNews();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this announcement?')) return;
-    try {
-      await api.deleteNews(id);
-      await fetchNews();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const {
+    articles,
+    loading,
+    openModal,
+    setOpenModal,
+    form,
+    setForm,
+    saving,
+    fetchNews,
+    handleCreate,
+    handleDelete,
+  } = useNews();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -73,49 +36,14 @@ export const News: React.FC = () => {
             Refresh
           </Button>
 
-          <Dialog open={openModal} onOpenChange={setOpenModal}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 shadow-sm">
-                <Plus className="h-4 w-4" />
-                New Announcement
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Publish Announcement</DialogTitle>
-                <DialogDescription>Create a public announcement visible on client portal</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Title</label>
-                  <Input
-                    required
-                    placeholder="e.g. Infrastructure Maintenance Notice"
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold">Content (Markdown Supported)</label>
-                  <Textarea
-                    required
-                    rows={6}
-                    placeholder="Write announcement body..."
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setOpenModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? 'Publishing...' : 'Publish'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <AddArticleDialog
+            open={openModal}
+            onOpenChange={setOpenModal}
+            form={form}
+            setForm={setForm}
+            onSave={handleCreate}
+            saving={saving}
+          />
         </div>
       </div>
 
@@ -187,3 +115,5 @@ export const News: React.FC = () => {
     </div>
   );
 };
+
+export default News;

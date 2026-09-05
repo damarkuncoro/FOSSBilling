@@ -1,6 +1,7 @@
 package pdf_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/pdf"
 )
 
-func TestGenerateInvoiceHTML(t *testing.T) {
+func TestGenerateInvoicePDF(t *testing.T) {
 	client := &domain.Client{
 		FirstName: "Ahmad",
 		LastName:  "Dhani",
@@ -36,22 +37,33 @@ func TestGenerateInvoiceHTML(t *testing.T) {
 		},
 	}
 
-	htmlBytes, err := pdf.GenerateInvoiceHTML(inv, client, "Nusantara Cloud", "", "")
+	pdfBytes, err := pdf.GenerateInvoicePDF(inv, client, "Nusantara Cloud", "", "")
 	if err != nil {
-		t.Fatalf("GenerateInvoiceHTML failed: %v", err)
+		t.Fatalf("GenerateInvoicePDF failed: %v", err)
 	}
 
-	htmlStr := string(htmlBytes)
-	if !strings.Contains(htmlStr, "INV-00555") {
-		t.Errorf("expected invoice number in output")
+	// 1. Verify standard PDF 1.4 header
+	if !bytes.HasPrefix(pdfBytes, []byte("%PDF-1.4")) {
+		t.Errorf("expected PDF header %%PDF-1.4, got %s", string(pdfBytes[:8]))
 	}
-	if !strings.Contains(htmlStr, "LUNAS / PAID") {
-		t.Errorf("expected paid status stamp")
+
+	// 2. Verify standard EOF marker
+	if !bytes.HasSuffix(bytes.TrimSpace(pdfBytes), []byte("%%EOF")) {
+		t.Errorf("expected PDF document to end with %%%%EOF")
 	}
-	if !strings.Contains(htmlStr, "Dedicated Server Bare Metal") {
-		t.Errorf("expected item title in table")
+
+	// 3. Verify content contains invoice details
+	pdfStr := string(pdfBytes)
+	if !strings.Contains(pdfStr, "INV-00555") {
+		t.Errorf("expected invoice number in PDF output")
 	}
-	if !strings.Contains(htmlStr, "Ahmad Dhani") {
-		t.Errorf("expected client name")
+	if !strings.Contains(pdfStr, "(PAID)") {
+		t.Errorf("expected paid status badge in PDF output")
+	}
+	if !strings.Contains(pdfStr, "Dedicated Server Bare Metal") {
+		t.Errorf("expected item title in PDF output")
+	}
+	if !strings.Contains(pdfStr, "Ahmad Dhani") {
+		t.Errorf("expected client name in PDF output")
 	}
 }

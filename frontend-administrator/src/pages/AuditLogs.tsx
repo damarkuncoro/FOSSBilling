@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { ShieldAlert, RefreshCw, Activity, Terminal } from 'lucide-react';
-import { api } from '@/lib/api';
+import React from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useAuditLogs } from '@/hooks/useAuditLogs';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,24 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export const AuditLogs: React.FC = () => {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getAuditLogs();
-      setLogs(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLogs();
-  }, []);
+  const { logs, loading, fetchLogs } = useAuditLogs();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -76,9 +59,7 @@ export const AuditLogs: React.FC = () => {
                 logs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="font-mono text-xs font-semibold">#{log.id}</TableCell>
-                    <TableCell className="font-medium text-sm">
-                      Staff #{log.staff_id}
-                    </TableCell>
+                    <TableCell className="font-medium text-sm">Staff #{log.staff_id}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono text-[11px] font-semibold">
                         {log.action}
@@ -103,3 +84,5 @@ export const AuditLogs: React.FC = () => {
     </div>
   );
 };
+
+export default AuditLogs;

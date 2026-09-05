@@ -1,53 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { LifeBuoy, RefreshCw, Send, MessageSquare, CheckCircle, Clock } from 'lucide-react';
-import { api } from '@/lib/api';
+import React from 'react';
+import { RefreshCw, MessageSquare } from 'lucide-react';
+import { useSupport } from '@/hooks/useSupport';
+import { TicketReplyDialog } from '@/components/support/TicketReplyDialog';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export const Support: React.FC = () => {
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
-  const [replyText, setReplyText] = useState('');
-  const [replyLoading, setReplyLoading] = useState(false);
-
-  const fetchTickets = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getSupportTickets();
-      setTickets(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTickets();
-  }, []);
-
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTicket || !replyText.trim()) return;
-
-    setReplyLoading(true);
-    try {
-      await api.replySupportTicket(selectedTicket.id, replyText);
-      setReplyText('');
-      setSelectedTicket(null);
-      await fetchTickets();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setReplyLoading(false);
-    }
-  };
+  const {
+    tickets,
+    loading,
+    selectedTicket,
+    setSelectedTicket,
+    replyText,
+    setReplyText,
+    replyLoading,
+    fetchTickets,
+    handleReply,
+  } = useSupport();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -154,50 +126,16 @@ export const Support: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Reply Dialog */}
-      {selectedTicket && (
-        <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <LifeBuoy className="h-5 w-5 text-primary" />
-                <span>Ticket #{selectedTicket.id}: {selectedTicket.subject}</span>
-              </DialogTitle>
-              <DialogDescription>
-                Client #{selectedTicket.client_id} • Priority: {selectedTicket.priority} • Status: {selectedTicket.status}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 my-2">
-              <div className="p-4 rounded-lg bg-muted/40 border text-sm space-y-2">
-                <p className="font-semibold text-xs text-muted-foreground uppercase">Initial Message:</p>
-                <p className="whitespace-pre-wrap">{selectedTicket.content || selectedTicket.subject}</p>
-              </div>
-
-              <form onSubmit={handleReply} className="space-y-3">
-                <label className="text-xs font-semibold">Staff Response:</label>
-                <Textarea
-                  required
-                  placeholder="Type your official response to the customer..."
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  rows={4}
-                />
-
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setSelectedTicket(null)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={replyLoading} className="gap-2">
-                    <Send className="h-4 w-4" />
-                    {replyLoading ? 'Sending...' : 'Send Reply'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <TicketReplyDialog
+        selectedTicket={selectedTicket}
+        onClose={() => setSelectedTicket(null)}
+        replyText={replyText}
+        setReplyText={setReplyText}
+        onReply={handleReply}
+        replyLoading={replyLoading}
+      />
     </div>
   );
 };
+
+export default Support;

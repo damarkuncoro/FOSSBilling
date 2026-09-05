@@ -61,6 +61,7 @@ type ClientRepository interface {
 	List(ctx context.Context, limit, offset int) ([]*Client, int, error)
 	Create(ctx context.Context, client *Client) error
 	Update(ctx context.Context, client *Client) error
+	Delete(ctx context.Context, id int64) error
 	GetBalance(ctx context.Context, clientID int64) (decimal.Money, error)
 	AddBalanceTransaction(ctx context.Context, balance *ClientBalance) error
 }

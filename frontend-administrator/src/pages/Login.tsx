@@ -1,39 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { useLogin } from '@/hooks/useLogin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('admin@fossbilling.org');
-  const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      await login(email, password);
-      navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Invalid staff credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    loading,
+    handleSubmit,
+  } = useLogin();
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/30 to-background">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo & Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-indigo-500 items-center justify-center text-white shadow-xl shadow-primary/30 mb-2">
             <ShieldCheck className="h-8 w-8" />
@@ -45,7 +31,6 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Card Form */}
         <Card className="border-border/60 shadow-xl backdrop-blur-xl bg-card/80">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl">Sign in to control panel</CardTitle>
@@ -107,3 +92,5 @@ export const Login: React.FC = () => {
     </div>
   );
 };
+
+export default Login;

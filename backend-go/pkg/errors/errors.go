@@ -11,4 +11,5 @@ var (
 	ErrInsufficientFunds = errors.New("insufficient balance")
 	ErrOrderExpired      = errors.New("order has expired or cannot be renewed")
 	ErrProvisioning      = errors.New("service provisioning failed")
+	ErrInternal          = errors.New("internal server error")
 )

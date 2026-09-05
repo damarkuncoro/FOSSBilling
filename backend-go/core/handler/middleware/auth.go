@@ -20,19 +20,25 @@ const (
 func RequireAuth(jwtSecret string, allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenString := ""
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+					tokenString = parts[1]
+				}
+			}
+
+			if tokenString == "" {
+				tokenString = r.URL.Query().Get("token")
+			}
+
+			if tokenString == "" {
 				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authorization header is required", nil)
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authorization header must be Bearer <token>", nil)
-				return
-			}
-
-			claims, err := auth.ValidateToken(jwtSecret, parts[1])
+			claims, err := auth.ValidateToken(jwtSecret, tokenString)
 			if err != nil {
 				response.Error(w, http.StatusUnauthorized, "INVALID_TOKEN", "Token is invalid or expired", nil)
 				return
@@ -66,4 +72,11 @@ func GetClientID(ctx context.Context) int64 {
 		return val
 	}
 	return 0
+}
+
+func GetRole(ctx context.Context) string {
+	if val, ok := ctx.Value(RoleKey).(string); ok {
+		return val
+	}
+	return ""
 }

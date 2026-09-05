@@ -1,14 +1,15 @@
-const API_BASE = '/api/v1';
+import {
+  ApiResponse,
+  ClientProfile,
+  Order,
+  Invoice,
+  SupportTicket,
+  ApiKey,
+  PublicCompanyInfo,
+  CartCalculation,
+} from '@/types/api';
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  } | null;
-}
+const API_BASE = '/api/v1';
 
 export class ApiError extends Error {
   code: string;
@@ -75,7 +76,7 @@ export const api = {
 
   // Guest Auth
   login: (email: string, password: string) =>
-    request<{ token: string; client: any }>('/guest/auth/login', {
+    request<{ token: string; client: ClientProfile }>('/guest/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
@@ -86,20 +87,14 @@ export const api = {
     last_name: string;
     currency?: string;
   }) =>
-    request<{ token: string; client: any }>('/guest/auth/register', {
+    request<{ token: string; client: ClientProfile }>('/guest/auth/register', {
       method: 'POST',
       body: JSON.stringify(dto),
     }),
 
   // Cart & Checkout
   calculateCart: (items: any[], promoCode?: string) =>
-    request<{
-      subtotal: number;
-      discount: number;
-      tax: number;
-      total: number;
-      items: any[];
-    }>('/guest/cart/calculate', {
+    request<CartCalculation>('/guest/cart/calculate', {
       method: 'POST',
       body: JSON.stringify({ items, promo_code: promoCode }),
     }),
@@ -119,28 +114,38 @@ export const api = {
 
   // Client Profile
   getProfile: () =>
-    request<{ client: any; balance: number }>('/client/profile'),
-  updateProfile: (profile: any) =>
-    request<{ client: any }>('/client/profile', {
+    request<{ client: ClientProfile; balance: number }>('/client/profile'),
+  updateProfile: (profile: Partial<ClientProfile>) =>
+    request<{ client: ClientProfile }>('/client/profile', {
       method: 'PUT',
       body: JSON.stringify(profile),
     }),
+  changePassword: (dto: { current_password: string; new_password: string }) =>
+    request<{ success: boolean; message: string }>('/client/profile/change-password', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }),
 
   // Client Orders & Services
-  getOrders: () => request<any[]>('/client/orders'),
-  getOrder: (id: number) => request<any>(`/client/orders/${id}`),
+  getOrders: () => request<Order[]>('/client/orders'),
+  getOrder: (id: number) => request<Order>(`/client/orders/${id}`),
 
-  // Client Invoices
-  getInvoices: () => request<any[]>('/client/invoices'),
-  getInvoice: (id: number) => request<any>(`/client/invoices/${id}`),
+  // Client Invoices & Funds
+  getInvoices: () => request<Invoice[]>('/client/invoices'),
+  getInvoice: (id: number) => request<Invoice>(`/client/invoices/${id}`),
   payWithBalance: (id: number) =>
     request<any>(`/client/invoices/${id}/pay-balance`, { method: 'POST' }),
+  depositFunds: (amount: number, currency = 'USD') =>
+    request<any>('/client/funds/deposit', {
+      method: 'POST',
+      body: JSON.stringify({ amount, currency }),
+    }),
 
   // Client Support
-  getTickets: () => request<any[]>('/client/support/tickets'),
-  getTicket: (id: number) => request<any>(`/client/support/tickets/${id}`),
+  getTickets: () => request<SupportTicket[]>('/client/support/tickets'),
+  getTicket: (id: number) => request<SupportTicket>(`/client/support/tickets/${id}`),
   openTicket: (ticket: { subject: string; message: string; priority?: string }) =>
-    request<any>('/client/support/tickets', {
+    request<SupportTicket>('/client/support/tickets', {
       method: 'POST',
       body: JSON.stringify(ticket),
     }),
@@ -159,9 +164,9 @@ export const api = {
     ),
 
   // API Keys
-  getApiKeys: () => request<any[]>('/client/api-keys'),
+  getApiKeys: () => request<ApiKey[]>('/client/api-keys'),
   generateApiKey: (name: string) =>
-    request<any>('/client/api-keys', {
+    request<ApiKey>('/client/api-keys', {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
@@ -171,21 +176,3 @@ export const api = {
   // Public Company Info & Branding
   getCompany: () => request<PublicCompanyInfo>('/guest/company'),
 };
-
-export interface PublicCompanyInfo {
-  name: string;
-  email: string;
-  phone?: string;
-  address_1?: string;
-  address_2?: string;
-  city?: string;
-  state?: string;
-  postcode?: string;
-  country?: string;
-  vat_number?: string;
-  logo_url?: string;
-  logo_dark_url?: string;
-  favicon_url?: string;
-  terms_url?: string;
-}
-
