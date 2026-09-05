@@ -9,12 +9,12 @@ use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector
 
 return RectorConfig::configure()
     ->withPaths([
-        __DIR__ . '/src',
-        __DIR__ . '/tests',
+        __DIR__ . '/backend-php',
+        __DIR__ . '/tests-backend-php',
     ])
     ->withSkip([
-        __DIR__ . '/src/vendor',
-        __DIR__ . '/src/data/cache',
+        __DIR__ . '/backend-php/vendor',
+        __DIR__ . '/backend-php/data/cache',
         // Both rules only misbehave against Pest's more dynamic patterns, which
         // exist in tests/ but not src/ — kept active there.
         //
@@ -23,15 +23,15 @@ return RectorConfig::configure()
         // throws a TypeError the moment the closure runs. Only unsafe for closures whose
         // own body resolves to an expect() chain.
         AddArrowFunctionReturnTypeRector::class => [
-            __DIR__ . '/tests',
-            __DIR__ . '/src/modules/*/tests/*',
+            __DIR__ . '/tests-backend-php',
+            __DIR__ . '/backend-php/modules/*/tests/*',
         ],
         // Pest's ->with() dataset closures get Closure::bindTo() called on them for
         // lazy evaluation, which throws for a closure derived from a first-class
         // callable reference to a plain function (no scope to rebind).
         ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [
-            __DIR__ . '/tests',
-            __DIR__ . '/src/modules/*/tests/*',
+            __DIR__ . '/tests-backend-php',
+            __DIR__ . '/backend-php/modules/*/tests/*',
         ],
     ])
     ->withAttributesSets()

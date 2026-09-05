@@ -9,7 +9,7 @@
  * @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
  */
 
-if (!file_exists(__DIR__ . '/src')) {
+if (!file_exists(__DIR__ . '/backend-php')) {
     exit(0);
 }
 
@@ -39,7 +39,7 @@ return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
     ->setFinder(
         (new PhpCsFixer\Finder())
-            ->in([__DIR__ . '/src', __DIR__ . '/tests'])
+            ->in([__DIR__ . '/backend-php', __DIR__ . '/tests-backend-php'])
             ->exclude([
                 'data',
                 'locale',

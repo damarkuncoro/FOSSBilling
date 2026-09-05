@@ -5,15 +5,15 @@ parameters:
 		- DEBUG
 		- INSTANCE_ID
 	paths:
-		- src
+		- backend-php
 	bootstrapFiles:
-		- src/load.php
+		- backend-php/load.php
 	excludePaths:
 		analyse:
-		- src/vendor
-		- src/library/Server/Manager/Custom.php
-		- src/library/Server/Manager/Whm.php
-		- src/data/cache (?)
+		- backend-php/vendor
+		- backend-php/library/Server/Manager/Custom.php
+		- backend-php/library/Server/Manager/Whm.php
+		- backend-php/data/cache (?)
 		- '*/tests/*'
 	universalObjectCratesClasses:
 		- RedBeanPHP\SimpleModel
