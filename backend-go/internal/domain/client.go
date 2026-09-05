@@ -58,8 +58,10 @@ type ClientBalance struct {
 type ClientRepository interface {
 	GetByID(ctx context.Context, id int64) (*Client, error)
 	GetByEmail(ctx context.Context, email string) (*Client, error)
+	List(ctx context.Context, limit, offset int) ([]*Client, int, error)
 	Create(ctx context.Context, client *Client) error
 	Update(ctx context.Context, client *Client) error
 	GetBalance(ctx context.Context, clientID int64) (decimal.Money, error)
 	AddBalanceTransaction(ctx context.Context, balance *ClientBalance) error
 }
+

@@ -161,3 +161,42 @@ func (r *ClientRepository) AddBalanceTransaction(ctx context.Context, b *domain.
 	}
 	return nil
 }
+
+func (r *ClientRepository) List(ctx context.Context, limit, offset int) ([]*domain.Client, int, error) {
+	countQuery := `SELECT COUNT(*) FROM clients`
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	query := `
+		SELECT 
+			id, group_id, email, password_hash, first_name, last_name, company,
+			address_1, address_2, city, state, postcode, country,
+			phone_cc, phone, currency, tax_exempt, status, created_at, updated_at
+		FROM clients
+		ORDER BY id DESC
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var clients []*domain.Client
+	for rows.Next() {
+		var c domain.Client
+		if err := rows.Scan(
+			&c.ID, &c.GroupID, &c.Email, &c.PasswordHash, &c.FirstName, &c.LastName, &c.Company,
+			&c.Address1, &c.Address2, &c.City, &c.State, &c.Postcode, &c.Country,
+			&c.PhoneCC, &c.Phone, &c.Currency, &c.TaxExempt, &c.Status, &c.CreatedAt, &c.UpdatedAt,
+		); err != nil {
+			return nil, 0, err
+		}
+		clients = append(clients, &c)
+	}
+
+	return clients, total, nil
+}
+

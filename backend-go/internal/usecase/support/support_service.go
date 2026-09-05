@@ -147,6 +147,53 @@ func (s *SupportService) StaffReply(ctx context.Context, ticketID, adminID int64
 }
 
 // CloseTicket sets status to closed
-func (s *SupportService) CloseTicket(ctx context.Context, ticketID int64) error {
+func (s *SupportService) CloseTicket(ctx context.Context, ticketID int64, clientID int64) error {
+	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return err
+	}
+	if clientID > 0 && ticket.ClientID != clientID {
+		return appErrors.ErrForbidden
+	}
 	return s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusClosed)
 }
+
+type TicketDetails struct {
+	Ticket   *domain.Ticket          `json:"ticket"`
+	Messages []*domain.TicketMessage `json:"messages"`
+}
+
+func (s *SupportService) GetTicket(ctx context.Context, ticketID, clientID int64) (*TicketDetails, error) {
+	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	if clientID > 0 && ticket.ClientID != clientID {
+		return nil, appErrors.ErrForbidden
+	}
+
+	messages, err := s.supportRepo.GetMessages(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TicketDetails{
+		Ticket:   ticket,
+		Messages: messages,
+	}, nil
+}
+
+func (s *SupportService) ListClientTickets(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Ticket, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.supportRepo.ListTicketsByClientID(ctx, clientID, limit, offset)
+}
+
+func (s *SupportService) ListAllTickets(ctx context.Context, limit, offset int) ([]*domain.Ticket, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.supportRepo.ListTickets(ctx, limit, offset)
+}
+

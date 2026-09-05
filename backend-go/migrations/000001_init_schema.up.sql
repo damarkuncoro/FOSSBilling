@@ -169,3 +169,73 @@ CREATE TABLE IF NOT EXISTS support_ticket_messages (
 );
 
 CREATE INDEX idx_ticket_messages_ticket_id ON support_ticket_messages(ticket_id);
+
+-- 10. Admin Groups Table
+CREATE TABLE IF NOT EXISTS admin_groups (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Staff Table
+CREATE TABLE IF NOT EXISTS staff (
+    id BIGSERIAL PRIMARY KEY,
+    group_id BIGINT NOT NULL REFERENCES admin_groups(id) ON DELETE RESTRICT,
+    email VARCHAR(191) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'admin', -- 'superadmin', 'admin', 'support', 'billing'
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_staff_email ON staff(email);
+
+-- 12. Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    staff_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
+    client_id BIGINT NULL REFERENCES clients(id) ON DELETE SET NULL,
+    module VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    details TEXT NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_audit_logs_staff_id ON audit_logs(staff_id);
+CREATE INDEX idx_audit_logs_module ON audit_logs(module);
+
+-- 13. Promos Table
+CREATE TABLE IF NOT EXISTS promos (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- 'percentage', 'absolute'
+    value BIGINT NOT NULL,
+    max_uses INT NOT NULL DEFAULT 0,
+    used_count INT NOT NULL DEFAULT 0,
+    once_per_client BOOLEAN NOT NULL DEFAULT FALSE,
+    start_date TIMESTAMP WITH TIME ZONE NULL,
+    end_date TIMESTAMP WITH TIME ZONE NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_promos_code ON promos(code);
+
+-- 14. Promo Redemptions Table
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+    id BIGSERIAL PRIMARY KEY,
+    promo_id BIGINT NOT NULL REFERENCES promos(id) ON DELETE CASCADE,
+    client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    order_id BIGINT NULL REFERENCES client_orders(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_promo_redemptions_client_id ON promo_redemptions(client_id);
+

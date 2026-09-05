@@ -52,4 +52,6 @@ type StaffRepository interface {
 	GetGroupByID(ctx context.Context, groupID int64) (*AdminGroup, error)
 	CreateGroup(ctx context.Context, group *AdminGroup) error
 	AddAuditLog(ctx context.Context, log *AuditLog) error
+	ListAuditLogs(ctx context.Context, limit, offset int) ([]*AuditLog, int, error)
 }
+

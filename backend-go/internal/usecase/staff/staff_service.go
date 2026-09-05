@@ -98,3 +98,11 @@ func (s *StaffService) HasPermission(ctx context.Context, staffID int64, module,
 
 	return false, nil
 }
+
+func (s *StaffService) ListAuditLogs(ctx context.Context, limit, offset int) ([]*domain.AuditLog, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.staffRepo.ListAuditLogs(ctx, limit, offset)
+}
+

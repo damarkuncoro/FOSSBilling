@@ -8,9 +8,12 @@ import (
 type Meta struct {
 	Page         int `json:"page,omitempty"`
 	Limit        int `json:"limit,omitempty"`
+	Offset       int `json:"offset,omitempty"`
+	Total        int `json:"total,omitempty"`
 	TotalRecords int `json:"total_records,omitempty"`
 	TotalPages   int `json:"total_pages,omitempty"`
 }
+
 
 type APIError struct {
 	Code    string      `json:"code"`

@@ -92,7 +92,7 @@ func TestSupportService_ConversationThreadingAndStatusTransitions(t *testing.T) 
 	}
 
 	// 4. Close Ticket
-	_ = service.CloseTicket(ctx, ticket.ID)
+	_ = service.CloseTicket(ctx, ticket.ID, 0)
 	closedTicket, _ := supportRepo.GetTicketByID(ctx, ticket.ID)
 	if closedTicket.Status != domain.TicketStatusClosed {
 		t.Errorf("Closed status = %s; want closed", closedTicket.Status)

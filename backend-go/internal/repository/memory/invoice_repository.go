@@ -65,6 +65,30 @@ func (r *MockInvoiceRepository) ListByClientID(ctx context.Context, clientID int
 	return matched[offset:end], total, nil
 }
 
+func (r *MockInvoiceRepository) List(ctx context.Context, limit, offset int) ([]*domain.Invoice, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Invoice
+	for _, inv := range r.invoices {
+		cp := *inv
+		cp.Items = r.invoiceItems[inv.ID]
+		all = append(all, &cp)
+	}
+
+	total := len(all)
+	if offset >= total {
+		return []*domain.Invoice{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
+}
+
+
 func (r *MockInvoiceRepository) Create(ctx context.Context, inv *domain.Invoice, items []domain.InvoiceItem) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

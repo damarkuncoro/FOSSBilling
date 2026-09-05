@@ -113,8 +113,25 @@ func (r *MockStaffRepository) AddAuditLog(ctx context.Context, log *domain.Audit
 	return nil
 }
 
+func (r *MockStaffRepository) ListAuditLogs(ctx context.Context, limit, offset int) ([]*domain.AuditLog, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	total := len(r.auditLogs)
+	if offset >= total {
+		return []*domain.AuditLog{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return r.auditLogs[offset:end], total, nil
+}
+
 func (r *MockStaffRepository) GetAuditLogs() []*domain.AuditLog {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.auditLogs
 }
+

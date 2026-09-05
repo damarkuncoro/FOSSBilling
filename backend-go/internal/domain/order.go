@@ -41,9 +41,11 @@ type Order struct {
 type OrderRepository interface {
 	GetByID(ctx context.Context, id int64) (*Order, error)
 	ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*Order, int, error)
+	List(ctx context.Context, limit, offset int) ([]*Order, int, error)
 	ListDueOrders(ctx context.Context, dueBefore time.Time) ([]*Order, error)
 	ListOverdueSuspensions(ctx context.Context, overdueDays int) ([]*Order, error)
 	Create(ctx context.Context, order *Order) error
 	Update(ctx context.Context, order *Order) error
 	UpdateStatus(ctx context.Context, id int64, status OrderStatus, reason *string) error
 }
+

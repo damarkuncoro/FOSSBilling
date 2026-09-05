@@ -167,7 +167,7 @@ func main() {
 
 	// Klien Konfirmasi Selesai & Tiket Ditutup
 	_, _ = supportService.ClientReply(ctx, ticket.ID, regRes.Client.ID, "Terima kasih, sudah bisa diakses!", "127.0.0.1")
-	_ = supportService.CloseTicket(ctx, ticket.ID)
+	_ = supportService.CloseTicket(ctx, ticket.ID, regRes.Client.ID)
 	finalTicket, _ := supportRepo.GetTicketByID(ctx, ticket.ID)
 	fmt.Printf("   ✅ Klien Puas -> Tiket Ditutup: %s\n", finalTicket.Status)
 

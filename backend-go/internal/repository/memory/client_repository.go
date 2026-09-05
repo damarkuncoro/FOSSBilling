@@ -51,6 +51,29 @@ func (r *MockClientRepository) GetByEmail(ctx context.Context, email string) (*d
 	return nil, appErrors.ErrNotFound
 }
 
+func (r *MockClientRepository) List(ctx context.Context, limit, offset int) ([]*domain.Client, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Client
+	for _, c := range r.clients {
+		cp := *c
+		all = append(all, &cp)
+	}
+
+	total := len(all)
+	if offset >= total {
+		return []*domain.Client{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
+}
+
+
 func (r *MockClientRepository) Create(ctx context.Context, c *domain.Client) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

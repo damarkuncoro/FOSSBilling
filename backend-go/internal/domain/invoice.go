@@ -51,7 +51,9 @@ type InvoiceItem struct {
 type InvoiceRepository interface {
 	GetByID(ctx context.Context, id int64) (*Invoice, error)
 	ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*Invoice, int, error)
+	List(ctx context.Context, limit, offset int) ([]*Invoice, int, error)
 	Create(ctx context.Context, invoice *Invoice, items []InvoiceItem) error
 	MarkAsPaid(ctx context.Context, id int64, paidAt time.Time) error
 	Update(ctx context.Context, invoice *Invoice) error
 }
+

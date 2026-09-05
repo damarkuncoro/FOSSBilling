@@ -49,7 +49,10 @@ type TicketMessage struct {
 type SupportRepository interface {
 	GetTicketByID(ctx context.Context, id int64) (*Ticket, error)
 	ListTicketsByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*Ticket, int, error)
+	ListTickets(ctx context.Context, limit, offset int) ([]*Ticket, int, error)
 	CreateTicket(ctx context.Context, ticket *Ticket, initialMessage *TicketMessage) error
 	AddMessage(ctx context.Context, message *TicketMessage) error
 	UpdateTicketStatus(ctx context.Context, id int64, status TicketStatus) error
+	GetMessages(ctx context.Context, ticketID int64) ([]*TicketMessage, error)
 }
+

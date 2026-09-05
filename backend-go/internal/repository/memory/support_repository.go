@@ -62,6 +62,29 @@ func (r *MockSupportRepository) ListTicketsByClientID(ctx context.Context, clien
 	return matched[offset:end], total, nil
 }
 
+func (r *MockSupportRepository) ListTickets(ctx context.Context, limit, offset int) ([]*domain.Ticket, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Ticket
+	for _, t := range r.tickets {
+		cp := *t
+		all = append(all, &cp)
+	}
+
+	total := len(all)
+	if offset >= total {
+		return []*domain.Ticket{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
+}
+
+
 func (r *MockSupportRepository) CreateTicket(ctx context.Context, ticket *domain.Ticket, initialMessage *domain.TicketMessage) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

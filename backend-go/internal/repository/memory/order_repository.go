@@ -58,6 +58,29 @@ func (r *MockOrderRepository) ListByClientID(ctx context.Context, clientID int64
 	return matched[offset:end], total, nil
 }
 
+func (r *MockOrderRepository) List(ctx context.Context, limit, offset int) ([]*domain.Order, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Order
+	for _, o := range r.orders {
+		cp := *o
+		all = append(all, &cp)
+	}
+
+	total := len(all)
+	if offset >= total {
+		return []*domain.Order{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
+}
+
+
 func (r *MockOrderRepository) ListDueOrders(ctx context.Context, dueBefore time.Time) ([]*domain.Order, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
