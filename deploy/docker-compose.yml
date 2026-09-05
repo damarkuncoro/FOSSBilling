@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../backend-go
+      dockerfile: Dockerfile
+    container_name: fossbilling-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_URL=postgres://fossbilling:secretpassword@postgres:5432/fossbilling?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=super-secret-jwt-key-for-local-dev-only
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - fossbilling-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: fossbilling-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fossbilling
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: fossbilling
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../backend-go/migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fossbilling -d fossbilling"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fossbilling-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fossbilling-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - fossbilling-net
+
+networks:
+  fossbilling-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
