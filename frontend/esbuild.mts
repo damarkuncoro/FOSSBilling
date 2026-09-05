@@ -10,7 +10,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '..');
-const outputDir = resolve(rootDir, 'src/public/assets');
+const outputDir = resolve(rootDir, 'backend-php/public/assets');
 const nodeModulesDir = resolve(rootDir, 'node_modules');
 const isProduction = process.env.NODE_ENV === 'production';
 

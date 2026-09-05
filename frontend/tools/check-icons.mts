@@ -11,22 +11,22 @@ const themes = [
   {
     code: 'default/client',
     area: 'client',
-    themePath: resolve(rootDir, 'src/themes/default/client'),
+    themePath: resolve(rootDir, 'backend-php/themes/default/client'),
     scanPaths: [
-      resolve(rootDir, 'src/themes/default/client/html'),
-      resolve(rootDir, 'src/themes/default/client/assets'),
-      resolve(rootDir, 'src/modules'),
+      resolve(rootDir, 'backend-php/themes/default/client/html'),
+      resolve(rootDir, 'backend-php/themes/default/client/assets'),
+      resolve(rootDir, 'backend-php/modules'),
     ],
     disallowFilled: true,
   },
   {
     code: 'default/admin',
     area: 'admin',
-    themePath: resolve(rootDir, 'src/themes/default/admin'),
+    themePath: resolve(rootDir, 'backend-php/themes/default/admin'),
     scanPaths: [
-      resolve(rootDir, 'src/themes/default/admin/html'),
-      resolve(rootDir, 'src/themes/default/admin/assets'),
-      resolve(rootDir, 'src/modules'),
+      resolve(rootDir, 'backend-php/themes/default/admin/html'),
+      resolve(rootDir, 'backend-php/themes/default/admin/assets'),
+      resolve(rootDir, 'backend-php/modules'),
     ],
     dynamicNavigation: true,
   },
@@ -58,7 +58,7 @@ function walkFiles(dir) {
 }
 
 function isAreaTemplate(path, area) {
-  if (!path.includes('/src/modules/')) {
+  if (!path.includes('/backend-php/modules/')) {
     return true;
   }
 
@@ -68,7 +68,7 @@ function isAreaTemplate(path, area) {
 async function getDynamicNavigationIcons() {
   const icons = new Set();
 
-  for (const file of walkFiles(resolve(rootDir, 'src/modules'))) {
+  for (const file of walkFiles(resolve(rootDir, 'backend-php/modules'))) {
     if (!file.endsWith('/Controller/Admin.php')) {
       continue;
     }

@@ -1,8 +1,8 @@
 {
   "name": "admin_default",
   "scripts": {
-    "build": "node ./esbuild.mts",
-    "dev": "node ./esbuild.mts"
+    "build": "tsx ./esbuild.mts",
+    "dev": "tsx ./esbuild.mts"
   },
   "engines": {
     "node": ">=24"

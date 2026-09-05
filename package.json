@@ -6,14 +6,14 @@
   "scripts": {
     "build": "npm run check && npm run build-core && npm run build-themes",
     "build:production": "NODE_ENV=production npm run build",
-    "build-core": "node ./frontend/esbuild.mts",
+    "build-core": "tsx ./frontend/esbuild.mts",
     "build-themes": "npm run build-admin_default && npm run build -w huraga",
     "build-huraga": "npm run build -w huraga",
     "build-admin_default": "npm run build -w admin_default",
     "check": "npm run check-types && npm run check-icons",
     "check-types": "tsc --noEmit",
     "pw:tsc": "tsc --noEmit -p tests/E2E/Playwright",
-    "check-icons": "node ./frontend/tools/check-icons.mts",
+    "check-icons": "tsx ./frontend/tools/check-icons.mts",
     "test:js": "node --test 'frontend/core/tests/**/*.test.mts' 'frontend/tools/tests/**/*.test.mts'",
     "pw:open": "playwright test --ui",
     "pw:run": "playwright test"
@@ -26,8 +26,8 @@
     "url": "https://github.com/FOSSBilling/FOSSBilling/issues"
   },
   "workspaces": [
-    "src/themes/default/client",
-    "src/themes/default/admin"
+    "backend-php/themes/default/client",
+    "backend-php/themes/default/admin"
   ],
   "devDependencies": {
     "@playwright/test": "1.62.1",
@@ -40,6 +40,7 @@
     "purgecss": "8.0.0",
     "sass": "1.103.1",
     "svg-sprite": "2.0.4",
+    "tsx": "^4.23.13",
     "typescript": "7.0.2"
   },
   "config": {
