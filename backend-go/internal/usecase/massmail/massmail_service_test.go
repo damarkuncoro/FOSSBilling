@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/repository/memory"
-	"github.com/fossbilling/backend-go/internal/usecase/massmail"
-	"github.com/fossbilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/massmail"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

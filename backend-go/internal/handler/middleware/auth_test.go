@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fossbilling/backend-go/pkg/auth"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 )
 
 func TestRequireAuth_ValidToken(t *testing.T) {

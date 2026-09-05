@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/service/notification"
-	"github.com/fossbilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/service/notification"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 )
 
 func TestEmailService_TransactionalEmails(t *testing.T) {

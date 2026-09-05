@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/repository/memory"
-	"github.com/fossbilling/backend-go/pkg/auth"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 )
 
 func setupStaffService() (*StaffService, *memory.MockStaffRepository) {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/repository/memory"
-	"github.com/fossbilling/backend-go/internal/usecase/apikey"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/apikey"
 )
 
 func TestAPIKeyService_Lifecycle(t *testing.T) {

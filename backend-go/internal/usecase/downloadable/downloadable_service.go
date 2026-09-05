@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	appErrors "github.com/fossbilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 )
 
 var (

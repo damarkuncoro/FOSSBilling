@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/usecase/billing"
-	"github.com/fossbilling/backend-go/internal/usecase/order"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/billing"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/order"
 )
 
 type CronService struct {

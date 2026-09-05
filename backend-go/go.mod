@@ -1,4 +1,4 @@
-module github.com/fossbilling/backend-go
+module github.com/damarkuncoro/FOSSBilling/backend-go
 
 go 1.25
 

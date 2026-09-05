@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
 type DashboardStats struct {

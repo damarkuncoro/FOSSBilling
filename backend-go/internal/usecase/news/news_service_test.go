@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/repository/memory"
-	"github.com/fossbilling/backend-go/internal/usecase/news"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/news"
 )
 
 func TestNewsService_Lifecycle(t *testing.T) {

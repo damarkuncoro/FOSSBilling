@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/service/provisioning"
 )
 
 func TestDirectAdminProvisioner(t *testing.T) {

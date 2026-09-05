@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/repository/memory"
-	"github.com/fossbilling/backend-go/internal/usecase/currency"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/currency"
 )
 
 func TestCurrencyService_CRUD(t *testing.T) {

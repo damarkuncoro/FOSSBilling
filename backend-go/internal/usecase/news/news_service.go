@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
 )
 
 var (

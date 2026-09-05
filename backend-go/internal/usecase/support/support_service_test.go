@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/internal/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/repository/memory"
 )
 
 func setupSupportService() (*SupportService, *memory.MockSupportRepository, *memory.MockClientRepository) {

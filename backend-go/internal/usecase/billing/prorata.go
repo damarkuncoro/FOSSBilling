@@ -1,7 +1,7 @@
 package billing
 
 import (
-	"github.com/fossbilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
 // CalculateProrata calculates the price for a partial period

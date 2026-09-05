@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/fossbilling/backend-go/internal/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/service/provisioning"
 )
 
 func TestMockRegistrarDriver_CheckAvailability(t *testing.T) {

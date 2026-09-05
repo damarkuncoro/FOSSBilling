@@ -1,3 +1,3 @@
-module github.com/fossbilling/tests-backend-go
+module github.com/damarkuncoro/FOSSBilling/tests-backend-go
 
 go 1.22

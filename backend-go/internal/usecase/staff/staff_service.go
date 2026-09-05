@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/pkg/auth"
-	appErrors "github.com/fossbilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 )
 
 type StaffService struct {

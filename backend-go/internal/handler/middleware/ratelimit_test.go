@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/handler/middleware"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/handler/middleware"
 )
 
 func TestRateLimiter_AllowAndBlock(t *testing.T) {

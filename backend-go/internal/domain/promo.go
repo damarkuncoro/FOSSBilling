@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/fossbilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
 type PromoType string

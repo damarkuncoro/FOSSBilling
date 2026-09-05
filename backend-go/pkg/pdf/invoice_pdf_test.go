@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fossbilling/backend-go/internal/domain"
-	"github.com/fossbilling/backend-go/pkg/pdf"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/pdf"
 )
 
 func TestGenerateInvoiceHTML(t *testing.T) {

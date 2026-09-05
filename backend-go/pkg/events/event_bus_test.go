@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fossbilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 func TestEventBus_SyncPublish(t *testing.T) {

@@ -1,6 +1,6 @@
 package auth
 
-import "github.com/fossbilling/backend-go/pkg/decimal"
+import "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 
 type RegisterDTO struct {
 	Email     string `json:"email"`

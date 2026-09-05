@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	authUsecase "github.com/fossbilling/backend-go/internal/usecase/auth"
-	appErrors "github.com/fossbilling/backend-go/pkg/errors"
-	"github.com/fossbilling/backend-go/pkg/response"
+	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/auth"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type AuthHandler struct {

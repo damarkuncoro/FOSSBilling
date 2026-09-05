@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fossbilling/backend-go/internal/handler/middleware"
-	"github.com/fossbilling/backend-go/internal/usecase/massmail"
-	"github.com/fossbilling/backend-go/internal/usecase/staff"
-	"github.com/fossbilling/backend-go/pkg/response"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/handler/middleware"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/massmail"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/internal/usecase/staff"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type MassMailHandler struct {
