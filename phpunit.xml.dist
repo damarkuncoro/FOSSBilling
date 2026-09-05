@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd"
-    bootstrap="tests/Pest.php"
+    bootstrap="tests-backend-php/Pest.php"
     cacheDirectory="cache/phpunit"
     executionOrder="depends,defects"
     failOnWarning="false"
@@ -15,23 +15,23 @@
     defaultTestSuite="Unit,Modules">
   <testsuites>
     <testsuite name="Unit">
-      <directory>tests/Unit</directory>
+      <directory>tests-backend-php/Unit</directory>
     </testsuite>
     <testsuite name="Modules">
-      <directory>src/modules/*/tests/Unit</directory>
+      <directory>backend-php/modules/*/tests/Unit</directory>
     </testsuite>
     <testsuite name="E2E">
-      <directory>tests/E2E</directory>
-      <directory>src/modules/*/tests/E2E</directory>
+      <directory>tests-backend-php/E2E</directory>
+      <directory>backend-php/modules/*/tests/E2E</directory>
     </testsuite>
   </testsuites>
   <source>
     <include>
-      <directory suffix=".php">src</directory>
+      <directory suffix=".php">backend-php</directory>
     </include>
     <exclude>
-      <directory suffix=".php">src/vendor</directory>
-      <directory suffix=".php">src/data</directory>
+      <directory suffix=".php">backend-php/vendor</directory>
+      <directory suffix=".php">backend-php/data</directory>
     </exclude>
   </source>
 </phpunit>
