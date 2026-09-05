@@ -22,6 +22,7 @@ import (
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	cartUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/cart"
+	companyUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/company"
 	currencyUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/currency"
 	downloadableUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/downloadable"
 	massmailUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/massmail"
@@ -65,6 +66,7 @@ func main() {
 		downloadRepo domain.DownloadableRepository
 		apiKeyRepo   domain.APIKeyRepository
 		massMailRepo domain.MassMailRepository
+		companyRepo  domain.CompanyRepository
 	)
 
 	if pgPool != nil && err == nil {
@@ -80,6 +82,7 @@ func main() {
 		downloadRepo = postgres.NewDownloadableRepository(pgPool)
 		apiKeyRepo = postgres.NewAPIKeyRepository(pgPool)
 		massMailRepo = postgres.NewMassMailRepository(pgPool)
+		companyRepo = postgres.NewCompanyRepository(pgPool)
 	} else {
 		log.Println("💡 [Fallback Mode] Running with fast In-Memory storage (seeded with initial sample data).")
 		memClient := memory.NewMockClientRepository()
@@ -94,6 +97,7 @@ func main() {
 		memDl := memory.NewMockDownloadableRepository()
 		memKey := memory.NewMockAPIKeyRepository()
 		memMail := memory.NewMockMassMailRepository()
+		memCompany := memory.NewMockCompanyRepository()
 
 		// Seed initial sample news
 		now := time.Now().UTC()
@@ -171,6 +175,7 @@ func main() {
 		downloadRepo = memDl
 		apiKeyRepo = memKey
 		massMailRepo = memMail
+		companyRepo = memCompany
 	}
 
 	// 3. Initialize Services & Engines
@@ -186,6 +191,7 @@ func main() {
 	statsService := statsUsecase.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
 	authUc := authUsecase.NewAuthUsecase(clientRepo, cfg.JWTSecret)
 
+	companyService := companyUsecase.NewCompanyService(companyRepo)
 	currencyService := currencyUsecase.NewCurrencyService(currencyRepo)
 	newsService := newsUsecase.NewNewsService(newsRepo)
 	downloadService := downloadableUsecase.NewDownloadableService(downloadRepo, orderRepo, cfg.JWTSecret)
@@ -199,6 +205,7 @@ func main() {
 	guestWebhookHandler := guest.NewWebhookHandler(webhookService)
 	guestCurrencyHandler := guest.NewCurrencyHandler(currencyService)
 	guestNewsHandler := guest.NewNewsHandler(newsService)
+	guestCompanyHandler := guest.NewCompanyHandler(companyService)
 
 	clientProfileHandler := client.NewProfileHandler(authUc)
 	clientOrderHandler := client.NewOrderHandler(orderRepo)
@@ -212,6 +219,7 @@ func main() {
 	adminCurrencyHandler := admin.NewCurrencyHandler(currencyService, staffService)
 	adminNewsHandler := admin.NewNewsHandler(newsService, staffService)
 	adminMassMailHandler := admin.NewMassMailHandler(massMailService, staffService)
+	adminCompanyHandler := admin.NewCompanyHandler(companyService, staffService)
 
 	// 5. Rate Limiter for public endpoints (60 req / min)
 	rateLimiter := middleware.NewRateLimiter(60, time.Second)
@@ -271,6 +279,7 @@ func main() {
 	mux.Handle("GET /api/v1/guest/currencies", rateLimiter.RateLimit(http.HandlerFunc(guestCurrencyHandler.List)))
 	mux.Handle("GET /api/v1/guest/news", rateLimiter.RateLimit(http.HandlerFunc(guestNewsHandler.List)))
 	mux.Handle("GET /api/v1/guest/news/{slug}", rateLimiter.RateLimit(http.HandlerFunc(guestNewsHandler.Get)))
+	mux.Handle("GET /api/v1/guest/company", rateLimiter.RateLimit(http.HandlerFunc(guestCompanyHandler.GetCompany)))
 
 	// Admin Auth (Public Login)
 	mux.Handle("POST /api/v1/admin/auth/login", rateLimiter.RateLimit(http.HandlerFunc(adminStaffHandler.Login)))
@@ -326,6 +335,9 @@ func main() {
 	mux.Handle("GET /api/v1/admin/mass-mail", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.List)))
 	mux.Handle("POST /api/v1/admin/mass-mail", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.Create)))
 	mux.Handle("POST /api/v1/admin/mass-mail/{id}/send", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.Send)))
+
+	mux.Handle("GET /api/v1/admin/company", adminAuthMiddleware(http.HandlerFunc(adminCompanyHandler.GetCompany)))
+	mux.Handle("PUT /api/v1/admin/company", adminAuthMiddleware(http.HandlerFunc(adminCompanyHandler.UpdateCompany)))
 
 	// Wrap with Global Middlewares: Logger -> CORS -> Mux
 	handler := middleware.Logger(middleware.CORS(mux))

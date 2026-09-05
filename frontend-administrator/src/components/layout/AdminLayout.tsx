@@ -9,6 +9,7 @@ import {
   Coins,
   Newspaper,
   Mail,
+  Building2,
   ShieldAlert,
   LogOut,
   Moon,
@@ -31,6 +32,7 @@ const navItems = [
   { name: 'Currencies', path: '/currencies', icon: Coins },
   { name: 'News & Articles', path: '/news', icon: Newspaper },
   { name: 'Mass Mailer', path: '/mass-mail', icon: Mail },
+  { name: 'Company Settings', path: '/company', icon: Building2 },
   { name: 'Audit Logs', path: '/audit-logs', icon: ShieldAlert },
 ];
 

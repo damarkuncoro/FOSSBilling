@@ -155,6 +155,35 @@ export const api = {
   sendMassMailCampaign: (id: number) =>
     request<any>(`/admin/mass-mail/${id}/send`, { method: 'POST' }),
 
+  // Company Settings & Branding
+  getCompany: () => request<CompanySettings>('/admin/company'),
+  updateCompany: (settings: Partial<CompanySettings>) =>
+    request<CompanySettings>('/admin/company', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
   // Audit Logs
   getAuditLogs: () => request<any[]>('/admin/audit-logs'),
 };
+
+export interface CompanySettings {
+  id?: number;
+  name: string;
+  email: string;
+  phone: string;
+  address_1: string;
+  address_2?: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  vat_number?: string;
+  logo_url?: string;
+  logo_dark_url?: string;
+  favicon_url?: string;
+  terms_url?: string;
+  email_signature?: string;
+  updated_at?: string;
+}
+

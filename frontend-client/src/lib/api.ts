@@ -167,4 +167,25 @@ export const api = {
     }),
   revokeApiKey: (id: number) =>
     request<any>(`/client/api-keys/${id}`, { method: 'DELETE' }),
+
+  // Public Company Info & Branding
+  getCompany: () => request<PublicCompanyInfo>('/guest/company'),
 };
+
+export interface PublicCompanyInfo {
+  name: string;
+  email: string;
+  phone?: string;
+  address_1?: string;
+  address_2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+  vat_number?: string;
+  logo_url?: string;
+  logo_dark_url?: string;
+  favicon_url?: string;
+  terms_url?: string;
+}
+

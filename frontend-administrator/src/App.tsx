@@ -12,6 +12,7 @@ import { Support } from '@/pages/Support';
 import { Currencies } from '@/pages/Currencies';
 import { News } from '@/pages/News';
 import { MassMail } from '@/pages/MassMail';
+import { Company } from '@/pages/Company';
 import { AuditLogs } from '@/pages/AuditLogs';
 
 export const App: React.FC = () => {
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
               <Route path="/currencies" element={<Currencies />} />
               <Route path="/news" element={<News />} />
               <Route path="/mass-mail" element={<MassMail />} />
+              <Route path="/company" element={<Company />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
             </Route>
           </Route>
