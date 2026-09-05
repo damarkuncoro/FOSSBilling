@@ -18,9 +18,9 @@
     "homepage": "https://fossbilling.org",
     "scripts": {
         "post-install-cmd": [
-            "php src/vendor/symfony/intl/Resources/bin/compress || true"
+            "php backend-php/vendor/symfony/intl/Resources/bin/compress || true"
         ],
-        "test": "pest --test-directory ../tests",
+        "test": "pest --test-directory ../tests-backend-php",
         "phpstan": "phpstan analyze --memory-limit=512M",
         "phpstan:baseline": "phpstan analyze --generate-baseline",
         "cs:check": "php-cs-fixer fix --dry-run --diff",
@@ -96,16 +96,16 @@
     },
     "autoload": {
         "psr-0": {
-            "Payment_": "src/library/",
-            "Registrar_": "src/library/",
-            "Server_": "src/library/"
+            "Payment_": "backend-php/library/",
+            "Registrar_": "backend-php/library/",
+            "Server_": "backend-php/library/"
         },
         "psr-4": {
-            "FOSSBilling\\": "src/library/FOSSBilling/",
-            "Box\\Mod\\": "src/modules/"
+            "FOSSBilling\\": "backend-php/library/FOSSBilling/",
+            "Box\\Mod\\": "backend-php/modules/"
         },
         "classmap": [
-            "src/library/"
+            "backend-php/library/"
         ]
     },
     "config": {
@@ -116,7 +116,7 @@
             "liborm85/composer-vendor-cleaner": true,
             "pestphp/pest-plugin": true
         },
-        "vendor-dir": "src/vendor"
+        "vendor-dir": "backend-php/vendor"
     },
     "replace": {
         "php-http/message-factory": "*",
