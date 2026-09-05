@@ -13,74 +13,106 @@
 
 <a href="https://fossbilling.org/downloads/"><img src="https://raw.githubusercontent.com/FOSSBilling/fossbilling.org/main/public/img/gh/download-button.png" alt="Download button" width="400"/></a>
 
-[![CI](https://github.com/FOSSBilling/FOSSBilling/actions/workflows/ci.yml/badge.svg)](https://github.com/FOSSBilling/FOSSBilling/actions/workflows/ci.yml)
-[![Download Latest](https://img.shields.io/github/downloads/FOSSBilling/FOSSBilling/total)](https://github.com/FOSSBilling/FOSSBilling/releases/latest)
+[![Go CI & Tests](https://github.com/damarkuncoro/FOSSBilling/actions/workflows/backend-go.yml/badge.svg)](https://github.com/damarkuncoro/FOSSBilling/actions/workflows/backend-go.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![CodeFactor](https://www.codefactor.io/repository/github/FOSSBilling/FOSSBilling/badge)](https://www.codefactor.io/repository/github/fossbilling/fossbilling)
-[![Financial Contributors](https://opencollective.com/FOSSBilling/tiers/badge.svg?color=brightgreen)](https://opencollective.com/fossbilling)
-[![Crowdin](https://badges.crowdin.net/e/c70c78b4ab1e71424ce53dcf6bca9b12/localized.svg)](https://fossbilling.crowdin.com/FOSSBilling)
+[![Go Version](https://img.shields.io/badge/Go-1.22%2B-00ADD8.svg?logo=go)](https://golang.org)
+[![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-777BB4.svg?logo=php)](https://php.net)
 [![Discord](https://img.shields.io/discord/747432407757488179?color=%237289FA&logo=discord&logoColor=%23FFF)](https://fossbilling.org/discord)
-[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor_Covenant-3.svg)](CODE_OF_CONDUCT.md)
 
 </div>
 
-> [!NOTE]
-> FOSSBilling is under active development and currently considered beta. Expect rough edges and limited support.
+---
 
-**FOSSBilling** is a free, open-source billing and client management system. It helps online service businesses automate invoicing, payments, and client communication. While it’s popular with web hosting providers, it also works well for software licensing, digital downloads, and subscription services.
+**FOSSBilling** is a free, open-source billing, subscription, and client management solution designed for hosting businesses, digital goods sellers, and online service providers.
 
-## Features
+This repository features the **Next-Generation Cloud-Native Golang Backend** alongside the legacy PHP engine, offering lightning-fast execution, Clean Architecture, complete REST API endpoints, and a dedicated testing suite.
 
-- **Billing & Invoicing**: automated invoices, reminders, and basic reporting.
-- **Client Management**: a central place for client data and communication.
-- **Extensibility**: extension-friendly architecture for integrations and custom features.
-- **Payments**: support for multiple gateways.
-- **Translations**: community-powered, multi-language interface.
-- **Responsive UI**: usable on desktop and mobile.
-- **Security-focused**: built with security best practices in mind.
+---
 
-## Getting Started
+## 🏗️ Repository Architecture
 
-### Requirements
+```text
+.
+├── backend-go/          # High-performance Next-Gen Golang REST API & Daemon
+│   ├── cmd/
+│   │   ├── api/         # HTTP REST API server
+│   │   ├── demo/        # End-to-End live business simulation
+│   │   └── worker/      # Scheduled background cron daemon
+│   ├── core/            # Domain Entities, UseCases, Repositories & Handlers
+│   ├── docs/            # OpenAPI 3.0 specification
+│   ├── pkg/             # Shared packages (Auth, Decimal, PDF, Events, Mailer)
+│   ├── Dockerfile       # Production multi-stage Docker build
+│   └── docker-compose.yml
+│
+├── tests-backend-go/    # Centralized Golang Test Suites (100% Passing)
+│   ├── Unit/            # Unit tests for Handlers, Services, UseCases, Pkg
+│   └── E2E/             # Live REST API integration tests
+│
+├── backend-php/         # Modular PHP Backend
+├── tests-backend-php/   # PHP Pest / PHPUnit test suites
+└── frontend/            # Shared browser assets & themes
+```
 
-FOSSBilling runs on standard LAMP/LEMP stacks. For the latest system requirements (PHP version, extensions, database, etc.), see the official [requirements](https://docs.fossbilling.org/getting-started/requirements/).
+---
 
-### Installation
+## ⚡ Quick Start: Golang Backend
 
-Follow the step-by-step [Getting Started guide](https://docs.fossbilling.org/getting-started/).
+### 1. Run the API Server
+```bash
+cd backend-go
+go run ./cmd/api
+```
+Server runs at `http://localhost:8080`.
+* 📖 **Interactive Scalar API Docs:** [http://localhost:8080/docs](http://localhost:8080/docs)
+* ⚙️ **OpenAPI 3.0 Spec:** `http://localhost:8080/openapi.json`
+* 🩺 **Health Check:** `http://localhost:8080/health`
 
-**Just exploring?** Try the public [demo](https://fossbilling.org/demo).
+### 2. Run the End-to-End Business Simulation
+Simulates the entire customer journey (Registration, Multi-Currency, Invoicing, Tax, Payment Webhook, cPanel/DirectAdmin/Plesk Provisioning, Signed Digital Downloads, API Keys, Mass Mailer, and Analytics Dashboard):
+```bash
+cd backend-go
+go run ./cmd/demo/main.go
+```
 
-## Contributing
+### 3. Run Full-Stack with Docker Compose
+Starts API, Background Worker, PostgreSQL 16 (with auto-migrations), and Redis 7:
+```bash
+cd backend-go
+docker compose up -d
+```
 
-We welcome contributions from the community! We’re actively modernizing the codebase and there’s plenty to do.
+---
 
-- Read the [contributor guide](https://github.com/FOSSBilling/FOSSBilling/blob/main/CONTRIBUTING.md).
-- Pick an item from the [open issues](https://github.com/FOSSBilling/FOSSBilling/issues).
-- Open a PR when you’re ready.
+## 🧪 Testing
 
-If you prefer to start a conversation first, drop by the [forum](https://forum.fossbilling.org/) or say hello on [Discord](https://fossbilling.org/discord).
+All Golang tests are organized inside `tests-backend-go/`:
+```bash
+# Run all Go unit & E2E tests
+cd tests-backend-go
+go test -v ./...
 
-## Star History
+# Or using Makefile from backend-go
+cd backend-go
+make test
+```
 
-<a href="https://www.star-history.com/?repos=FOSSBilling%2FFOSSBilling&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=FOSSBilling/FOSSBilling&type=date&theme=dark&legend=top-left&sealed_token=Imt45TQsmOl2wo97NTmR7vsrH9SbJ1R5OvbXL3zLgFfc6f_rrzAxDDqgxSmD-EowpNbyzjx0vFfBWCU-VN5HNlE67V6MN-Ssc7LrlZRPkdHSbw1V3NeImFQU3carSCrPm1Af3jbXZjqukrKLkqYii4bXvG_9006YdjIjWzbbGByUhXZOXgv7zH_fphhz" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=FOSSBilling/FOSSBilling&type=date&legend=top-left&sealed_token=Imt45TQsmOl2wo97NTmR7vsrH9SbJ1R5OvbXL3zLgFfc6f_rrzAxDDqgxSmD-EowpNbyzjx0vFfBWCU-VN5HNlE67V6MN-Ssc7LrlZRPkdHSbw1V3NeImFQU3carSCrPm1Af3jbXZjqukrKLkqYii4bXvG_9006YdjIjWzbbGByUhXZOXgv7zH_fphhz" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=FOSSBilling/FOSSBilling&type=date&legend=top-left&sealed_token=Imt45TQsmOl2wo97NTmR7vsrH9SbJ1R5OvbXL3zLgFfc6f_rrzAxDDqgxSmD-EowpNbyzjx0vFfBWCU-VN5HNlE67V6MN-Ssc7LrlZRPkdHSbw1V3NeImFQU3carSCrPm1Af3jbXZjqukrKLkqYii4bXvG_9006YdjIjWzbbGByUhXZOXgv7zH_fphhz" />
- </picture>
-</a>
+---
 
-Not a developer? Starring the repository helps others discover the project.
+## 🚀 Key Modules & Endpoints
 
-## License
+| Category | Endpoints | Description |
+| :--- | :--- | :--- |
+| **Auth & Profile** | `/api/v1/guest/auth/register`<br>`/api/v1/guest/auth/login`<br>`/api/v1/client/profile` | JWT-based client authentication and profile management |
+| **Multi-Currency** | `/api/v1/guest/currencies`<br>`/api/v1/admin/currencies` | Dynamic exchange rates, custom price formatting, base currency rules |
+| **News & Announcements**| `/api/v1/guest/news`<br>`/api/v1/guest/news/{slug}`<br>`/api/v1/admin/news` | SEO friendly slug publishing, drafts, and staff authoring |
+| **Digital Downloads** | `/api/v1/client/downloads/{id}/link`<br>`/api/v1/client/downloads/{id}/file` | Secure HMAC-SHA256 signed digital delivery with expiration TTL |
+| **API Keys** | `/api/v1/client/api-keys` | Token generator (`fb_*`) with secret hashing for third-party bots |
+| **Billing & Cart** | `/api/v1/guest/cart/checkout`<br>`/api/v1/client/invoices` | Automated tax calculator, coupons, prorata, and PDF generation |
+| **Provisioning** | cPanel, DirectAdmin, Plesk, License | Multi-driver server provisioning & hosting account automation |
+| **Mass Mailer** | `/api/v1/admin/mass-mail` | Broadcast newsletter and batch notification system |
 
-FOSSBilling is released under the Apache 2.0 license. See [LICENSE](https://github.com/FOSSBilling/FOSSBilling/blob/main/LICENSE) for details.
+---
 
-## Links
+## 📜 License
 
-- Website: https://www.fossbilling.org/  
-- Documentation: https://docs.fossbilling.org/
-- Discord: https://fossbilling.org/discord  
-- Twitter/X: https://twitter.com/FOSSBilling
+FOSSBilling is released under the [Apache 2.0 License](LICENSE).
