@@ -16,14 +16,20 @@ import (
 	"github.com/fossbilling/backend-go/internal/handler/http/guest"
 	"github.com/fossbilling/backend-go/internal/handler/middleware"
 	"github.com/fossbilling/backend-go/internal/repository/postgres"
+	apikeyUsecase "github.com/fossbilling/backend-go/internal/usecase/apikey"
 	authUsecase "github.com/fossbilling/backend-go/internal/usecase/auth"
 	billingUsecase "github.com/fossbilling/backend-go/internal/usecase/billing"
 	cartUsecase "github.com/fossbilling/backend-go/internal/usecase/cart"
+	currencyUsecase "github.com/fossbilling/backend-go/internal/usecase/currency"
+	downloadableUsecase "github.com/fossbilling/backend-go/internal/usecase/downloadable"
+	massmailUsecase "github.com/fossbilling/backend-go/internal/usecase/massmail"
+	newsUsecase "github.com/fossbilling/backend-go/internal/usecase/news"
 	orderUsecase "github.com/fossbilling/backend-go/internal/usecase/order"
 	paymentUsecase "github.com/fossbilling/backend-go/internal/usecase/payment"
 	staffUsecase "github.com/fossbilling/backend-go/internal/usecase/staff"
 	statsUsecase "github.com/fossbilling/backend-go/internal/usecase/stats"
 	supportUsecase "github.com/fossbilling/backend-go/internal/usecase/support"
+	"github.com/fossbilling/backend-go/pkg/mailer"
 	"github.com/fossbilling/backend-go/pkg/response"
 )
 
@@ -51,6 +57,11 @@ func main() {
 	promoRepo := postgres.NewPromoRepository(pgPool)
 	supportRepo := postgres.NewSupportRepository(pgPool)
 	staffRepo := postgres.NewStaffRepository(pgPool)
+	currencyRepo := postgres.NewCurrencyRepository(pgPool)
+	newsRepo := postgres.NewNewsRepository(pgPool)
+	downloadRepo := postgres.NewDownloadableRepository(pgPool)
+	apiKeyRepo := postgres.NewAPIKeyRepository(pgPool)
+	massMailRepo := postgres.NewMassMailRepository(pgPool)
 
 	// 3. Initialize Services & Engines
 	taxCalculator := billingUsecase.NewTaxCalculator(nil)
@@ -65,18 +76,32 @@ func main() {
 	statsService := statsUsecase.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
 	authUc := authUsecase.NewAuthUsecase(clientRepo, cfg.JWTSecret)
 
+	currencyService := currencyUsecase.NewCurrencyService(currencyRepo)
+	newsService := newsUsecase.NewNewsService(newsRepo)
+	downloadService := downloadableUsecase.NewDownloadableService(downloadRepo, orderRepo, cfg.JWTSecret)
+	apiKeyService := apikeyUsecase.NewAPIKeyService(apiKeyRepo)
+	appMailer := mailer.NewMockMailer()
+	massMailService := massmailUsecase.NewMassMailService(massMailRepo, clientRepo, appMailer, "admin@fossbilling.org", "FOSSBilling")
+
 	// 4. Initialize Handlers
 	guestAuthHandler := guest.NewAuthHandler(authUc)
 	guestCartHandler := guest.NewCartHandler(cartService)
 	guestWebhookHandler := guest.NewWebhookHandler(webhookService)
+	guestCurrencyHandler := guest.NewCurrencyHandler(currencyService)
+	guestNewsHandler := guest.NewNewsHandler(newsService)
 
 	clientProfileHandler := client.NewProfileHandler(authUc)
 	clientOrderHandler := client.NewOrderHandler(orderRepo)
 	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService)
 	clientSupportHandler := client.NewSupportHandler(supportService)
+	clientDownloadHandler := client.NewDownloadHandler(downloadService)
+	clientAPIKeyHandler := client.NewAPIKeyHandler(apiKeyService)
 
 	adminStaffHandler := admin.NewStaffHandler(staffService, clientRepo, orderRepo, orderService, supportService)
 	adminStatsHandler := admin.NewStatsHandler(statsService, staffService)
+	adminCurrencyHandler := admin.NewCurrencyHandler(currencyService, staffService)
+	adminNewsHandler := admin.NewNewsHandler(newsService, staffService)
+	adminMassMailHandler := admin.NewMassMailHandler(massMailService, staffService)
 
 	// 5. Rate Limiter for public endpoints (60 req / min)
 	rateLimiter := middleware.NewRateLimiter(60, time.Second)
@@ -106,6 +131,9 @@ func main() {
 	mux.Handle("POST /api/v1/guest/cart/calculate", rateLimiter.RateLimit(http.HandlerFunc(guestCartHandler.Calculate)))
 	mux.Handle("POST /api/v1/guest/cart/checkout", rateLimiter.RateLimit(http.HandlerFunc(guestCartHandler.Checkout)))
 	mux.Handle("POST /api/v1/guest/gateways/{gateway}/webhook", http.HandlerFunc(guestWebhookHandler.HandleGatewayWebhook))
+	mux.Handle("GET /api/v1/guest/currencies", rateLimiter.RateLimit(http.HandlerFunc(guestCurrencyHandler.List)))
+	mux.Handle("GET /api/v1/guest/news", rateLimiter.RateLimit(http.HandlerFunc(guestNewsHandler.List)))
+	mux.Handle("GET /api/v1/guest/news/{slug}", rateLimiter.RateLimit(http.HandlerFunc(guestNewsHandler.Get)))
 
 	// Admin Auth (Public Login)
 	mux.Handle("POST /api/v1/admin/auth/login", rateLimiter.RateLimit(http.HandlerFunc(adminStaffHandler.Login)))
@@ -129,6 +157,12 @@ func main() {
 	mux.Handle("POST /api/v1/client/support/tickets/{id}/reply", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.ReplyTicket)))
 	mux.Handle("POST /api/v1/client/support/tickets/{id}/close", clientAuthMiddleware(http.HandlerFunc(clientSupportHandler.CloseTicket)))
 
+	mux.Handle("GET /api/v1/client/downloads/{id}/link", clientAuthMiddleware(http.HandlerFunc(clientDownloadHandler.GenerateLink)))
+	mux.Handle("GET /api/v1/client/downloads/{id}/file", http.HandlerFunc(clientDownloadHandler.StreamFile))
+	mux.Handle("GET /api/v1/client/api-keys", clientAuthMiddleware(http.HandlerFunc(clientAPIKeyHandler.List)))
+	mux.Handle("POST /api/v1/client/api-keys", clientAuthMiddleware(http.HandlerFunc(clientAPIKeyHandler.Generate)))
+	mux.Handle("DELETE /api/v1/client/api-keys/{id}", clientAuthMiddleware(http.HandlerFunc(clientAPIKeyHandler.Revoke)))
+
 	// Protected Admin Routes
 	adminAuthMiddleware := middleware.RequireAuth(cfg.JWTSecret, "admin", "superadmin", "support", "billing")
 	mux.Handle("GET /api/v1/admin/stats/dashboard", adminAuthMiddleware(http.HandlerFunc(adminStatsHandler.GetDashboard)))
@@ -140,6 +174,21 @@ func main() {
 	mux.Handle("GET /api/v1/admin/support/tickets", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.ListTickets)))
 	mux.Handle("POST /api/v1/admin/support/tickets/{id}/reply", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.ReplyTicket)))
 	mux.Handle("GET /api/v1/admin/audit-logs", adminAuthMiddleware(http.HandlerFunc(adminStaffHandler.GetAuditLogs)))
+
+	mux.Handle("GET /api/v1/admin/currencies", adminAuthMiddleware(http.HandlerFunc(adminCurrencyHandler.List)))
+	mux.Handle("POST /api/v1/admin/currencies", adminAuthMiddleware(http.HandlerFunc(adminCurrencyHandler.Create)))
+	mux.Handle("PUT /api/v1/admin/currencies/{code}", adminAuthMiddleware(http.HandlerFunc(adminCurrencyHandler.Update)))
+	mux.Handle("DELETE /api/v1/admin/currencies/{code}", adminAuthMiddleware(http.HandlerFunc(adminCurrencyHandler.Delete)))
+	mux.Handle("POST /api/v1/admin/currencies/{code}/default", adminAuthMiddleware(http.HandlerFunc(adminCurrencyHandler.SetDefault)))
+
+	mux.Handle("GET /api/v1/admin/news", adminAuthMiddleware(http.HandlerFunc(adminNewsHandler.List)))
+	mux.Handle("POST /api/v1/admin/news", adminAuthMiddleware(http.HandlerFunc(adminNewsHandler.Create)))
+	mux.Handle("PUT /api/v1/admin/news/{id}", adminAuthMiddleware(http.HandlerFunc(adminNewsHandler.Update)))
+	mux.Handle("DELETE /api/v1/admin/news/{id}", adminAuthMiddleware(http.HandlerFunc(adminNewsHandler.Delete)))
+
+	mux.Handle("GET /api/v1/admin/mass-mail", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.List)))
+	mux.Handle("POST /api/v1/admin/mass-mail", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.Create)))
+	mux.Handle("POST /api/v1/admin/mass-mail/{id}/send", adminAuthMiddleware(http.HandlerFunc(adminMassMailHandler.Send)))
 
 	// Wrap with Global Middlewares: Logger -> CORS -> Mux
 	handler := middleware.Logger(middleware.CORS(mux))

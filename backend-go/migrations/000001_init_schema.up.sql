@@ -237,5 +237,76 @@ CREATE TABLE IF NOT EXISTS promo_redemptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_promo_redemptions_client_id ON promo_redemptions(client_id);
+-- 15. Currencies Table
+CREATE TABLE IF NOT EXISTS currencies (
+    code VARCHAR(3) PRIMARY KEY,
+    title VARCHAR(50) NOT NULL,
+    symbol VARCHAR(10) NOT NULL,
+    conversion_rate NUMERIC(18, 6) NOT NULL DEFAULT 1.000000,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_currencies_default ON currencies(is_default);
+
+-- 16. News Posts Table
+CREATE TABLE IF NOT EXISTS news_posts (
+    id BIGSERIAL PRIMARY KEY,
+    admin_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    published BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_news_slug ON news_posts(slug);
+CREATE INDEX idx_news_published ON news_posts(published);
+
+-- 17. Downloadable Files Table
+CREATE TABLE IF NOT EXISTS downloadable_files (
+    id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT NOT NULL DEFAULT 0,
+    content_type VARCHAR(100) NOT NULL DEFAULT 'application/octet-stream',
+    version VARCHAR(50) NOT NULL DEFAULT '1.0.0',
+    downloads INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_downloadable_product_id ON downloadable_files(product_id);
+
+-- 18. API Keys Table
+CREATE TABLE IF NOT EXISTS api_keys (
+    id BIGSERIAL PRIMARY KEY,
+    client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    key VARCHAR(64) NOT NULL UNIQUE,
+    secret VARCHAR(64) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_api_keys_client_id ON api_keys(client_id);
+CREATE INDEX idx_api_keys_key ON api_keys(key);
+
+-- 19. Mass Mail Campaigns Table
+CREATE TABLE IF NOT EXISTS mass_mail_campaigns (
+    id BIGSERIAL PRIMARY KEY,
+    admin_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
+    subject VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'draft',
+    sent_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP WITH TIME ZONE NULL
+);
+
+CREATE INDEX idx_mass_mail_status ON mass_mail_campaigns(status);
 

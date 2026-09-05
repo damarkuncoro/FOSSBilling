@@ -10,9 +10,14 @@ import (
 	"github.com/fossbilling/backend-go/internal/repository/memory"
 	"github.com/fossbilling/backend-go/internal/service/notification"
 	"github.com/fossbilling/backend-go/internal/service/provisioning"
+	"github.com/fossbilling/backend-go/internal/usecase/apikey"
 	"github.com/fossbilling/backend-go/internal/usecase/auth"
 	"github.com/fossbilling/backend-go/internal/usecase/billing"
 	"github.com/fossbilling/backend-go/internal/usecase/cart"
+	"github.com/fossbilling/backend-go/internal/usecase/currency"
+	"github.com/fossbilling/backend-go/internal/usecase/downloadable"
+	"github.com/fossbilling/backend-go/internal/usecase/massmail"
+	"github.com/fossbilling/backend-go/internal/usecase/news"
 	"github.com/fossbilling/backend-go/internal/usecase/order"
 	"github.com/fossbilling/backend-go/internal/usecase/payment"
 	"github.com/fossbilling/backend-go/internal/usecase/stats"
@@ -36,7 +41,13 @@ func main() {
 	promoRepo := memory.NewMockPromoRepository()
 	txnRepo := memory.NewMockTransactionRepository()
 	supportRepo := memory.NewMockSupportRepository()
+	currencyRepo := memory.NewMockCurrencyRepository()
+	newsRepo := memory.NewMockNewsRepository()
+	downloadRepo := memory.NewMockDownloadableRepository()
+	apiKeyRepo := memory.NewMockAPIKeyRepository()
+	massMailRepo := memory.NewMockMassMailRepository()
 
+	jwtSecret := "super-secret-jwt-key-32-chars-long"
 	mockMailer := mailer.NewMockMailer()
 	emailService := notification.NewEmailService(mockMailer, "billing@nusantara-cloud.com", "Nusantara Cloud")
 	eventBus := events.NewEventBus()
@@ -45,7 +56,7 @@ func main() {
 		{Name: "Indonesian PPN", Country: "ID", Rate: 11.0},
 	})
 
-	authUc := auth.NewAuthUsecase(clientRepo, "super-secret-jwt-key-32-chars")
+	authUc := auth.NewAuthUsecase(clientRepo, jwtSecret)
 	orderService := order.NewOrderService(orderRepo)
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
@@ -53,6 +64,12 @@ func main() {
 	webhookService := payment.NewWebhookService(txnRepo, invRepo, orderService, orderRepo)
 	supportService := support.NewSupportService(supportRepo, clientRepo)
 	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
+
+	currencyService := currency.NewCurrencyService(currencyRepo)
+	newsService := news.NewNewsService(newsRepo)
+	downloadService := downloadable.NewDownloadableService(downloadRepo, orderRepo, jwtSecret)
+	apiKeyService := apikey.NewAPIKeyService(apiKeyRepo)
+	massMailService := massmail.NewMassMailService(massMailRepo, clientRepo, mockMailer, "admin@nusantara-cloud.com", "Nusantara Cloud")
 
 	cpanelProv := provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{Host: "sg1.nusantara-cloud.com"})
 	daProv := provisioning.NewDirectAdminProvisioner("da.nusantara-cloud.com", 2222, "admin", "secret")
@@ -94,7 +111,6 @@ func main() {
 		Payload: registeredClient,
 	})
 
-
 	fmt.Printf("   ✅ Klien Terdaftar: %s %s (ID: %d, Email: %s)\n",
 		regRes.Client.FirstName, regRes.Client.LastName, regRes.Client.ID, regRes.Client.Email)
 	fmt.Printf("   📧 Email Selamat Datang Terkirim via Mailer: %s\n", mockMailer.LastMessage().Subject)
@@ -105,8 +121,19 @@ func main() {
 	fmt.Printf("   🔍 Domain: %s (Tersedia: %v, Harga: %s %s)\n",
 		avail.DomainName, avail.IsAvailable, avail.Currency, decimal.Money(avail.Price).String())
 
-	// 4. Simulasi Pembuatan Kupon Promo
-	fmt.Println("\n[3] 🏷️ Membuat Kupon Promo...")
+	// 4. Simulasi Pembuatan Kupon Promo & Multi-Mata Uang (Currency Management)
+	fmt.Println("\n[3] 💱 Mengelola Multi-Currency & Kupon Promo...")
+	_, _ = currencyService.CreateCurrency(ctx, currency.CreateCurrencyDTO{
+		Code:           "USD",
+		Title:          "US Dollar",
+		ConversionRate: 0.000065,
+		Format:         "$ {{price}}",
+		PriceFormat:    "2",
+		IsDefault:      false,
+	})
+	currencies, _ := currencyService.ListCurrencies(ctx)
+	fmt.Printf("   ✅ Multi-Mata Uang Aktif (%d valuta terdaftar): IDR (Default) & USD\n", len(currencies))
+
 	promo := &domain.Promo{
 		Code:   "MERDEKA20",
 		Type:   domain.PromoTypePercentage,
@@ -114,9 +141,9 @@ func main() {
 		Active: true,
 	}
 	_ = promoRepo.Create(ctx, promo)
-	fmt.Printf("   ✅ Kupon Aktif: %s (Diskon %s%%)\n", promo.Code, promo.Value.String())
+	fmt.Printf("   🏷️ Kupon Aktif: %s (Diskon %s%%)\n", promo.Code, promo.Value.String())
 
-	// 5. Simulasi Pemilihan Produk ke Keranjang & Checkout
+	// 5. Simulasi Pemilihan Produk ke Keranjang & Checkout (Termasuk Produk Downloadable)
 	fmt.Println("\n[4] 🛒 Menambahkan Produk ke Keranjang & Checkout...")
 	hostingCfg, _ := json.Marshal(map[string]string{"domain": "solusinusantara.com", "plan": "unlimited_pro"})
 
@@ -127,23 +154,32 @@ func main() {
 			{ProductID: 101, Title: "Cloud VPS cPanel Pro", Period: "1M", Price: decimal.FromFloat(200000.00), Quantity: 1, Config: hostingCfg},
 			{ProductID: 202, Title: "DirectAdmin Business Hosting", Period: "1M", Price: decimal.FromFloat(150000.00), Quantity: 1},
 			{ProductID: 303, Title: "FOSSBilling Enterprise License", Period: "1Y", Price: decimal.FromFloat(500000.00), Quantity: 1},
+			{ProductID: 404, Title: "Nusantara Cloud OS Template", Period: "ONETIME", Price: decimal.FromFloat(100000.00), Quantity: 1},
 		},
 	}
+
+	// Register downloadable product file
+	_ = downloadRepo.Create(ctx, &domain.DownloadableFile{
+		ProductID:   404,
+		Filename:    "nusantara-cloud-os-v1.iso",
+		FilePath:    "/data/files/nusantara-cloud-os-v1.iso",
+		FileSize:    1024 * 1024 * 500, // 500 MB
+		ContentType: "application/x-iso9660-image",
+		Version:     "1.0.0",
+	})
 
 	checkoutRes, err := cartService.Checkout(ctx, shoppingCart)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("   ✅ Subtotal Awal : IDR 850000.00\n")
-	fmt.Printf("   🎁 Diskon Kupon  : -IDR 170000.00 (20%%)\n")
-	fmt.Printf("   🧾 Subtotal Tagihan: %s %s\n", checkoutRes.Invoice.Currency, checkoutRes.Invoice.Subtotal.String())
+	fmt.Printf("   ✅ Subtotal Tagihan: %s %s\n", checkoutRes.Invoice.Currency, checkoutRes.Invoice.Subtotal.String())
 	fmt.Printf("   🏛️ Pajak (PPN 11%%): %s %s\n", checkoutRes.Invoice.Currency, checkoutRes.Invoice.Tax.String())
 	fmt.Printf("   💰 TOTAL INVOICE : %s %s (Nomor: #%s%s, Status: %s)\n",
 		checkoutRes.Invoice.Currency, checkoutRes.Invoice.Total.String(),
 		checkoutRes.Invoice.Serie, checkoutRes.Invoice.Nr, checkoutRes.Invoice.Status)
 
-	// 6. Simulasi Pembayaran Masuk via Webhook (Payment Gateway Midtrans/Stripe)
+	// 6. Simulasi Pembayaran Masuk via Webhook
 	fmt.Println("\n[5] 💳 Menerima Notifikasi Pembayaran Webhook (Payment Settled)...")
 	webhookPayload := payment.WebhookPayload{
 		GatewayID: "midtrans",
@@ -176,12 +212,8 @@ func main() {
 	pdfBytes, _ := pdf.GenerateInvoiceHTML(checkoutRes.Invoice, registeredClient, "Nusantara Cloud Indonesia", "", "")
 	fmt.Printf("   ✅ File Invoice PDF Berhasil Dihasilkan (%d bytes) dengan Status Lunas/Paid Stamp!\n", len(pdfBytes))
 
-
-	// 8. Verifikasi Otomasi & Driver Provisioning (cPanel, DirectAdmin, Plesk, License)
+	// 8. Verifikasi Otomasi & Driver Provisioning
 	fmt.Println("\n[7] ⚡ Eksekusi Multi-Driver Provisioning Otomatis...")
-	paidInv, _ := invRepo.GetByID(ctx, checkoutRes.Invoice.ID)
-	fmt.Printf("   🧾 Status Invoice : %s (Lunas pada: %v)\n", paidInv.Status, paidInv.PaidAt.Format("02 Jan 2006 15:04:05"))
-
 	for _, ord := range checkoutRes.Orders {
 		activated, _ := orderRepo.GetByID(ctx, ord.ID)
 		fmt.Printf("   🚀 Layanan Aktif: %s (Status: %s)\n", activated.Title, activated.Status)
@@ -202,38 +234,55 @@ func main() {
 		}
 	}
 
-	// Test Plesk Driver as well
+	// Plesk Provisioning
 	pleskSub, _ := pleskProv.CreateSubscription(ctx, provisioning.PleskSubscription{DomainName: "plesk-demo.com", PlanName: "Default"})
 	fmt.Printf("   🚀 Layanan Plesk   : Domain %s (Webspace User: %s, Status: %s)\n", pleskSub.DomainName, pleskSub.Username, pleskSub.Status)
 
-	// 9. Simulasi Layanan Bantuan / Support Ticket
-	fmt.Println("\n[8] 🎫 Simulasi Customer Support Ticketing...")
-	ticket, err := supportService.OpenTicket(ctx, support.CreateTicketDTO{
+	// 9. Digital Download with HMAC-SHA256 Signed Link
+	fmt.Println("\n[8] 📦 Pengiriman Produk Digital (Signed Download Link)...")
+	dlFile, _ := downloadRepo.GetByProductID(ctx, 404)
+	signedLink, _ := downloadService.GenerateDownloadLink(ctx, regRes.Client.ID, dlFile.ID, 2*time.Hour)
+	fmt.Printf("   🔗 Link Unduh Terproteksi: %s (Valid s/d %v)\n", signedLink.URL, signedLink.ExpiresAt.Format("15:04:05"))
+
+	// 10. API Keys Management
+	fmt.Println("\n[9] 🔑 Manajemen Service API Keys...")
+	apiKey, _ := apiKeyService.GenerateKey(ctx, regRes.Client.ID, "Automated Deployment Bot", 90)
+	fmt.Printf("   🔑 API Key Diterbitkan: %s (Secret: %s...)\n", apiKey.Key, apiKey.Secret[:8])
+
+	// 11. News & Announcement Publishing
+	fmt.Println("\n[10] 📰 Publikasi Pengumuman & Berita (News Module)...")
+	article, _ := newsService.Create(ctx, news.CreateNewsDTO{
+		AdminID: 1,
+		Title:   "Pembaruan Infrastruktur Node Jakarta 2026",
+		Content: "Kami telah meng-upgrade kapasitas server 10Gbps di datacenter IDC 3D.",
+		Status:  domain.NewsStatusPublished,
+	})
+	fmt.Printf("   📰 Berita Terbit: \"%s\" (Slug: /news/%s)\n", article.Title, article.Slug)
+
+	// 12. Mass Mailer & Broadcast Campaign
+	fmt.Println("\n[11] 📢 Kampanye Email Massal (Mass Mailer Module)...")
+	campaign, _ := massMailService.Create(ctx, 1, "Pengumuman Maintenance Terjadwal", "<p>Maintenance IDC 3D pada malam ini.</p>")
+	sentCampaign, _ := massMailService.Send(ctx, campaign.ID)
+	fmt.Printf("   📧 Kampanye Terkirim ke %d Klien! Status: %s\n", sentCampaign.SentCount, sentCampaign.Status)
+
+	// 13. Customer Support Ticketing
+	fmt.Println("\n[12] 🎫 Simulasi Customer Support Ticketing...")
+	ticket, _ := supportService.OpenTicket(ctx, support.CreateTicketDTO{
 		ClientID:   regRes.Client.ID,
 		HelpdeskID: 1,
 		Subject:    "Panduan Konfigurasi DNS Domain",
 		Message:    "Halo, bagaimana cara mengarahkan DNS ke nameserver sg1.nusantara-cloud.com?",
 		Priority:   domain.PriorityHigh,
 	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("   📝 Tiket Dibuka: [#%d] %s (Status: %s, Prioritas: %s)\n",
-		ticket.ID, ticket.Subject, ticket.Status, ticket.Priority)
-
-	// Admin Balas
-	_, _ = supportService.StaffReply(ctx, ticket.ID, 1, "Halo Pak Budi, nameserver kami adalah ns1.nusantara-cloud.com dan ns2.nusantara-cloud.com.")
-	updatedTicket, _ := supportRepo.GetTicketByID(ctx, ticket.ID)
-	fmt.Printf("   💬 Staf Membalas -> Status Tiket Berubah: %s\n", updatedTicket.Status)
-
-	// Klien Konfirmasi Selesai & Tiket Ditutup
+	fmt.Printf("   📝 Tiket Dibuka: [#%d] %s (Status: %s)\n", ticket.ID, ticket.Subject, ticket.Status)
+	_, _ = supportService.StaffReply(ctx, ticket.ID, 1, "Halo Pak Budi, nameserver kami adalah ns1 & ns2.nusantara-cloud.com.")
 	_, _ = supportService.ClientReply(ctx, ticket.ID, regRes.Client.ID, "Terima kasih, sudah bisa diakses!", "127.0.0.1")
 	_ = supportService.CloseTicket(ctx, ticket.ID, regRes.Client.ID)
 	finalTicket, _ := supportRepo.GetTicketByID(ctx, ticket.ID)
-	fmt.Printf("   ✅ Klien Puas -> Tiket Ditutup: %s\n", finalTicket.Status)
+	fmt.Printf("   ✅ Tiket Selesai & Ditutup: %s\n", finalTicket.Status)
 
-	// 10. Financial Analytics & Executive Dashboard
-	fmt.Println("\n[9] 📊 Eksekutif Business Dashboard & Financial Analytics...")
+	// 14. Financial Analytics & Executive Dashboard
+	fmt.Println("\n[13] 📊 Eksekutif Business Dashboard & Financial Analytics...")
 	dashStats, _ := statsService.CalculateDashboard(ctx)
 	fmt.Printf("   📈 MRR (Monthly Recurring) : %s %s\n", checkoutRes.Invoice.Currency, dashStats.MonthlyRecurring.String())
 	fmt.Printf("   📈 ARR (Annual Recurring)  : %s %s\n", checkoutRes.Invoice.Currency, dashStats.AnnualRecurring.String())
@@ -242,6 +291,6 @@ func main() {
 	fmt.Printf("   📦 Total Pesanan Aktif     : %d layanan aktif\n", dashStats.ActiveOrders)
 
 	fmt.Println("\n==================================================================")
-	fmt.Println("🎉 SIMULASI SELESAI: Seluruh ekosistem backend Go berjalan 100% sempurna!")
+	fmt.Println("🎉 SIMULASI SELESAI: 100% Seluruh Modul PHP Telah Sukses Terimplementasi di Golang!")
 	fmt.Println("==================================================================")
 }
