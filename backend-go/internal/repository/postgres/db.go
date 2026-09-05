@@ -29,10 +29,10 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	defer cancel()
 
 	if err := pool.Ping(pingCtx); err != nil {
-		log.Printf("⚠️ Warning: PostgreSQL database ping failed (%v). Will retry during runtime.", err)
-	} else {
-		log.Println("✅ Successfully connected to PostgreSQL database pool.")
+		pool.Close()
+		return nil, fmt.Errorf("unable to ping PostgreSQL database: %w", err)
 	}
 
+	log.Println("✅ Successfully connected to PostgreSQL database pool.")
 	return pool, nil
 }

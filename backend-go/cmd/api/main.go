@@ -15,6 +15,8 @@ import (
 	"github.com/fossbilling/backend-go/internal/handler/http/client"
 	"github.com/fossbilling/backend-go/internal/handler/http/guest"
 	"github.com/fossbilling/backend-go/internal/handler/middleware"
+	"github.com/fossbilling/backend-go/internal/domain"
+	"github.com/fossbilling/backend-go/internal/repository/memory"
 	"github.com/fossbilling/backend-go/internal/repository/postgres"
 	apikeyUsecase "github.com/fossbilling/backend-go/internal/usecase/apikey"
 	authUsecase "github.com/fossbilling/backend-go/internal/usecase/auth"
@@ -29,6 +31,7 @@ import (
 	staffUsecase "github.com/fossbilling/backend-go/internal/usecase/staff"
 	statsUsecase "github.com/fossbilling/backend-go/internal/usecase/stats"
 	supportUsecase "github.com/fossbilling/backend-go/internal/usecase/support"
+	authPkg "github.com/fossbilling/backend-go/pkg/auth"
 	"github.com/fossbilling/backend-go/pkg/mailer"
 	"github.com/fossbilling/backend-go/pkg/response"
 )
@@ -48,20 +51,127 @@ func main() {
 		log.Println("✅ Connected to PostgreSQL database pool.")
 	}
 
-	// 2. Initialize Repositories
-	clientRepo := postgres.NewClientRepository(pgPool)
-	_ = postgres.NewProductRepository(pgPool)
-	orderRepo := postgres.NewOrderRepository(pgPool)
-	invoiceRepo := postgres.NewInvoiceRepository(pgPool)
-	txnRepo := postgres.NewTransactionRepository(pgPool)
-	promoRepo := postgres.NewPromoRepository(pgPool)
-	supportRepo := postgres.NewSupportRepository(pgPool)
-	staffRepo := postgres.NewStaffRepository(pgPool)
-	currencyRepo := postgres.NewCurrencyRepository(pgPool)
-	newsRepo := postgres.NewNewsRepository(pgPool)
-	downloadRepo := postgres.NewDownloadableRepository(pgPool)
-	apiKeyRepo := postgres.NewAPIKeyRepository(pgPool)
-	massMailRepo := postgres.NewMassMailRepository(pgPool)
+	// 2. Initialize Repositories (with Graceful In-Memory Fallback if Postgres is offline)
+	var (
+		clientRepo   domain.ClientRepository
+		orderRepo    domain.OrderRepository
+		invoiceRepo  domain.InvoiceRepository
+		txnRepo      domain.TransactionRepository
+		promoRepo    domain.PromoRepository
+		supportRepo  domain.SupportRepository
+		staffRepo    domain.StaffRepository
+		currencyRepo domain.CurrencyRepository
+		newsRepo     domain.NewsRepository
+		downloadRepo domain.DownloadableRepository
+		apiKeyRepo   domain.APIKeyRepository
+		massMailRepo domain.MassMailRepository
+	)
+
+	if pgPool != nil && err == nil {
+		clientRepo = postgres.NewClientRepository(pgPool)
+		orderRepo = postgres.NewOrderRepository(pgPool)
+		invoiceRepo = postgres.NewInvoiceRepository(pgPool)
+		txnRepo = postgres.NewTransactionRepository(pgPool)
+		promoRepo = postgres.NewPromoRepository(pgPool)
+		supportRepo = postgres.NewSupportRepository(pgPool)
+		staffRepo = postgres.NewStaffRepository(pgPool)
+		currencyRepo = postgres.NewCurrencyRepository(pgPool)
+		newsRepo = postgres.NewNewsRepository(pgPool)
+		downloadRepo = postgres.NewDownloadableRepository(pgPool)
+		apiKeyRepo = postgres.NewAPIKeyRepository(pgPool)
+		massMailRepo = postgres.NewMassMailRepository(pgPool)
+	} else {
+		log.Println("💡 [Fallback Mode] Running with fast In-Memory storage (seeded with initial sample data).")
+		memClient := memory.NewMockClientRepository()
+		memOrder := memory.NewMockOrderRepository()
+		memInv := memory.NewMockInvoiceRepository()
+		memTxn := memory.NewMockTransactionRepository()
+		memPromo := memory.NewMockPromoRepository()
+		memSupport := memory.NewMockSupportRepository()
+		memStaff := memory.NewMockStaffRepository()
+		memCurr := memory.NewMockCurrencyRepository()
+		memNews := memory.NewMockNewsRepository()
+		memDl := memory.NewMockDownloadableRepository()
+		memKey := memory.NewMockAPIKeyRepository()
+		memMail := memory.NewMockMassMailRepository()
+
+		// Seed initial sample news
+		now := time.Now().UTC()
+		_ = memNews.Create(ctx, &domain.NewsPost{
+			AdminID:     1,
+			Title:       "Selamat Datang di FOSSBilling Golang Edition",
+			Slug:        "selamat-datang-di-fossbilling-golang-edition",
+			Content:     "Backend FOSSBilling kini hadir dengan arsitektur modern Go bertenaga tinggi, Clean Architecture, dan REST API terstandarisasi.",
+			Status:      domain.NewsStatusPublished,
+			PublishedAt: &now,
+		})
+		_ = memNews.Create(ctx, &domain.NewsPost{
+			AdminID:     1,
+			Title:       "Pembaruan Infrastruktur Cloud & Server 2026",
+			Slug:        "pembaruan-infrastruktur-cloud-server-2026",
+			Content:     "Kapasitas jaringan bandwidth server telah di-upgrade menjadi 10Gbps unmetered.",
+			Status:      domain.NewsStatusPublished,
+			PublishedAt: &now,
+		})
+
+		// Seed Default Superadmin Staff (admin@fossbilling.org / admin123)
+		adminPassHash, _ := authPkg.HashPassword("admin123")
+		_ = memStaff.CreateGroup(ctx, &domain.AdminGroup{
+			Name: "superadmin",
+			Permissions: map[string][]string{
+				"system":     {"read", "write"},
+				"clients":    {"read", "write"},
+				"orders":     {"read", "write"},
+				"support":    {"read", "write"},
+				"billing":    {"read", "write"},
+				"currencies": {"read", "write"},
+				"news":       {"read", "write"},
+			},
+		})
+		_ = memStaff.Create(ctx, &domain.Staff{
+			GroupID:      1,
+			Email:        "admin@fossbilling.org",
+			PasswordHash: adminPassHash,
+			Name:         "Super Administrator",
+			Role:         "superadmin",
+			Status:       "active",
+		})
+
+		// Seed Default Client (client@fossbilling.org / client123)
+		clientPassHash, _ := authPkg.HashPassword("client123")
+		_ = memClient.Create(ctx, &domain.Client{
+			Email:        "client@fossbilling.org",
+			PasswordHash: clientPassHash,
+			FirstName:    "Demo",
+			LastName:     "Customer",
+			Country:      "ID",
+			Currency:     "IDR",
+			Status:       "active",
+		})
+
+		// Seed Sample Product & Downloadable
+		_ = memDl.Create(ctx, &domain.DownloadableFile{
+			ProductID:   1,
+			Filename:    "fossbilling-starter-pack.zip",
+			FilePath:    "/data/files/starter-pack.zip",
+			FileSize:    1024 * 1024 * 25,
+			ContentType: "application/zip",
+			Version:     "1.0.0",
+		})
+
+		clientRepo = memClient
+		orderRepo = memOrder
+		invoiceRepo = memInv
+		txnRepo = memTxn
+		promoRepo = memPromo
+		supportRepo = memSupport
+		staffRepo = memStaff
+		currencyRepo = memCurr
+		newsRepo = memNews
+		downloadRepo = memDl
+		apiKeyRepo = memKey
+		massMailRepo = memMail
+	}
 
 	// 3. Initialize Services & Engines
 	taxCalculator := billingUsecase.NewTaxCalculator(nil)
