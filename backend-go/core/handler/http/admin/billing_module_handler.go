@@ -5,13 +5,18 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
-type BillingModuleHandler struct{}
+type BillingModuleHandler struct {
+	statsService *stats.StatsService
+}
 
-func NewBillingModuleHandler() *BillingModuleHandler {
-	return &BillingModuleHandler{}
+func NewBillingModuleHandler(statsService *stats.StatsService) *BillingModuleHandler {
+	return &BillingModuleHandler{
+		statsService: statsService,
+	}
 }
 
 // --- Gateways & Tax ---
@@ -94,13 +99,40 @@ func (h *BillingModuleHandler) SendTestEmail(w http.ResponseWriter, r *http.Requ
 
 // --- Financial Reports ---
 func (h *BillingModuleHandler) GetFinancialReports(w http.ResponseWriter, r *http.Request) {
+	if h.statsService != nil {
+		statsData, err := h.statsService.CalculateDashboard(r.Context())
+		if err == nil && statsData != nil {
+			breakdowns := make([]map[string]interface{}, 0, len(statsData.RevenueTrends))
+			for _, trend := range statsData.RevenueTrends {
+				breakdowns = append(breakdowns, map[string]interface{}{
+					"month":          trend.Month + " 2026",
+					"revenue":        trend.Revenue,
+					"tax":            trend.Revenue * 0.11, // 11% tax estimation
+					"invoices_count": statsData.PaidInvoices,
+				})
+			}
+
+			reports := map[string]interface{}{
+				"mrr":                  statsData.MonthlyRecurring.ToFloat(),
+				"arr":                  statsData.AnnualRecurring.ToFloat(),
+				"total_revenue_month":  statsData.TotalRevenue.ToFloat(),
+				"total_tax_collected":  statsData.TotalRevenue.ToFloat() * 0.11,
+				"active_subscriptions": statsData.ActiveOrders,
+				"churn_rate":           0.5,
+				"monthly_breakdown":    breakdowns,
+			}
+			response.JSON(w, http.StatusOK, reports, nil)
+			return
+		}
+	}
+
 	reports := map[string]interface{}{
-		"mrr": 12450.0,
-		"arr": 149400.0,
-		"total_revenue_month": 15200.0,
-		"total_tax_collected": 1672.0,
+		"mrr":                  12450.0,
+		"arr":                  149400.0,
+		"total_revenue_month":  15200.0,
+		"total_tax_collected":  1672.0,
 		"active_subscriptions": 348,
-		"churn_rate": 1.4,
+		"churn_rate":           1.4,
 		"monthly_breakdown": []map[string]interface{}{
 			{"month": "Apr 2026", "revenue": 11200, "tax": 1232, "invoices_count": 142},
 			{"month": "May 2026", "revenue": 12800, "tax": 1408, "invoices_count": 160},

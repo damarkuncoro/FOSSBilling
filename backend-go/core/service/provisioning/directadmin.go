@@ -2,10 +2,14 @@ package provisioning
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 )
 
 type DirectAdminProvisioner struct {
@@ -27,6 +31,10 @@ func NewDirectAdminProvisioner(host string, port int, username, password string)
 		Password:   password,
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
 	}
+}
+
+func (p *DirectAdminProvisioner) Type() domain.ProductType {
+	return domain.ProductTypeHosting
 }
 
 type DirectAdminAccount struct {
@@ -54,12 +62,58 @@ func (p *DirectAdminProvisioner) CreateAccount(ctx context.Context, acc DirectAd
 	return &acc, nil
 }
 
-func (p *DirectAdminProvisioner) SuspendAccount(ctx context.Context, username, reason string) error {
-	// CMD_API_SELECT_USERS suspend command
+func (p *DirectAdminProvisioner) Create(ctx context.Context, order *domain.Order) (*domain.ProvisionResult, error) {
+	if order == nil {
+		return nil, errors.New("invalid order for directadmin provisioning")
+	}
+
+	acc, err := p.CreateAccount(ctx, DirectAdminAccount{
+		Domain:  fmt.Sprintf("client%d-service.com", order.ClientID),
+		Package: "default",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	details := map[string]string{
+		"username": acc.Username,
+		"password": acc.Password,
+		"domain":   acc.Domain,
+		"server":   p.Host,
+		"da_url":   fmt.Sprintf("https://%s:%d", p.Host, p.Port),
+	}
+	detailsJSON, _ := json.Marshal(details)
+
+	return &domain.ProvisionResult{
+		Success:        true,
+		RemoteID:       acc.Username,
+		AccountDetails: detailsJSON,
+	}, nil
+}
+
+func (p *DirectAdminProvisioner) Suspend(ctx context.Context, order *domain.Order, reason string) error {
 	return nil
 }
 
-func (p *DirectAdminProvisioner) UnsuspendAccount(ctx context.Context, username string) error {
-	// CMD_API_SELECT_USERS unsuspend command
+func (p *DirectAdminProvisioner) Unsuspend(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *DirectAdminProvisioner) Renew(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *DirectAdminProvisioner) Terminate(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *DirectAdminProvisioner) Sync(ctx context.Context, order *domain.Order) (*domain.ServiceStatus, error) {
+	return &domain.ServiceStatus{
+		IsActive:    true,
+		RemoteState: "active",
+	}, nil
+}
+
+func (p *DirectAdminProvisioner) ChangePassword(ctx context.Context, order *domain.Order, newPassword string) error {
 	return nil
 }

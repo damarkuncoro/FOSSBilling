@@ -69,3 +69,19 @@ const ticketReplyTemplate = `
   </div>
 </body>
 </html>`
+
+const serviceActivatedTemplate = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #2fb344;">Layanan Anda Telah Aktif: {{.Title}}</h2>
+    <p>Halo {{.FirstName}},</p>
+    <p>Pesanan layanan <strong>{{.Title}}</strong> (Order #{{.OrderID}}) telah berhasil diprovisioning dan siap digunakan.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>`
+

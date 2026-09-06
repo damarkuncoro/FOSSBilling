@@ -165,3 +165,64 @@ func TestE2E_LiveAuthProfileAndAPIKeysFlow(t *testing.T) {
 		t.Fatalf("List API Keys status = %d; want 200", listResp.StatusCode)
 	}
 }
+
+func TestE2E_LiveSupportTicketFlow(t *testing.T) {
+	baseURL := getBaseURL()
+	resp, err := http.Get(baseURL + "/health")
+	if err != nil {
+		t.Skipf("API server is not running at %s (skipping live e2e test): %v", baseURL, err)
+		return
+	}
+	_ = resp.Body.Close()
+
+	uniqueEmail := fmt.Sprintf("ticket.user.%d@example.com", time.Now().UnixNano())
+
+	// 1. Register
+	regPayload := map[string]string{
+		"email":      uniqueEmail,
+		"password":   "SecurePassword123!",
+		"first_name": "Support",
+		"last_name":  "Tester",
+		"country":    "ID",
+		"currency":   "USD",
+	}
+	body, _ := json.Marshal(regPayload)
+	regResp, err := http.Post(baseURL+"/api/v1/guest/auth/register", "application/json", bytes.NewBuffer(body))
+	if err != nil || regResp.StatusCode != http.StatusCreated {
+		t.Fatalf("Register failed: %v", err)
+	}
+	defer regResp.Body.Close()
+
+	var regData struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(regResp.Body).Decode(&regData)
+	token := regData.Data.Token
+
+	// 2. Open Support Ticket
+	ticketBody, _ := json.Marshal(map[string]interface{}{
+		"subject":  "VPS High CPU Utilization Inquiry",
+		"message":  "Hello, we notice intermittent CPU spikes on our VPS instance.",
+		"priority": "high",
+	})
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/client/support/tickets", bytes.NewBuffer(ticketBody))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	tResp, err := http.DefaultClient.Do(req)
+	if err != nil || tResp.StatusCode != http.StatusCreated {
+		t.Fatalf("Failed to open ticket: %v", err)
+	}
+	defer tResp.Body.Close()
+
+	// 3. List Tickets
+	req, _ = http.NewRequest(http.MethodGet, baseURL+"/api/v1/client/support/tickets", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	listResp, err := http.DefaultClient.Do(req)
+	if err != nil || listResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to list tickets: %v", err)
+	}
+	defer listResp.Body.Close()
+}
+

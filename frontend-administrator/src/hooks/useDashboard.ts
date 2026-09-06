@@ -33,11 +33,16 @@ export function useDashboard() {
     fetchStats();
   }, []);
 
+  const revenueTrends = stats?.revenue_trends && stats.revenue_trends.length > 0
+    ? stats.revenue_trends
+    : mockRevenueTrends;
+
   return {
     stats,
     loading,
     error,
     fetchStats,
+    revenueTrends,
     mockRevenueTrends,
   };
 }

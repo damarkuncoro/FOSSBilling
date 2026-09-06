@@ -74,12 +74,31 @@ const initialForms: CustomForm[] = [
   },
 ];
 
+const STORAGE_KEY = 'fossbilling_custom_forms';
+
 export function useFormBuilder() {
-  const [forms, setForms] = useState<CustomForm[]>(initialForms);
-  const [selectedForm, setSelectedForm] = useState<CustomForm | null>(forms[0]);
+  const [forms, setForms] = useState<CustomForm[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to parse saved forms', e);
+    }
+    return initialForms;
+  });
+  const [selectedForm, setSelectedForm] = useState<CustomForm | null>(forms[0] || null);
   const [isNewFormModal, setIsNewFormModal] = useState(false);
   const [isFieldModal, setIsFieldModal] = useState(false);
   const [editingField, setEditingField] = useState<FormField | null>(null);
+
+  const saveFormsToStorage = (updatedForms: CustomForm[]) => {
+    setForms(updatedForms);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedForms));
+    } catch (e) {
+      console.error('Failed to persist forms', e);
+    }
+  };
 
   const createForm = (name: string, description: string) => {
     const newForm: CustomForm = {
@@ -91,15 +110,17 @@ export function useFormBuilder() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setForms((prev) => [...prev, newForm]);
+    const updated = [...forms, newForm];
+    saveFormsToStorage(updated);
     setSelectedForm(newForm);
     setIsNewFormModal(false);
   };
 
   const deleteForm = (id: number) => {
-    setForms((prev) => prev.filter((f) => f.id !== id));
+    const updated = forms.filter((f) => f.id !== id);
+    saveFormsToStorage(updated);
     if (selectedForm?.id === id) {
-      setSelectedForm(forms.find((f) => f.id !== id) || null);
+      setSelectedForm(updated[0] || null);
     }
   };
 
@@ -112,7 +133,8 @@ export function useFormBuilder() {
 
     const updatedForm = { ...selectedForm, fields: updatedFields, updated_at: new Date().toISOString() };
     setSelectedForm(updatedForm);
-    setForms((prev) => prev.map((f) => (f.id === updatedForm.id ? updatedForm : f)));
+    const updatedForms = forms.map((f) => (f.id === updatedForm.id ? updatedForm : f));
+    saveFormsToStorage(updatedForms);
     setIsFieldModal(false);
     setEditingField(null);
   };
@@ -122,7 +144,8 @@ export function useFormBuilder() {
     const updatedFields = selectedForm.fields.filter((f) => f.id !== fieldId);
     const updatedForm = { ...selectedForm, fields: updatedFields, updated_at: new Date().toISOString() };
     setSelectedForm(updatedForm);
-    setForms((prev) => prev.map((f) => (f.id === updatedForm.id ? updatedForm : f)));
+    const updatedForms = forms.map((f) => (f.id === updatedForm.id ? updatedForm : f));
+    saveFormsToStorage(updatedForms);
   };
 
   return {

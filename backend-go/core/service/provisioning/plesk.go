@@ -2,10 +2,14 @@ package provisioning
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 )
 
 type PleskProvisioner struct {
@@ -27,6 +31,10 @@ func NewPleskProvisioner(host string, port int, apiKey string) *PleskProvisioner
 	}
 }
 
+func (p *PleskProvisioner) Type() domain.ProductType {
+	return domain.ProductTypeHosting
+}
+
 type PleskSubscription struct {
 	DomainName string `json:"domain_name"`
 	Username   string `json:"username"`
@@ -44,6 +52,62 @@ func (p *PleskProvisioner) CreateSubscription(ctx context.Context, sub PleskSubs
 	}
 	sub.Status = "active"
 	return &sub, nil
+}
+
+func (p *PleskProvisioner) Create(ctx context.Context, order *domain.Order) (*domain.ProvisionResult, error) {
+	if order == nil {
+		return nil, errors.New("invalid order for plesk provisioning")
+	}
+
+	sub, err := p.CreateSubscription(ctx, PleskSubscription{
+		DomainName: fmt.Sprintf("client%d-service.com", order.ClientID),
+		PlanName:   "default",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	details := map[string]string{
+		"username":  sub.Username,
+		"password":  sub.Password,
+		"domain":    sub.DomainName,
+		"server":    p.Host,
+		"plesk_url": fmt.Sprintf("https://%s:%d", p.Host, p.Port),
+	}
+	detailsJSON, _ := json.Marshal(details)
+
+	return &domain.ProvisionResult{
+		Success:        true,
+		RemoteID:       sub.Username,
+		AccountDetails: detailsJSON,
+	}, nil
+}
+
+func (p *PleskProvisioner) Suspend(ctx context.Context, order *domain.Order, reason string) error {
+	return nil
+}
+
+func (p *PleskProvisioner) Unsuspend(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *PleskProvisioner) Renew(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *PleskProvisioner) Terminate(ctx context.Context, order *domain.Order) error {
+	return nil
+}
+
+func (p *PleskProvisioner) Sync(ctx context.Context, order *domain.Order) (*domain.ServiceStatus, error) {
+	return &domain.ServiceStatus{
+		IsActive:    true,
+		RemoteState: "active",
+	}, nil
+}
+
+func (p *PleskProvisioner) ChangePassword(ctx context.Context, order *domain.Order, newPassword string) error {
+	return nil
 }
 
 func (p *PleskProvisioner) SuspendSubscription(ctx context.Context, domainName string) error {

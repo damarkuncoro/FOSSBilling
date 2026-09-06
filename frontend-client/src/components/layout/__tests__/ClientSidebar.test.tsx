@@ -13,16 +13,17 @@ describe('ClientSidebar - TDD Component Tests', () => {
         last_name: 'Santoso',
         email: 'budi@example.com',
         currency: 'USD',
-        created_at: '2026-01-01',
       },
+      token: 'mock-token',
       balance: 150,
       isAuthenticated: true,
+      isLoading: false,
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
+      refreshProfile: vi.fn(),
       theme: 'light',
       toggleTheme: vi.fn(),
-      loading: false,
     });
 
     render(
@@ -44,15 +45,17 @@ describe('ClientSidebar - TDD Component Tests', () => {
   it('triggers onOpenDeposit when Add balance button is clicked', () => {
     const onOpenDepositMock = vi.fn();
     vi.spyOn(authLib, 'useClientAuth').mockReturnValue({
-      user: { id: 1, first_name: 'Budi', last_name: 'Santoso', email: 'budi@example.com', created_at: '' },
+      user: { id: 1, first_name: 'Budi', last_name: 'Santoso', email: 'budi@example.com' },
+      token: 'mock-token',
       balance: 50,
       isAuthenticated: true,
+      isLoading: false,
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
+      refreshProfile: vi.fn(),
       theme: 'light',
       toggleTheme: vi.fn(),
-      loading: false,
     });
 
     render(
@@ -69,14 +72,16 @@ describe('ClientSidebar - TDD Component Tests', () => {
   it('renders Login and Register actions when user is unauthenticated', () => {
     vi.spyOn(authLib, 'useClientAuth').mockReturnValue({
       user: null,
+      token: null,
       balance: 0,
       isAuthenticated: false,
+      isLoading: false,
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
+      refreshProfile: vi.fn(),
       theme: 'light',
       toggleTheme: vi.fn(),
-      loading: false,
     });
 
     render(

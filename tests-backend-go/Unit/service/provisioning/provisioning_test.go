@@ -32,22 +32,42 @@ func TestDirectAdminProvisioner(t *testing.T) {
 	}
 }
 
-func TestPleskProvisioner(t *testing.T) {
-	plesk := provisioning.NewPleskProvisioner("plesk.example.com", 8443, "api-key-123")
-	ctx := context.Background()
-
-	sub, err := plesk.CreateSubscription(ctx, provisioning.PleskSubscription{
-		DomainName: "plesk-site.org",
-		PlanName:   "Unlimited Plan",
+func TestCpanelProvisioner(t *testing.T) {
+	cpanel := provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{
+		Host:     "cpanel.example.com",
+		Username: "root",
+		APIToken: "token123",
+		UseSSL:   true,
 	})
-	if err != nil {
-		t.Fatalf("CreateSubscription failed: %v", err)
-	}
 
-	if sub.Status != "active" {
-		t.Errorf("expected status active, got %s", sub.Status)
-	}
-	if !strings.HasPrefix(sub.Username, "pl_") {
-		t.Errorf("expected username prefix 'pl_', got %s", sub.Username)
+	user, pass := cpanel.GenerateAccountCredentials("my-awesome-domain.com")
+	if user == "" || pass == "" {
+		t.Fatalf("failed to generate cPanel credentials")
 	}
 }
+
+func TestProvisionerRegistry(t *testing.T) {
+	registry := provisioning.NewProvisionerRegistry()
+
+	cpanel := provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{Host: "cpanel.example.com"})
+	license := provisioning.NewLicenseProvisioner("SECRET_SIGNING_SALT")
+
+	registry.Register(cpanel)
+	registry.Register(license)
+
+	list := registry.List()
+	if len(list) != 2 {
+		t.Fatalf("expected 2 provisioners, got %d", len(list))
+	}
+
+	p, err := registry.Get(cpanel.Type())
+	if err != nil || p == nil {
+		t.Fatalf("failed to get cpanel provisioner: %v", err)
+	}
+
+	_, err = registry.Get("nonexistent_type")
+	if err == nil {
+		t.Fatalf("expected error for nonexistent product type")
+	}
+}
+

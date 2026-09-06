@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fossbilling-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fossbilling}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword123}
+      POSTGRES_DB: ${POSTGRES_DB:-fossbilling}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+      - ../backend-go/migrations/000001_init_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fossbilling} -d ${POSTGRES_DB:-fossbilling}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fossbilling-prod-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fossbilling-redis-prod
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata_prod:/data
+    networks:
+      - fossbilling-prod-net
+
+  api:
+    build:
+      context: ../backend-go
+      dockerfile: Dockerfile
+    container_name: fossbilling-api-prod
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=production
+      - PORT=8080
+      - DATABASE_URL=postgres://${POSTGRES_USER:-fossbilling}:${POSTGRES_PASSWORD:-secretpassword123}@postgres:5432/${POSTGRES_DB:-fossbilling}?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-production-ready-super-secret-jwt-key-32-chars}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - fossbilling-prod-net
+
+  worker:
+    build:
+      context: ../backend-go
+      dockerfile: Dockerfile
+    container_name: fossbilling-worker-prod
+    restart: always
+    command: ["/app/worker"]
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgres://${POSTGRES_USER:-fossbilling}:${POSTGRES_PASSWORD:-secretpassword123}@postgres:5432/${POSTGRES_DB:-fossbilling}?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-production-ready-super-secret-jwt-key-32-chars}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - fossbilling-prod-net
+
+  admin-portal:
+    build:
+      context: ../frontend-administrator
+      dockerfile: Dockerfile
+    container_name: fossbilling-admin-portal-prod
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - fossbilling-prod-net
+
+  client-portal:
+    build:
+      context: ../frontend-client
+      dockerfile: Dockerfile
+    container_name: fossbilling-client-portal-prod
+    restart: always
+    ports:
+      - "3001:80"
+    depends_on:
+      - api
+    networks:
+      - fossbilling-prod-net
+
+networks:
+  fossbilling-prod-net:
+    driver: bridge
+
+volumes:
+  pgdata_prod:
+  redisdata_prod:

@@ -132,3 +132,28 @@ func (s *EmailService) SendTicketReply(ctx context.Context, client *domain.Clien
 		HTMLBody: buf.String(),
 	})
 }
+
+func (s *EmailService) SendServiceActivatedEmail(ctx context.Context, client *domain.Client, order *domain.Order) error {
+	tmpl, err := template.New("serviceActivated").Parse(serviceActivatedTemplate)
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]interface{}{
+		"AppName":   s.appName,
+		"FirstName": client.FirstName,
+		"OrderID":   order.ID,
+		"Title":     order.Title,
+	}); err != nil {
+		return err
+	}
+
+	return s.mailer.Send(ctx, mailer.Message{
+		From:     fmt.Sprintf("%s Support <%s>", s.appName, s.fromEmail),
+		To:       []string{client.Email},
+		Subject:  fmt.Sprintf("Layanan Anda Telah Aktif: %s", order.Title),
+		HTMLBody: buf.String(),
+	})
+}
+

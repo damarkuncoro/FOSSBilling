@@ -12,6 +12,7 @@ build:
 	@echo "🔨 Building Go backend binaries..."
 	cd backend-go && CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/api ./cmd/api
 	cd backend-go && CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/worker ./cmd/worker
+	cd backend-go && CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/cli ./cmd/cli
 	@echo "🔨 Building Administrator Portal..."
 	cd frontend-administrator && npm run build
 	@echo "🔨 Building Customer Portal..."
@@ -21,7 +22,7 @@ build:
 # Run end-to-end live business simulation in Go
 demo:
 	@echo "🚀 Running E2E live simulation..."
-	cd backend-go && go run ./cmd/demo/main.go
+	cd backend-go && go run ./cmd/demo
 
 # Start full multi-container stack with Docker Compose
 docker-up:

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ../backend-go
+      dockerfile: Dockerfile
+    container_name: fossbilling-api-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DATABASE_URL=
+      - REDIS_URL=
+      - JWT_SECRET=dev-secret-key-for-local-testing-only-123
+    volumes:
+      - ../backend-go:/app
+    networks:
+      - fossbilling-dev-net
+
+  admin-portal:
+    build:
+      context: ../frontend-administrator
+      dockerfile: Dockerfile
+    container_name: fossbilling-admin-portal-dev
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - fossbilling-dev-net
+
+  client-portal:
+    build:
+      context: ../frontend-client
+      dockerfile: Dockerfile
+    container_name: fossbilling-client-portal-dev
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      - api
+    networks:
+      - fossbilling-dev-net
+
+networks:
+  fossbilling-dev-net:
+    driver: bridge

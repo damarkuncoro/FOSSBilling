@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 export const Dashboard: React.FC = () => {
-  const { stats, loading, error, fetchStats, mockRevenueTrends } = useDashboard();
+  const { stats, loading, error, fetchStats, revenueTrends } = useDashboard();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -35,7 +35,7 @@ export const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <RevenueChartCard data={mockRevenueTrends} />
+          <RevenueChartCard data={revenueTrends} />
         </div>
 
         <div className="space-y-6">

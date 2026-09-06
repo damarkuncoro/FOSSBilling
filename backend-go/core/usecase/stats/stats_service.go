@@ -3,23 +3,31 @@ package stats
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
+type RevenueTrend struct {
+	Month   string  `json:"month"`
+	Revenue float64 `json:"revenue"`
+	MRR     float64 `json:"mrr"`
+}
+
 type DashboardStats struct {
-	TotalRevenue      decimal.Money `json:"total_revenue"`
-	MonthlyRecurring  decimal.Money `json:"mrr"`
-	AnnualRecurring   decimal.Money `json:"arr"`
-	TotalClients      int           `json:"total_clients"`
-	ActiveOrders      int           `json:"active_orders"`
-	SuspendedOrders   int           `json:"suspended_orders"`
-	PendingOrders     int           `json:"pending_orders"`
-	UnpaidInvoices    int           `json:"unpaid_invoices"`
-	PaidInvoices      int           `json:"paid_invoices"`
-	OpenTickets       int           `json:"open_tickets"`
-	ClosedTickets     int           `json:"closed_tickets"`
+	TotalRevenue      decimal.Money  `json:"total_revenue"`
+	MonthlyRecurring  decimal.Money  `json:"mrr"`
+	AnnualRecurring   decimal.Money  `json:"arr"`
+	TotalClients      int            `json:"total_clients"`
+	ActiveOrders      int            `json:"active_orders"`
+	SuspendedOrders   int            `json:"suspended_orders"`
+	PendingOrders     int            `json:"pending_orders"`
+	UnpaidInvoices    int            `json:"unpaid_invoices"`
+	PaidInvoices      int            `json:"paid_invoices"`
+	OpenTickets       int            `json:"open_tickets"`
+	ClosedTickets     int            `json:"closed_tickets"`
+	RevenueTrends     []RevenueTrend `json:"revenue_trends"`
 }
 
 type StatsService struct {
@@ -45,7 +53,9 @@ func NewStatsService(
 
 // CalculateDashboard aggregates real-time business and operations KPIs
 func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats, error) {
-	stats := &DashboardStats{}
+	stats := &DashboardStats{
+		RevenueTrends: make([]RevenueTrend, 0),
+	}
 
 	// 1. Client count
 	_, totalClients, err := s.clientRepo.List(ctx, 1, 0)
@@ -75,12 +85,18 @@ func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats,
 
 	// 3. Invoices & Total Collected Revenue
 	invoices, _, err := s.invoiceRepo.List(ctx, 10000, 0)
+	monthlyRevMap := make(map[string]decimal.Money)
 	if err == nil {
 		var totalRevenue decimal.Money
 		for _, inv := range invoices {
 			if inv.Status == domain.InvoiceStatusPaid {
 				stats.PaidInvoices++
 				totalRevenue += inv.Total
+				monthKey := inv.CreatedAt.Format("Jan")
+				if inv.PaidAt != nil {
+					monthKey = inv.PaidAt.Format("Jan")
+				}
+				monthlyRevMap[monthKey] += inv.Total
 			} else if inv.Status == domain.InvoiceStatusUnpaid {
 				stats.UnpaidInvoices++
 			}
@@ -98,6 +114,23 @@ func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats,
 				stats.OpenTickets++
 			}
 		}
+	}
+
+	// 5. Generate 6-month Revenue Trends
+	monthNames := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+	currentMonth := time.Now().Month() // 1..12
+	for i := 5; i >= 0; i-- {
+		mIdx := (int(currentMonth) - 1 - i + 12) % 12
+		mName := monthNames[mIdx]
+		rev := monthlyRevMap[mName].ToFloat()
+		if rev == 0 && i == 0 {
+			rev = stats.TotalRevenue.ToFloat()
+		}
+		stats.RevenueTrends = append(stats.RevenueTrends, RevenueTrend{
+			Month:   mName,
+			Revenue: rev,
+			MRR:     stats.MonthlyRecurring.ToFloat(),
+		})
 	}
 
 	return stats, nil

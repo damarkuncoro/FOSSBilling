@@ -1,0 +1,44 @@
+name: Frontend Portals CI (Admin & Client)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend-administrator/**'
+      - 'frontend-client/**'
+      - '.github/workflows/frontends-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'frontend-administrator/**'
+      - 'frontend-client/**'
+      - '.github/workflows/frontends-ci.yml'
+
+jobs:
+  test-and-build:
+    name: Test & Build Frontends
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Test & Build Frontend Administrator
+        working-directory: frontend-administrator
+        run: |
+          npm ci
+          npm test -- --run
+          npm run build
+
+      - name: Test & Build Frontend Client
+        working-directory: frontend-client
+        run: |
+          npm ci
+          npm test -- --run
+          npm run build
