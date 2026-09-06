@@ -20,12 +20,15 @@ type AppHandlers struct {
 	GuestCurrency  *guest.CurrencyHandler
 	GuestNews      *guest.NewsHandler
 	GuestCompany   *guest.CompanyHandler
+	GuestDomain    *guest.DomainHandler
 	ClientProfile  *client.ProfileHandler
 	ClientOrder    *client.OrderHandler
+	ClientDomain   *client.DomainHandler
 	ClientInvoice  *client.InvoiceHandler
 	ClientDeposit  *client.DepositHandler
 	ClientSupport  *client.SupportHandler
 	ClientDownload *client.DownloadHandler
+	ClientLicense  *client.LicenseHandler
 	ClientAPIKey   *client.APIKeyHandler
 	AdminAuth      *admin.StaffAuthHandler
 	AdminStaff     *admin.StaffManagementHandler

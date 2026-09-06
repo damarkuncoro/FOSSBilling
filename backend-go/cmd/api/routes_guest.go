@@ -17,4 +17,5 @@ func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rateLimiter *middle
 	mux.Handle("GET /api/v1/guest/news", rateLimiter.RateLimit(http.HandlerFunc(h.GuestNews.List)))
 	mux.Handle("GET /api/v1/guest/news/{slug}", rateLimiter.RateLimit(http.HandlerFunc(h.GuestNews.Get)))
 	mux.Handle("GET /api/v1/guest/company", rateLimiter.RateLimit(http.HandlerFunc(h.GuestCompany.GetCompany)))
+	mux.Handle("GET /api/v1/guest/domains/check", rateLimiter.RateLimit(http.HandlerFunc(h.GuestDomain.CheckAvailability)))
 }

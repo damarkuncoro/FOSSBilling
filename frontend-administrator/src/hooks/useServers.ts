@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, ServerItem } from '@/lib/api';
+import { adminServerService } from '@/services/admin_server.service';
+import type { ServerItem } from '@/types/api';
 
 export const defaultServers: ServerItem[] = [
   {
@@ -67,7 +68,7 @@ export function useServers() {
   const fetchServers = async () => {
     setLoading(true);
     try {
-      const data = await api.getServers().catch(() => null);
+      const data = await adminServerService.listServers().catch(() => null);
       setServers(data && data.length > 0 ? data : defaultServers);
     } catch {
       setServers(defaultServers);
@@ -84,7 +85,7 @@ export function useServers() {
     e.preventDefault();
     setSaving(true);
     try {
-      const newServer: ServerItem = {
+      const newServer = await adminServerService.createServer(form).catch(() => ({
         id: Date.now(),
         name: form.name || 'New Server Node',
         hostname: form.hostname || 'srv.example.com',
@@ -96,9 +97,8 @@ export function useServers() {
         nameserver_1: form.nameserver_1,
         nameserver_2: form.nameserver_2,
         is_default: form.is_default || false,
-      };
+      } as ServerItem));
 
-      await api.createServer(newServer).catch(() => null);
       if (newServer.is_default) {
         setServers((prev) => [newServer, ...prev.map((s) => ({ ...s, is_default: false }))]);
       } else {
@@ -116,7 +116,7 @@ export function useServers() {
     setTestingId(id);
     setTestResult(null);
     try {
-      const res = await api.testServerConnection(id).catch(() => ({
+      const res = await adminServerService.testConnection(id).catch(() => ({
         success: true,
         message: 'Connection successful: Handshake 200 OK (Latency: 28ms)',
       }));
@@ -135,7 +135,7 @@ export function useServers() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to remove this hosting server?')) return;
     try {
-      await api.deleteServer(id).catch(() => null);
+      await adminServerService.deleteServer(id).catch(() => null);
       setServers((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error(err);

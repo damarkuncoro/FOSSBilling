@@ -2,6 +2,7 @@ package listener_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/listener"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
@@ -79,14 +81,31 @@ func TestListeners_Flows(t *testing.T) {
 	}
 	_ = orderRepo.Create(ctx, ord)
 
-	// 3. Order Listener
-	orderListener := listener.NewOrderListener(emailService, orderRepo, clientRepo)
-	err = orderListener.HandleOrderActivated(ctx, events.Event{
+	// Seed domain order
+	domainOrd := &domain.Order{
+		ClientID:  1,
+		ProductID: 10,
+		Title:     "Domain Registration: myawesomeapp2026.com",
+		Status:    domain.OrderStatusActive,
+		Config:    []byte(`{"domain_name":"myawesomeapp2026.com","nameservers":["ns1.fossbilling.org","ns2.fossbilling.org"]}`),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	_ = orderRepo.Create(ctx, domainOrd)
+
+	mockRegistrar := provisioning.NewMockRegistrarDriver()
+	orderListenerWithReg := listener.NewOrderListener(emailService, orderRepo, clientRepo, mockRegistrar)
+	err = orderListenerWithReg.HandleOrderActivated(ctx, events.Event{
 		Type:    events.EventOrderActivated,
-		Payload: map[string]interface{}{"order_id": ord.ID},
+		Payload: map[string]interface{}{"order_id": domainOrd.ID},
 	})
 	if err != nil {
-		t.Fatalf("OrderListener failed: %v", err)
+		t.Fatalf("OrderListener with registrar failed: %v", err)
+	}
+
+	updatedDomainOrd, _ := orderRepo.GetByID(ctx, domainOrd.ID)
+	if !strings.Contains(string(updatedDomainOrd.Config), "EPP-") {
+		t.Errorf("Expected domain order config to contain generated EPP code")
 	}
 
 	if mockMailer.GetSentCount() < 3 {

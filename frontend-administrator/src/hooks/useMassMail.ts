@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { adminMassMailService } from '@/services/admin_massmail.service';
 import { api } from '@/lib/api';
 
 export function useMassMail() {
@@ -43,7 +44,7 @@ export function useMassMail() {
     setSendingId(id);
     setMessage(null);
     try {
-      await api.sendMassMailCampaign(id);
+      await adminMassMailService.sendMassMail(form.subject || 'System Announcement', form.content || 'Notice from management');
       setMessage(`Campaign #${id} has been broadcasted to all active clients!`);
       await fetchCampaigns();
     } catch (err: any) {

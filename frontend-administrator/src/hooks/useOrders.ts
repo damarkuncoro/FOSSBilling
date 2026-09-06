@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { adminOrderService } from '@/services/admin_order.service';
+import type { Order } from '@/types/api';
 
 export function useOrders() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -10,7 +11,7 @@ export function useOrders() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const data = await api.getOrders();
+      const data = await adminOrderService.listOrders();
       setOrders(data || []);
     } catch (err) {
       console.error(err);
@@ -27,7 +28,7 @@ export function useOrders() {
     setActionLoading(id);
     setMessage(null);
     try {
-      await api.activateOrder(id);
+      await adminOrderService.activateOrder(id);
       setMessage(`Order #${id} successfully activated and provisioned!`);
       await fetchOrders();
     } catch (err: any) {
@@ -41,7 +42,7 @@ export function useOrders() {
     setActionLoading(id);
     setMessage(null);
     try {
-      await api.suspendOrder(id, 'Admin manual suspension');
+      await adminOrderService.suspendOrder(id, 'Admin manual suspension');
       setMessage(`Order #${id} has been suspended.`);
       await fetchOrders();
     } catch (err: any) {
@@ -55,7 +56,7 @@ export function useOrders() {
     setActionLoading(id);
     setMessage(null);
     try {
-      await api.unsuspendOrder(id);
+      await adminOrderService.unsuspendOrder(id);
       setMessage(`Order #${id} has been reactivated.`);
       await fetchOrders();
     } catch (err: any) {

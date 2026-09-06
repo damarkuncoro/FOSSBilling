@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { adminSupportService } from '@/services/admin_support.service';
+import type { SupportTicket } from '@/types/api';
 
 export function useSupport() {
-  const [tickets, setTickets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
 
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const data = await api.getSupportTickets();
+      const data = await adminSupportService.listTickets();
       setTickets(data || []);
     } catch (err) {
       console.error(err);
@@ -30,7 +31,7 @@ export function useSupport() {
 
     setReplyLoading(true);
     try {
-      await api.replySupportTicket(selectedTicket.id, replyText);
+      await adminSupportService.replyTicket(selectedTicket.id, replyText);
       setReplyText('');
       setSelectedTicket(null);
       await fetchTickets();

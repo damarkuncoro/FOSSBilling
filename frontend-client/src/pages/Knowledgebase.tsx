@@ -92,32 +92,48 @@ export const Knowledgebase: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {articles.map((art) => (
-          <div
-            key={art.id}
-            onClick={() => setActiveArticle(art)}
-            className="group bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
+      {articles.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center space-y-3">
+          <BookOpen className="w-10 h-10 text-gray-400 mx-auto" />
+          <h3 className="text-base font-bold text-gray-900">No Articles Found</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            No knowledgebase tutorials match &quot;{search}&quot;. Try searching with different keywords or clearing filters.
+          </p>
+          <button
+            onClick={() => { setSearch(''); setSelectedCategory('all'); }}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-colors"
           >
-            <div>
-              <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
-                {art.category}
-              </span>
-              <h3 className="text-base font-bold text-gray-900 group-hover:text-indigo-600 mt-1 transition-colors">
-                {art.title}
-              </h3>
-              <p className="text-xs text-gray-500 mt-2 line-clamp-2">{art.summary}</p>
-            </div>
+            Clear Search & Filters
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {articles.map((art) => (
+            <div
+              key={art.id}
+              onClick={() => setActiveArticle(art)}
+              className="group bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
+            >
+              <div>
+                <span className="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">
+                  {art.category}
+                </span>
+                <h3 className="text-base font-bold text-gray-900 group-hover:text-indigo-600 mt-1 transition-colors">
+                  {art.title}
+                </h3>
+                <p className="text-xs text-gray-500 mt-2 line-clamp-2">{art.summary}</p>
+              </div>
 
-            <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100 text-xs text-gray-400">
-              <span>{art.views} reads</span>
-              <span className="text-indigo-600 font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Read Article <ChevronRight className="w-3.5 h-3.5" />
-              </span>
+              <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100 text-xs text-gray-400">
+                <span>{art.views} reads</span>
+                <span className="text-indigo-600 font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  Read Article <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

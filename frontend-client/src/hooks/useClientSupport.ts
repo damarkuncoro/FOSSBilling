@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { supportService } from '@/services/support.service';
 import { SupportTicket } from '@/types/api';
 
 export function useClientSupport() {
@@ -18,7 +18,7 @@ export function useClientSupport() {
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getTickets();
+      const data = await supportService.listTickets();
       setTickets(data || []);
     } catch (err) {
       console.error('Failed to fetch tickets:', err);
@@ -34,7 +34,7 @@ export function useClientSupport() {
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.openTicket(newTicketForm);
+      await supportService.openTicket(newTicketForm.subject, newTicketForm.message, newTicketForm.priority);
       setOpenNewModal(false);
       setNewTicketForm({ subject: '', message: '', priority: 'medium' });
       await fetchTickets();
@@ -49,7 +49,7 @@ export function useClientSupport() {
 
     setReplying(true);
     try {
-      await api.replyTicket(selectedTicket.id, replyContent);
+      await supportService.replyTicket(selectedTicket.id, replyContent);
       setReplyContent('');
       setSelectedTicket(null);
       await fetchTickets();
@@ -63,7 +63,7 @@ export function useClientSupport() {
   const handleClose = async (id: number) => {
     if (!confirm('Are you sure you want to close this ticket?')) return;
     try {
-      await api.closeTicket(id);
+      await supportService.closeTicket(id);
       setSelectedTicket(null);
       await fetchTickets();
     } catch (err: any) {

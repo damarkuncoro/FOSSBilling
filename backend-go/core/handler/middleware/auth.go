@@ -67,6 +67,10 @@ func RequireAuth(jwtSecret string, allowedRoles ...string) func(http.Handler) ht
 	}
 }
 
+func WithClientID(ctx context.Context, clientID int64) context.Context {
+	return context.WithValue(ctx, ClientIDKey, clientID)
+}
+
 func GetClientID(ctx context.Context) int64 {
 	if val, ok := ctx.Value(ClientIDKey).(int64); ok {
 		return val

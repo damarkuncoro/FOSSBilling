@@ -123,11 +123,17 @@ interface ServiceProvisioner {
 }
 ```
 
-* **Modules:**
+* **Provisioning Modules & Drivers:**
   * `ServiceHosting`: Integrates with hosting control panels (cPanel/WHM, Plesk, DirectAdmin, Virtualmin, CyberPanel).
-  * `ServiceDomain`: Integrates with Registrars (Namecheap, Openprovider, ResellerClub, Cloudflare Registrar). Handles WHOIS, EPP Auth Code, Nameserver management, DNS records.
-  * `ServiceLicense`: Key generation algorithms, domain/IP lock binding, periodic pingback verification.
-  * `ServiceDownloadable`: Secure expirable download tokens, download count limits.
+  * `ServiceDomain` (`RDAPRegistrarDriver`): Integrates with WHOIS / RDAP registries (RFC 7480/7484) with intelligent DNS fallback (`net.LookupNS`, `net.LookupIP`). Handles instant availability checks, automated domain provisioning on invoice payment, EPP transfer authorization codes, and nameserver orchestration.
+  * `ServiceLicense` (`LicenseService`): Cryptographic key generation algorithms, domain/IP lock binding, periodic pingback verification, and self-service lock reset.
+  * `ServiceDownloadable`: Secure HMAC-signed expirable download tokens, download count limits, and asset streaming.
+
+### 2.7 Service & Repository Layer Separation (Clean Architecture)
+To maintain strict Separation of Concerns (SoC):
+* **Repository Layer (`core/repository/`):** Pure data access adapters (PostgreSQL & In-Memory Mocks) implementing domain repository interfaces. Handlers never communicate directly with repositories.
+* **Service / Use Case Layer (`core/usecase/`):** Domain orchestrators encapsulating business rules, validations, financial calculations, state transitions, and external driver coordination (`DomainService`, `LicenseService`, `OrderService`, `InvoiceService`, `CartService`, `AuthService`, etc.).
+* **Presentation Layer (`core/handler/http/`):** HTTP Handlers consume solely use case services via Constructor Injection, with 0% direct persistence layer exposure.
 
 ---
 

@@ -143,3 +143,49 @@ func (s *OrderService) CheckGracePeriodOverdue(order *domain.Order, gracePeriodD
 	graceDeadline := order.ExpiresAt.AddDate(0, 0, gracePeriodDays)
 	return now.After(graceDeadline)
 }
+
+// ListByClientID retrieves orders belonging to a specific client with pagination
+func (s *OrderService) ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Order, int, error) {
+	return s.orderRepo.ListByClientID(ctx, clientID, limit, offset)
+}
+
+// GetByIDForClient retrieves an order ensuring ownership matches clientID
+func (s *OrderService) GetByIDForClient(ctx context.Context, clientID, orderID int64) (*domain.Order, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order.ClientID != clientID {
+		return nil, appErrors.ErrNotFound
+	}
+	return order, nil
+}
+
+// Cancel transitions order to Canceled status with a reason
+func (s *OrderService) Cancel(ctx context.Context, orderID int64, reason string) (*domain.Order, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	if order.Status == domain.OrderStatusTerminated || order.Status == domain.OrderStatusCanceled {
+		return order, nil
+	}
+
+	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.OrderStatusCanceled, &reason); err != nil {
+		return nil, err
+	}
+
+	return s.orderRepo.GetByID(ctx, orderID)
+}
+
+// CancelForClient cancels an order ensuring ownership matches clientID
+func (s *OrderService) CancelForClient(ctx context.Context, clientID, orderID int64, reason string) (*domain.Order, error) {
+	order, err := s.GetByIDForClient(ctx, clientID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	return s.Cancel(ctx, order.ID, reason)
+}
+
+

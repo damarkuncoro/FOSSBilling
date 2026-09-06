@@ -7,6 +7,7 @@ import { ManageDnsDialog } from '../components/domains/ManageDnsDialog';
 export const Domains: React.FC = () => {
   const {
     domains,
+    loading,
     search,
     setSearch,
     checkQuery,
@@ -115,35 +116,51 @@ export const Domains: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {domains.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50/70">
-                  <td className="px-6 py-4 font-mono font-bold text-gray-900">{d.domain_name}</td>
-                  <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                    {d.nameservers.slice(0, 2).join(', ')}
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    {new Date(d.expires_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => toggleAutoRenew(d.id)}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        d.auto_renew ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {d.auto_renew ? 'Enabled' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => setEditingDomain(d)}
-                      className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium"
-                    >
-                      Manage DNS
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-xs text-gray-500">
+                    Loading your domains...
                   </td>
                 </tr>
-              ))}
+              ) : domains.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center space-y-2">
+                    <Globe className="w-8 h-8 text-gray-300 mx-auto" />
+                    <p className="text-sm font-semibold text-gray-700">No active domains found</p>
+                    <p className="text-xs text-gray-400">Search and register your new domain using the WHOIS checker above.</p>
+                  </td>
+                </tr>
+              ) : (
+                domains.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50/70">
+                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{d.domain_name}</td>
+                    <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                      {d.nameservers.slice(0, 2).join(', ')}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500">
+                      {new Date(d.expires_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleAutoRenew(d.id)}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          d.auto_renew ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {d.auto_renew ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => setEditingDomain(d)}
+                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium"
+                      >
+                        Manage DNS
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

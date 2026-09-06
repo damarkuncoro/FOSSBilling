@@ -6,6 +6,10 @@ export const guestApi = {
   guestCurrencies: () => request<any[]>('/guest/currencies'),
   guestNews: () => request<any[]>('/guest/news'),
   guestNewsBySlug: (slug: string) => request<any>(`/guest/news/${slug}`),
+  checkDomain: (domain: string) =>
+    request<{ domain: string; tld: string; available: boolean; price: number; currency: string }>(
+      `/guest/domains/check?domain=${encodeURIComponent(domain)}`
+    ),
 
   // Guest Auth
   login: (email: string, password: string) =>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, PaymentGatewayItem, TaxRuleItem } from '@/lib/api';
+import { adminGatewayService } from '@/services/admin_gateway.service';
+import type { PaymentGatewayItem, TaxRuleItem } from '@/types/api';
 
 export const defaultGateways: PaymentGatewayItem[] = [
   {
@@ -72,10 +73,10 @@ export function usePaymentGateways() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const gwData = await api.getPaymentGateways().catch(() => null);
+      const gwData = await adminGatewayService.listPaymentGateways().catch(() => null);
       setGateways(gwData && gwData.length > 0 ? gwData : defaultGateways);
 
-      const taxData = await api.getTaxRules().catch(() => null);
+      const taxData = await adminGatewayService.listTaxRules().catch(() => null);
       setTaxRules(taxData && taxData.length > 0 ? taxData : defaultTaxRules);
     } catch {
       setGateways(defaultGateways);
@@ -100,7 +101,7 @@ export function usePaymentGateways() {
     if (!selectedGw) return;
     setSavingGw(true);
     try {
-      await api.updatePaymentGateway(selectedGw.id, gwForm).catch(() => null);
+      await adminGatewayService.updatePaymentGateway(selectedGw.id, gwForm).catch(() => null);
       setGateways((prev) =>
         prev.map((g) => (g.id === selectedGw.id ? ({ ...g, ...gwForm } as PaymentGatewayItem) : g))
       );
@@ -120,7 +121,7 @@ export function usePaymentGateways() {
     e.preventDefault();
     setSavingTax(true);
     try {
-      const newRule: TaxRuleItem = {
+      const newRule = await adminGatewayService.createTaxRule(taxForm).catch(() => ({
         id: Date.now(),
         name: taxForm.name || 'New Tax Rule',
         country: taxForm.country || 'GLOBAL',
@@ -128,8 +129,8 @@ export function usePaymentGateways() {
         rate: Number(taxForm.rate) || 0,
         is_active: taxForm.is_active ?? true,
         apply_to_all_clients: taxForm.apply_to_all_clients ?? false,
-      };
-      await api.createTaxRule(newRule).catch(() => null);
+      } as TaxRuleItem));
+
       setTaxRules((prev) => [newRule, ...prev]);
       setTaxModalOpen(false);
       setTaxForm({ name: '', country: 'US', state: '', rate: 10, is_active: true, apply_to_all_clients: false });
@@ -141,7 +142,7 @@ export function usePaymentGateways() {
   const handleDeleteTaxRule = async (id: number) => {
     if (!confirm('Are you sure you want to delete this tax rule?')) return;
     try {
-      await api.deleteTaxRule(id).catch(() => null);
+      await adminGatewayService.deleteTaxRule(id).catch(() => null);
       setTaxRules((prev) => prev.filter((r) => r.id !== id));
     } catch (err) {
       console.error(err);

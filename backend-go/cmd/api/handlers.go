@@ -15,12 +15,15 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		GuestCurrency:  guest.NewCurrencyHandler(services.Currency),
 		GuestNews:      guest.NewNewsHandler(services.News),
 		GuestCompany:   guest.NewCompanyHandler(services.Company),
+		GuestDomain:    guest.NewDomainHandler(services.Domain),
 		ClientProfile:  client.NewProfileHandler(services.Auth, services.Password),
-		ClientOrder:    client.NewOrderHandler(repos.Order),
+		ClientOrder:    client.NewOrderHandler(services.Order),
+		ClientDomain:   client.NewDomainHandler(services.Domain),
 		ClientInvoice:  client.NewInvoiceHandler(repos.Invoice, repos.Client, services.Invoice),
 		ClientDeposit:  client.NewDepositHandler(services.Invoice),
 		ClientSupport:  client.NewSupportHandler(services.Support),
 		ClientDownload: client.NewDownloadHandler(services.Downloadable),
+		ClientLicense:  client.NewLicenseHandler(services.License),
 		ClientAPIKey:   client.NewAPIKeyHandler(services.APIKey),
 		AdminAuth:      admin.NewStaffAuthHandler(services.Staff),
 		AdminStaff:     admin.NewStaffManagementHandler(services.Staff, repos.Client, repos.Order, services.Order, services.Support),
@@ -36,3 +39,4 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		AdminSystem:    admin.NewSystemModuleHandler(),
 	}
 }
+

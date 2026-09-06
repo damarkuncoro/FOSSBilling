@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, CouponItem } from '@/lib/api';
+import { adminCouponService } from '@/services/admin_coupon.service';
+import type { CouponItem } from '@/types/api';
 
 export const defaultCoupons: CouponItem[] = [
   {
@@ -53,7 +54,7 @@ export function useCoupons() {
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      const data = await api.getCoupons().catch(() => null);
+      const data = await adminCouponService.listCoupons().catch(() => null);
       setCoupons(data && data.length > 0 ? data : defaultCoupons);
     } catch {
       setCoupons(defaultCoupons);
@@ -67,11 +68,7 @@ export function useCoupons() {
   }, []);
 
   const generateRandomCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'PROMO';
-    for (let i = 0; i < 5; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const code = adminCouponService.generateRandomCode();
     setForm((prev) => ({ ...prev, code }));
   };
 
@@ -79,7 +76,7 @@ export function useCoupons() {
     e.preventDefault();
     setSaving(true);
     try {
-      const newCoupon: CouponItem = {
+      const newCoupon = await adminCouponService.createCoupon(form).catch(() => ({
         id: Date.now(),
         code: (form.code || 'COUPON').toUpperCase(),
         type: form.type || 'percentage',
@@ -88,9 +85,8 @@ export function useCoupons() {
         used_count: 0,
         expires_at: form.expires_at || undefined,
         is_active: form.is_active ?? true,
-      };
+      } as CouponItem));
 
-      await api.createCoupon(newCoupon).catch(() => null);
       setCoupons((prev) => [newCoupon, ...prev]);
       setOpenModal(false);
       setForm(initialCouponForm);
@@ -102,7 +98,7 @@ export function useCoupons() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this coupon?')) return;
     try {
-      await api.deleteCoupon(id).catch(() => null);
+      await adminCouponService.deleteCoupon(id).catch(() => null);
       setCoupons((prev) => prev.filter((c) => c.id !== id));
     } catch (err) {
       console.error(err);

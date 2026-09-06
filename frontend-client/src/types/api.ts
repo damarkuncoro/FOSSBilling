@@ -106,6 +106,7 @@ export interface HostingPlan {
 
 export interface DomainSearchResult {
   domain: string;
+  tld?: string;
   available: boolean;
   price: number;
   currency: string;

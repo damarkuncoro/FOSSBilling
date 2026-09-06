@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '@/lib/api';
 import { useCart } from '@/lib/cart';
+import { domainService } from '@/services/domain.service';
+import { newsService } from '@/services/news.service';
 import { DomainSearchResult, HostingPlan } from '@/types/api';
 
 export const defaultHostingPlans: HostingPlan[] = [
@@ -56,26 +57,28 @@ export function useStorefront() {
   const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
-    api.guestNews().then((data) => setNews(data || [])).catch(() => {});
+    newsService.listPublishedNews().then((data) => setNews(data || [])).catch(() => {});
   }, []);
 
-  const handleDomainCheck = (e: React.FormEvent) => {
+  const handleDomainCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainSearch.trim()) return;
 
     setSearching(true);
-    setTimeout(() => {
-      let clean = domainSearch.toLowerCase().replace(/https?:\/\//, '').replace(/\/$/, '');
-      if (!clean.includes('.')) clean += '.com';
-
+    try {
+      const res = await domainService.checkAvailability(domainSearch);
       setDomainResult({
-        domain: clean,
-        available: true,
-        price: 12.99,
-        currency: 'USD',
+        domain: res.domain,
+        available: res.available,
+        price: res.price,
+        currency: res.currency,
       });
+    } catch (err) {
+      console.error('Failed to check domain availability:', err);
+      setDomainResult(null);
+    } finally {
       setSearching(false);
-    }, 400);
+    }
   };
 
   const handleAddToCart = (plan: HostingPlan) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { adminSystemService } from '@/services/admin_system.service';
 
 export function useNews() {
   const [articles, setArticles] = useState<any[]>([]);
@@ -11,7 +11,7 @@ export function useNews() {
   const fetchNews = async () => {
     setLoading(true);
     try {
-      const data = await api.getNews();
+      const data = await adminSystemService.listNewsArticles();
       setArticles(data || []);
     } catch (err) {
       console.error(err);
@@ -28,7 +28,7 @@ export function useNews() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.createNews(form);
+      await adminSystemService.createNewsArticle(form.title, form.content);
       setOpenModal(false);
       setForm({ title: '', content: '' });
       await fetchNews();
@@ -40,7 +40,7 @@ export function useNews() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this announcement?')) return;
     try {
-      await api.deleteNews(id);
+      await adminSystemService.deleteNewsArticle(id);
       await fetchNews();
     } catch (err) {
       console.error(err);

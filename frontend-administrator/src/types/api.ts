@@ -137,6 +137,92 @@ export interface SystemStatusInfo {
   uptime: string;
 }
 
+export interface StaffProfile {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at?: string;
+}
+
+export interface ClientProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  company?: string;
+  country?: string;
+  currency?: string;
+  role?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Order {
+  id: number;
+  client_id: number;
+  product_id: number;
+  server_id?: number;
+  title?: string;
+  status: string;
+  period: string;
+  price: number;
+  currency?: string;
+  config?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Invoice {
+  id: number;
+  client_id: number;
+  nr?: string;
+  serie_nr?: string;
+  status: string;
+  currency: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  due_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SupportTicket {
+  id: number;
+  client_id: number;
+  subject: string;
+  content?: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  updated_at?: string;
+  replies?: any[];
+}
+
+export interface DashboardStats {
+  active_clients: number;
+  total_orders: number;
+  active_orders?: number;
+  unpaid_invoices: number;
+  paid_invoices?: number;
+  total_revenue?: number;
+  open_tickets: number;
+  monthly_revenue: number;
+  currency?: string;
+  revenue_trends?: Array<{ month: string; revenue: number; mrr: number }>;
+}
+
+export interface SystemInfo {
+  version: string;
+  app_env: string;
+  database: string;
+  uptime?: string;
+}
+
 export interface CompanySettings {
   id?: number;
   name: string;
@@ -156,3 +242,5 @@ export interface CompanySettings {
   email_signature?: string;
   updated_at?: string;
 }
+
+

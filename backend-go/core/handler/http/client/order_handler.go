@@ -6,18 +6,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
+	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type OrderHandler struct {
-	orderRepo domain.OrderRepository
+	orderService *orderUsecase.OrderService
 }
 
-func NewOrderHandler(orderRepo domain.OrderRepository) *OrderHandler {
-	return &OrderHandler{orderRepo: orderRepo}
+func NewOrderHandler(orderService *orderUsecase.OrderService) *OrderHandler {
+	return &OrderHandler{orderService: orderService}
 }
 
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	orders, total, err := h.orderRepo.ListByClientID(r.Context(), clientID, limit, offset)
+	orders, total, err := h.orderService.ListByClientID(r.Context(), clientID, limit, offset)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve orders", err.Error())
 		return
@@ -68,18 +68,13 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, err := h.orderRepo.GetByID(r.Context(), orderID)
+	order, err := h.orderService.GetByIDForClient(r.Context(), clientID, orderID)
 	if err != nil {
 		if errors.Is(err, appErrors.ErrNotFound) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
 			return
 		}
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to get order", err.Error())
-		return
-	}
-
-	if order.ClientID != clientID {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "You do not have access to this order", nil)
 		return
 	}
 

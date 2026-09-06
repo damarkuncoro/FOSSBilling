@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { invoiceService } from '@/services/invoice.service';
 import { useClientAuth } from '@/lib/auth';
 import { Invoice } from '@/types/api';
 
@@ -14,7 +14,7 @@ export function useClientInvoices() {
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getInvoices();
+      const data = await invoiceService.listClientInvoices();
       setInvoices(data || []);
     } catch (err) {
       console.error('Failed to fetch invoices:', err);
@@ -31,7 +31,7 @@ export function useClientInvoices() {
     setPaying(true);
     setMessage(null);
     try {
-      await api.payWithBalance(id);
+      await invoiceService.payWithBalance(id);
       setMessage(`Invoice #${id} successfully paid with account balance!`);
       setPayModal(null);
       await Promise.all([fetchInvoices(), refreshProfile()]);

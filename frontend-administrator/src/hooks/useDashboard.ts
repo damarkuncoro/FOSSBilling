@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { adminStatsService } from '@/services/admin_stats.service';
+import type { DashboardStats } from '@/types/api';
 
 export const mockRevenueTrends = [
   { month: 'Jan', revenue: 12400, mrr: 8200 },
@@ -12,7 +13,7 @@ export const mockRevenueTrends = [
 ];
 
 export function useDashboard() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +21,7 @@ export function useDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getDashboardStats();
+      const data = await adminStatsService.getDashboardMetrics();
       setStats(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard metrics');

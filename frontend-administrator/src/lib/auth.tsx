@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api, getStoredToken, removeStoredToken, setStoredToken } from './api';
+import { adminAuthService } from '@/services/admin_auth.service';
+import { getStoredToken, removeStoredToken, setStoredToken } from './api';
 
 export interface StaffUser {
   id: number;
@@ -64,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await api.login(email, password);
+      const res = await adminAuthService.login(email, password);
       setStoredToken(res.token);
       setToken(res.token);
       setUser(res.staff);

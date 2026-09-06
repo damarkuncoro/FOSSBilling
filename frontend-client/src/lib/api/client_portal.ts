@@ -26,6 +26,18 @@ export const clientPortalApi = {
   getOrders: () => request<Order[]>('/client/orders'),
   getOrder: (id: number) => request<Order>(`/client/orders/${id}`),
 
+  // Client Domains
+  getDomains: () => request<any[]>('/client/domains'),
+  updateNameservers: (id: number, nameservers: string[]) =>
+    request<any>(`/client/domains/${id}/nameservers`, {
+      method: 'PUT',
+      body: JSON.stringify({ nameservers }),
+    }),
+  toggleDomainAutoRenew: (id: number) =>
+    request<any>(`/client/domains/${id}/toggle-autorenew`, {
+      method: 'POST',
+    }),
+
   // Client Invoices & Funds
   getInvoices: () => request<Invoice[]>('/client/invoices'),
   getInvoice: (id: number) => request<Invoice>(`/client/invoices/${id}`),
@@ -53,7 +65,13 @@ export const clientPortalApi = {
   closeTicket: (id: number) =>
     request<any>(`/client/support/tickets/${id}/close`, { method: 'POST' }),
 
+  // Software Licenses
+  getLicenses: () => request<any[]>('/client/licenses'),
+  resetLicenseLock: (id: number) =>
+    request<any>(`/client/licenses/${id}/reset`, { method: 'POST' }),
+
   // Digital Downloads
+  getDownloads: () => request<any[]>('/client/downloads'),
   getDownloadLink: (id: number) =>
     request<{ download_url: string; expires_at: number }>(
       `/client/downloads/${id}/link`

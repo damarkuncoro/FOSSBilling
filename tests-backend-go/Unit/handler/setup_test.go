@@ -48,7 +48,7 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	guestWebhookHandler := guest.NewWebhookHandler(webhookService)
 
 	clientProfileHandler := client.NewProfileHandler(authUc, passwordUc)
-	clientOrderHandler := client.NewOrderHandler(orderRepo)
+	clientOrderHandler := client.NewOrderHandler(orderService)
 	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService)
 	clientDepositHandler := client.NewDepositHandler(invoiceService)
 	clientSupportHandler := client.NewSupportHandler(supportService)

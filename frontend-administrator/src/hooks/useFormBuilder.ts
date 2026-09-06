@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { adminFormBuilderService } from '@/services/admin_form_builder.service';
 import type { CustomForm, FormField } from '../types/formBuilder';
 
 const initialForms: CustomForm[] = [
@@ -114,6 +115,7 @@ export function useFormBuilder() {
     saveFormsToStorage(updated);
     setSelectedForm(newForm);
     setIsNewFormModal(false);
+    adminFormBuilderService.createForm(name, description).catch(() => null);
   };
 
   const deleteForm = (id: number) => {
@@ -122,15 +124,12 @@ export function useFormBuilder() {
     if (selectedForm?.id === id) {
       setSelectedForm(updated[0] || null);
     }
+    adminFormBuilderService.deleteForm(id).catch(() => null);
   };
 
   const saveField = (field: FormField) => {
     if (!selectedForm) return;
-    const exists = selectedForm.fields.some((f) => f.id === field.id);
-    const updatedFields = exists
-      ? selectedForm.fields.map((f) => (f.id === field.id ? field : f))
-      : [...selectedForm.fields, { ...field, id: field.id || `f_${Date.now()}` }];
-
+    const updatedFields = adminFormBuilderService.buildUpdatedFieldList(selectedForm.fields, field);
     const updatedForm = { ...selectedForm, fields: updatedFields, updated_at: new Date().toISOString() };
     setSelectedForm(updatedForm);
     const updatedForms = forms.map((f) => (f.id === updatedForm.id ? updatedForm : f));

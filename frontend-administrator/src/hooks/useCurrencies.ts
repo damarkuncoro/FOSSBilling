@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
+import { adminCurrencyService } from '@/services/admin_currency.service';
+import type { CurrencyItem } from '@/repositories/admin_currency.repository';
 
 export function useCurrencies() {
-  const [currencies, setCurrencies] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<CurrencyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
   const [form, setForm] = useState({
@@ -16,7 +17,7 @@ export function useCurrencies() {
   const fetchCurrencies = async () => {
     setLoading(true);
     try {
-      const data = await api.getCurrencies();
+      const data = await adminCurrencyService.listCurrencies();
       setCurrencies(data || []);
     } catch (err) {
       console.error(err);
@@ -33,8 +34,8 @@ export function useCurrencies() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.createCurrency({
-        code: form.code.toUpperCase(),
+      await adminCurrencyService.createCurrency({
+        code: form.code,
         title: form.title,
         conversion_rate: Number(form.conversion_rate),
         format: form.format,
@@ -49,7 +50,7 @@ export function useCurrencies() {
 
   const handleSetDefault = async (code: string) => {
     try {
-      await api.setDefaultCurrency(code);
+      await adminCurrencyService.setDefault(code);
       await fetchCurrencies();
     } catch (err) {
       console.error(err);
@@ -59,7 +60,7 @@ export function useCurrencies() {
   const handleDelete = async (code: string) => {
     if (!confirm(`Are you sure you want to delete currency ${code}?`)) return;
     try {
-      await api.deleteCurrency(code);
+      await adminCurrencyService.deleteCurrency(code);
       await fetchCurrencies();
     } catch (err) {
       console.error(err);

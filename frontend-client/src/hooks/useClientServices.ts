@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { orderService } from '@/services/order.service';
+import { downloadService } from '@/services/download.service';
 import { Order } from '@/types/api';
 
 export function useClientServices() {
@@ -11,7 +12,7 @@ export function useClientServices() {
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getOrders();
+      const data = await orderService.listClientOrders();
       setOrders(data || []);
     } catch (err) {
       console.error('Failed to fetch services:', err);
@@ -26,8 +27,8 @@ export function useClientServices() {
 
   const handleGetDownload = async (id: number) => {
     try {
-      const res = await api.getDownloadLink(id);
-      setDownloadLink(res.download_url);
+      const url = await downloadService.getSecureDownloadUrl(id);
+      setDownloadLink(url);
       setDownloadModal(true);
     } catch (err: any) {
       alert(`Download generation failed: ${err.message}`);

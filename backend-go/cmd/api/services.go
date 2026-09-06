@@ -9,6 +9,8 @@ import (
 	companyUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/company"
 	currencyUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/currency"
 	downloadableUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/downloadable"
+	domainUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/domain"
+	licenseUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/license"
 	massmailUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/massmail"
 	newsUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/news"
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
@@ -16,6 +18,7 @@ import (
 	staffUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	statsUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	supportUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 )
 
@@ -34,6 +37,8 @@ type Services struct {
 	Currency     *currencyUsecase.CurrencyService
 	News         *newsUsecase.NewsService
 	Downloadable *downloadableUsecase.DownloadableService
+	Domain       *domainUsecase.DomainService
+	License      *licenseUsecase.LicenseService
 	APIKey       *apikeyUsecase.APIKeyService
 	MassMail     *massmailUsecase.MassMailService
 }
@@ -56,6 +61,8 @@ func InitServices(cfg *config.Config, repos *Repositories) *Services {
 	currencyService := currencyUsecase.NewCurrencyService(repos.Currency)
 	newsService := newsUsecase.NewNewsService(repos.News)
 	downloadService := downloadableUsecase.NewDownloadableService(repos.Downloadable, repos.Order, cfg.JWTSecret)
+	domainService := domainUsecase.NewDomainService(repos.Order, provisioning.NewRDAPRegistrarDriver())
+	licenseService := licenseUsecase.NewLicenseService(repos.Order)
 	apiKeyService := apikeyUsecase.NewAPIKeyService(repos.APIKey)
 	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, mailer.NewMockMailer(), "admin@fossbilling.org", "FOSSBilling")
 
@@ -73,6 +80,8 @@ func InitServices(cfg *config.Config, repos *Repositories) *Services {
 		Currency:     currencyService,
 		News:         newsService,
 		Downloadable: downloadService,
+		Domain:       domainService,
+		License:      licenseService,
 		APIKey:       apiKeyService,
 		MassMail:     massMailService,
 	}

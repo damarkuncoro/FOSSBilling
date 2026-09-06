@@ -93,3 +93,20 @@ func (h *DownloadHandler) StreamFile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("MOCK_BINARY_DATA_FOR_" + file.Filename))
 }
+
+func (h *DownloadHandler) ListDownloads(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	if clientID == 0 {
+		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
+		return
+	}
+
+	downloads, err := h.downloadService.ListClientDownloads(r.Context(), clientID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, downloads, nil)
+}
+

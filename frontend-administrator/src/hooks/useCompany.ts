@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, CompanySettings } from '@/lib/api';
+import { adminCompanyService } from '@/services/admin_company.service';
+import type { CompanySettings } from '@/types/api';
 
 export const initialCompanyState: CompanySettings = {
   name: '',
@@ -30,7 +31,7 @@ export function useCompany() {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const data = await api.getCompany();
+      const data = await adminCompanyService.getCompany();
       if (data) {
         setForm({
           name: data.name || '',
@@ -77,7 +78,7 @@ export function useCompany() {
     setErrorMessage(null);
 
     try {
-      const res = await api.updateCompany(form);
+      const res = await adminCompanyService.updateCompany(form);
       if (res) {
         setForm((prev) => ({ ...prev, updated_at: res.updated_at }));
       }

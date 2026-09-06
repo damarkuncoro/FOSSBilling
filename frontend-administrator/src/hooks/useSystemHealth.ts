@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, SystemStatusInfo } from '@/lib/api';
+import { adminSystemService } from '@/services/admin_system.service';
+import type { SystemStatusInfo } from '@/types/api';
 
 export const defaultStatus: SystemStatusInfo = {
   engine_version: 'FOSSBilling Next-Gen v0.9.0',
@@ -33,7 +34,7 @@ export function useSystemHealth() {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const data = await api.getSystemStatus().catch(() => null);
+      const data = await adminSystemService.getSystemStatus().catch(() => null);
       setStatus(data || defaultStatus);
     } catch {
       setStatus(defaultStatus);
@@ -50,10 +51,9 @@ export function useSystemHealth() {
     setRunningCron(true);
     setActionMessage(null);
     try {
-      const res = await api.triggerCron().catch(() => ({
+      const res = await adminSystemService.triggerCron().catch(() => ({
         success: true,
         message: 'Cron job executed successfully. 0 invoices generated, 0 services suspended.',
-        timestamp: new Date().toLocaleTimeString(),
       }));
       setActionMessage({ success: true, text: res.message });
       setStatus((prev) => ({ ...prev, cron_last_run: 'Just now' }));
@@ -68,8 +68,11 @@ export function useSystemHealth() {
     setClearingCache(true);
     setActionMessage(null);
     try {
-      await api.clearSystemCache().catch(() => null);
-      setActionMessage({ success: true, text: 'System cache & compiled templates cleared successfully!' });
+      const res = await adminSystemService.clearCache().catch(() => ({
+        success: true,
+        message: 'System cache & compiled templates cleared successfully!',
+      }));
+      setActionMessage({ success: true, text: res.message });
     } catch {
       setActionMessage({ success: false, text: 'Failed to clear system cache' });
     } finally {

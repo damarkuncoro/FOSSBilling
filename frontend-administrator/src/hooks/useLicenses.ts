@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { adminLicenseService } from '@/services/admin_license.service';
 import type { SoftwareLicense, LicenseValidationLog } from '../types/licenses';
 
 const initialLicenses: SoftwareLicense[] = [
@@ -59,16 +60,13 @@ const initialLogs: LicenseValidationLog[] = [
 
 export function useLicenses() {
   const [licenses, setLicenses] = useState<SoftwareLicense[]>(initialLicenses);
-  const [logs, setLogs] = useState<LicenseValidationLog[]>(initialLogs);
+  const [logs] = useState<LicenseValidationLog[]>(initialLogs);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedLicense, setSelectedLicense] = useState<SoftwareLicense | null>(null);
 
-  const generateKey = (prefix = 'FOSS') => {
-    const part = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}-${part()}-${part()}-${part()}-${part()}`;
-  };
+  const generateKey = (prefix = 'FOSS') => adminLicenseService.generateKey(prefix);
 
   const createLicense = (data: Partial<SoftwareLicense>) => {
     const newLic: SoftwareLicense = {
@@ -78,7 +76,7 @@ export function useLicenses() {
       product_id: data.product_id || 1,
       product_title: data.product_title || 'Software License',
       license_key: data.license_key || generateKey(),
-      status: 'active',
+      status: 'active' as const,
       licensed_domain: data.licensed_domain || '',
       licensed_ip: data.licensed_ip || '',
       version: data.version || '1.0.0',
@@ -90,6 +88,7 @@ export function useLicenses() {
     };
     setLicenses((prev) => [newLic, ...prev]);
     setIsAddOpen(false);
+    adminLicenseService.createLicense(newLic).catch(() => null);
   };
 
   const toggleStatus = (id: number) => {
@@ -113,16 +112,12 @@ export function useLicenses() {
     setLicenses((prev) =>
       prev.map((l) => (l.id === id ? { ...l, licensed_domain: '', licensed_ip: '', updated_at: new Date().toISOString() } : l))
     );
+    adminLicenseService.resetLock(id).catch(() => null);
   };
 
-  const filteredLicenses = licenses.filter((l) => {
-    const matchesSearch =
-      l.license_key.toLowerCase().includes(search.toLowerCase()) ||
-      l.client_name.toLowerCase().includes(search.toLowerCase()) ||
-      (l.licensed_domain && l.licensed_domain.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredLicenses = useMemo(() => {
+    return adminLicenseService.filterLicenses(licenses, search, statusFilter);
+  }, [licenses, search, statusFilter]);
 
   return {
     licenses: filteredLicenses,

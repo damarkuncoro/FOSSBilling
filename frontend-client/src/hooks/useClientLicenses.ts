@@ -1,30 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ClientLicense } from '../types/clientModules';
+import { licenseService } from '../services/license.service';
 
-const initialLicenses: ClientLicense[] = [
-  {
-    id: 1,
-    product_title: 'SaaS Billing Enterprise Edition',
-    license_key: 'FOSS-ENT-8842-991A-BC72-9104',
-    status: 'active',
-    licensed_domain: 'billing.example.com',
-    licensed_ip: '198.51.100.24',
-    max_instances: 5,
-    expires_at: '2027-12-31T23:59:59Z',
-  },
-];
-
-export function useClientLicenses() {
-  const [licenses, setLicenses] = useState<ClientLicense[]>(initialLicenses);
+export function useClientLicenses(initial: ClientLicense[] = []) {
+  const [licenses, setLicenses] = useState<ClientLicense[]>(initial);
+  const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  const fetchLicenses = async () => {
+    try {
+      setLoading(true);
+      const res = await licenseService.listClientLicenses();
+      if (res && Array.isArray(res)) {
+        setLicenses(res);
+      } else {
+        setLicenses([]);
+      }
+    } catch {
+      // Retain current state if offline or mocked
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLicenses();
+  }, []);
+
   const copyKey = (key: string) => {
-    navigator.clipboard.writeText(key);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(key);
+    }
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const resetLock = (id: number) => {
+  const resetLock = async (id: number) => {
+    try {
+      await licenseService.resetLicenseLock(id);
+    } catch {
+      // Optimistic fallback
+    }
     setLicenses((prev) =>
       prev.map((l) => (l.id === id ? { ...l, licensed_domain: '', licensed_ip: '' } : l))
     );
@@ -32,8 +48,12 @@ export function useClientLicenses() {
 
   return {
     licenses,
+    loading,
     copiedKey,
     copyKey,
     resetLock,
+    refreshLicenses: fetchLicenses,
+    setLicenses,
   };
 }
+

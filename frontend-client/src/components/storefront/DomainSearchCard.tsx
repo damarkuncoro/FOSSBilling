@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Check, ArrowRight } from 'lucide-react';
+import { Search, Check, X, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -47,26 +47,49 @@ export const DomainSearchCard: React.FC<DomainSearchCardProps> = ({
       {domainResult && (
         <div className="mt-4 p-4 rounded-xl border bg-card flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-              <Check className="h-5 w-5" />
+            <div
+              className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${
+                domainResult.available
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+              }`}
+            >
+              {domainResult.available ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
             </div>
             <div className="text-left">
               <p className="font-bold text-base">{domainResult.domain}</p>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                ✓ Domain is available for registration!
+              <p
+                className={`text-xs font-semibold ${
+                  domainResult.available
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-rose-600 dark:text-rose-400'
+                }`}
+              >
+                {domainResult.available
+                  ? '✓ Domain is available for registration!'
+                  : '✕ Domain is already registered / taken.'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-lg font-bold">
-              {formatMoney(domainResult.price, domainResult.currency)}/year
-            </span>
-            <Button size="sm" onClick={onAddToCart} className="gap-1 font-semibold">
-              Add to Cart
-            </Button>
-          </div>
+          {domainResult.available ? (
+            <div className="flex items-center gap-4">
+              <span className="text-lg font-bold">
+                {formatMoney(domainResult.price, domainResult.currency)}/year
+              </span>
+              <Button size="sm" onClick={onAddToCart} className="gap-1 font-semibold">
+                Add to Cart
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-medium">
+                Unavailable
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+

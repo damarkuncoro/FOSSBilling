@@ -239,16 +239,19 @@ CREATE TABLE IF NOT EXISTS promo_redemptions (
 
 -- 15. Currencies Table
 CREATE TABLE IF NOT EXISTS currencies (
-    code VARCHAR(3) PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(3) NOT NULL UNIQUE,
     title VARCHAR(50) NOT NULL,
-    symbol VARCHAR(10) NOT NULL,
     conversion_rate NUMERIC(18, 6) NOT NULL DEFAULT 1.000000,
+    format VARCHAR(50) DEFAULT '{{price}} {{code}}',
+    price_format VARCHAR(50) DEFAULT '1',
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_currencies_default ON currencies(is_default);
+CREATE INDEX idx_currencies_code ON currencies(code);
 
 -- 16. News Posts Table
 CREATE TABLE IF NOT EXISTS news_posts (
@@ -257,13 +260,14 @@ CREATE TABLE IF NOT EXISTS news_posts (
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
     content TEXT NOT NULL,
-    published BOOLEAN NOT NULL DEFAULT TRUE,
+    status VARCHAR(50) NOT NULL DEFAULT 'published',
+    published_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_news_slug ON news_posts(slug);
-CREATE INDEX idx_news_published ON news_posts(published);
+CREATE INDEX idx_news_status ON news_posts(status);
 
 -- 17. Downloadable Files Table
 CREATE TABLE IF NOT EXISTS downloadable_files (

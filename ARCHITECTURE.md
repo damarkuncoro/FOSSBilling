@@ -4,41 +4,82 @@ Dokumen ini menjelaskan arsitektur teknis modern, pemisahan dependensi (*Separat
 
 ---
 
-## 🏛️ 1. Prinsip Arsitektur Utama (Clean Architecture)
+## 🏛️ 1. Prinsip Arsitektur Utama (Clean Architecture & DDD)
 
-Sistem dibangun mengikuti prinsip **Clean Architecture** dan **SOLID Principles**:
+Sistem dibangun mengikuti prinsip **Clean Architecture**, **Domain-Driven Design (DDD)**, dan **SOLID Principles** dengan pemisahan tanggung jawab yang ketat antar layer:
 
 ```
-+-------------------------------------------------------------------------+
-|                              Transport Layer                            |
-|    - HTTP Handlers (Guest, Client, Admin)                               |
-|    - Background Task Workers / Cron Jobs                                |
-+-------------------------------------------------------------------------+
-                                    │
-                                    ▼
-+-------------------------------------------------------------------------+
-|                              Usecase Layer                              |
-|    - Auth, Billing, Cart, Order, Support, Stats, MassMail, APIKey, etc. |
-+-------------------------------------------------------------------------+
-                                    │
-                                    ▼
-+-------------------------------------------------------------------------+
-|                               Domain Layer                              |
-|    - Core Entities (Client, Order, Invoice, Staff, Promo, Currency)     |
-|    - Domain Repository Interfaces & Value Objects (decimal.Money)        |
-+-------------------------------------------------------------------------+
-                                    │
-                                    ▼
-+-------------------------------------------------------------------------+
-|                            Infrastructure Layer                         |
-|    - PostgreSQL Repositories / In-Memory Mock Repositories              |
-|    - Payment Gateways, Provisioning Drivers, Email Notification Drivers |
-+-------------------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           1. Presentation Layer                         │
+│   - HTTP Handlers: Guest, Client, Admin (100% Bebas Akses Repo Langsung)│
+│   - Background Task Workers / Cron Jobs                                 │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ (Hanya memanggil Services / Use Cases)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    2. Service / Use Case Domain Layer                   │
+│   - Auth, Billing, Cart, Order, Domain, License, Support, Stats, etc.  │
+│   - Mengenkapsulasi seluruh Business Logic, Validasi, dan Orchestration │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ (Injeksi Repository & Driver Interfaces)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            3. Core Domain Layer                         │
+│   - Core Entities (Client, Order, Invoice, Staff, Promo, Currency)      │
+│   - Repository Interfaces & Value Objects (decimal.Money)               │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ (Dikonkretkan oleh Infrastructure)
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       4. Infrastructure & Driver Layer                  │
+│   - PostgreSQL Data Repositories & In-Memory Test Repositories          │
+│   - Payment Gateways, RDAP/WHOIS Drivers, Provisioners, Mail Drivers   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🏗️ 2. Builder Patterns
+## 🧩 2. Pemisahan Tegas Repository dan Services
+
+Setiap layer memiliki batas yang jelas untuk mencegah kebocoran abstraksi (*leaky abstraction*):
+
+### A. Service & Use Case Layer (`core/usecase/`)
+* **`DomainService`** (`core/usecase/domain/domain_service.go`): Mengatur pengecekan ketersediaan domain secara real-time via RDAP/DNS, manajemen nameserver, toggle perpanjangan otomatis (*auto-renew*), dan penerbitan kode transfer EPP.
+* **`LicenseService`** (`core/usecase/license/license_service.go`): Mengatur siklus lisensi enterprise, reset IP/Domain Lock, dan regenerasi kunci kriptografis lisensi.
+* **`OrderService`** (`core/usecase/order/order_service.go`): Mengatur siklus hidup pesanan (`Activate`, `Suspend`, `Unsuspend`, `Renew`, `Cancel`, `ListByClientID`).
+* **`InvoiceService`** (`core/usecase/billing/invoice_service.go`): Mengatur kalkulasi pajak berjenjang, pembuatan invoice, dan pembayaran dengan saldo akun.
+* **`CartService`** (`core/usecase/cart/cart_service.go`): Mengatur validasi keranjang belanja, kalkulasi voucher promo, dan alur checkout.
+
+### B. HTTP Presentation Layer (`core/handler/http/`)
+* **Nol Akses Repository:** Semua handler HTTP (`guest`, `client`, `admin`) **hanya menerima Service/UseCase** melalui *Constructor Injection*. Tidak ada handler yang mengakses database repository secara langsung.
+
+### C. Frontend Client Architecture (`frontend-client/src/`)
+Frontend klien mengadopsi pola Clean Architecture yang selaras:
+* **Repository Layer (`src/repositories/`):** Mengabstraksi komunikasi HTTP/REST, serialisasi data, dan penanganan status error HTTP (`domain.repository.ts`, `auth.repository.ts`, `invoice.repository.ts`, `order.repository.ts`, `license.repository.ts`, `support.repository.ts`, `cart.repository.ts`, `download.repository.ts`, `news.repository.ts`, `company.repository.ts`).
+* **Service Layer (`src/services/`):** Mengenkapsulasi logika bisnis frontend, sanitasi input, normalisasi domain, validasi password/form, format mata uang, serta orkestrasi multi-repository (`domain.service.ts`, `auth.service.ts`, `invoice.service.ts`, `order.service.ts`, `license.service.ts`, `support.service.ts`, `cart.service.ts`, `download.service.ts`, `news.service.ts`, `company.service.ts`).
+* **Presentation Hooks Layer (`src/hooks/`):** React Custom Hooks (`useClientDomains`, `useStorefront`, `useClientInvoices`, dll) hanya mengonsumsi **Services**, bukan raw endpoint API.
+
+### D. Frontend Administrator Architecture (`frontend-administrator/src/`)
+Frontend portal admin mengadopsi struktur arsitektural yang konsisten:
+* **Repository Layer (`src/repositories/`):** Mengisolasi endpoint administrasi (`admin_auth.repository.ts`, `admin_client.repository.ts`, `admin_order.repository.ts`, `admin_invoice.repository.ts`, `admin_support.repository.ts`, `admin_stats.repository.ts`, `admin_system.repository.ts`, `admin_massmail.repository.ts`).
+* **Service Layer (`src/services/`):** Mengenkapsulasi kontrol siklus pesanan admin (aktivasi, penangguhan, pembatalan), pembuatan invoice manual, balasan tiket support, penyesuaian kurs mata uang, dan broadcast email massal (`admin_auth.service.ts`, `admin_client.service.ts`, `admin_order.service.ts`, `admin_invoice.service.ts`, `admin_support.service.ts`, `admin_stats.service.ts`, `admin_system.service.ts`, `admin_massmail.service.ts`).
+* **Presentation Hooks Layer (`src/hooks/`):** Custom Hooks admin (`useOrders`, `useClients`, `useInvoices`, `useSupport`, `useCurrencies`, dll) mengonsumsi Services.
+
+---
+
+## 🌐 3. Domain Registrar & RDAP Lookup Driver
+
+Sistem provisioning domain modern mengimplementasikan antarmuka `RegistrarDriver`:
+
+* **`RDAPRegistrarDriver`** (`core/service/provisioning/rdap_registrar.go`):
+  * Melakukan lookup ketersediaan domain real-time mengikuti spesifikasi **RFC 7480/7484 (RDAP - Registration Data Access Protocol)**.
+  * Mendukung endpoint resmi ICANN, Verisign (`.com`, `.net`), PIR (`.org`), serta PANDI (`.id`, `.co.id`).
+  * **Smart DNS Fallback:** Jika registry RDAP tidak merespons, sistem secara otomatis melakukan resolusi DNS (`net.LookupNS` dan `net.LookupIP`) untuk menentukan kepemilikan domain secara akurat.
+  * Terintegrasi dengan **`OrderListener`** untuk memicu registrasi domain dan penerbitan kode otorisasi EPP secara instan setelah pembayaran invoice diselesaikan.
+
+---
+
+## 🏗️ 4. Builder Patterns
 
 Pola **Builder** digunakan untuk merakit entitas domain yang memiliki banyak parameter opsional, kalkulasi bertingkat, atau lampiran file:
 
@@ -67,7 +108,7 @@ Fluent builder untuk merakit pesan email transaksional lengkap dengan header MIM
 
 ---
 
-## 🏭 3. Factory Patterns
+## 🏭 5. Factory Patterns
 
 Pola **Factory** digunakan untuk menginstansiasi adapter driver pihak ketiga secara dinamis berdasarkan konfigurasi yang tersimpan di basis data tanpa *hardcoded branching*:
 
@@ -77,6 +118,7 @@ Menginstansiasi driver server provisioning:
 * `DirectAdmin`
 * `Plesk`
 * `License Engine`
+* `RDAP Registrar`
 
 ### B. `PaymentGatewayFactory` (`core/service/payment/gateways/factory.go`)
 Menginstansiasi driver gateway pembayaran:
@@ -87,36 +129,36 @@ Menginstansiasi driver gateway pembayaran:
 
 ---
 
-## 🔌 4. Registry & Driver Adapters
+## 🔌 6. Registry & Driver Adapters
 
 Menggunakan thread-safe Registry untuk registrasi runtime dan lookup driver:
 
 1. **`GatewayRegistry`** (`core/service/payment/registry.go`): Agregasi driver pembayaran.
-2. **`ProvisionerRegistry`** (`core/service/provisioning/registry.go`): Agregasi driver server hosting.
+2. **`ProvisionerRegistry`** (`core/service/provisioning/registry.go`): Agregasi driver server hosting dan registrar.
 3. **`DriverRegistry`** (`core/service/notification/driver.go`): Agregasi driver email (`SMTP`, `Resend`, `SendGrid`, `Mock`).
 
 ---
 
-## 📡 5. Event-Driven Architecture (Listeners)
+## 📡 7. Event-Driven Architecture (Listeners)
 
 Menggunakan publish-subscribe event bus untuk mengisolasi efek samping (*side-effects*) dari alur usecase utama:
 
 * **`ClientListener`** (`core/listener/client_listener.go`): Mendengarkan event `client.registered` $\to$ Mengirim email sambutan secara otomatis.
 * **`InvoiceListener`** (`core/listener/invoice_listener.go`): Mendengarkan event `invoice.paid` $\to$ Mengirimkan kuitansi PDF lunas.
-* **`OrderListener`** (`core/listener/order_listener.go`): Mendengarkan event `order.activated` $\to$ Mengirimkan rincian akses layanan aktif kepada pengguna.
+* **`OrderListener`** (`core/listener/order_listener.go`): Mendengarkan event `order.activated` $\to$ Memproses otomatisasi provisioning server / registrasi domain / penerbitan lisensi dan mengirim notifikasi akses ke pengguna.
 
 ---
 
-## 🐳 6. Multi-Environment Deployments
+## 🐳 8. Multi-Environment Deployments & Reverse Proxy
 
-Konfigurasi Docker Compose telah dipisahkan sesuai kebutuhan lingkungan:
+* **Nginx Reverse Proxy:** Dilengkapi dengan `resolver 127.0.0.11 valid=5s` untuk resolusi dynamic upstream IP di jaringan Docker internal agar tidak mengalami *stale IP cache* (502 Bad Gateway) saat API container di-restart.
 * **`deploy/docker-compose.dev.yml`**: Volume live reload untuk development cepat.
 * **`deploy/docker-compose.prod.yml`**: Production stack terisolasi (PostgreSQL 16, Redis, Minimal Go Binaries, Nginx SPA).
 * **`deploy/docker-compose.test.yml`**: Ephemeral database untuk test pipeline CI/CD.
 
 ---
 
-## 🧪 7. Perintah Pengujian & Build
+## 🧪 9. Perintah Pengujian & Build
 
 ```bash
 # Jalankan seluruh unit & integration test suites

@@ -95,7 +95,7 @@ func (r *OrderRepository) ListDueOrders(ctx context.Context, dueBefore time.Time
 }
 
 func (r *OrderRepository) ListOverdueSuspensions(ctx context.Context, overdueDays int) ([]*domain.Order, error) {
-	query := fmt.Sprintf(`SELECT %s FROM client_orders WHERE status = 'active' AND expires_at < (CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL)`, orderCols)
+	query := fmt.Sprintf(`SELECT %s FROM client_orders WHERE status = 'active' AND expires_at < (CURRENT_TIMESTAMP - ($1 * INTERVAL '1 day'))`, orderCols)
 	rows, err := r.pool.Query(ctx, query, overdueDays)
 	if err != nil { return nil, err }
 	defer rows.Close()

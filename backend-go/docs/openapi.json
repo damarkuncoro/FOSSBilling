@@ -106,6 +106,19 @@
         }
       }
     },
+    "/guest/domains/check": {
+      "get": {
+        "tags": ["Guest Domains"],
+        "summary": "Check domain availability via authoritative RDAP and DNS lookup",
+        "parameters": [
+          { "name": "domain", "in": "query", "required": true, "schema": { "type": "string", "example": "mybrand2026.com" } }
+        ],
+        "responses": {
+          "200": { "description": "Availability status and TLD pricing" },
+          "400": { "description": "Invalid domain format or missing parameter" }
+        }
+      }
+    },
     "/client/profile": {
       "get": {
         "tags": ["Client Profile"],
@@ -122,6 +135,89 @@
         "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": { "description": "Profile updated" }
+        }
+      }
+    },
+    "/client/domains": {
+      "get": {
+        "tags": ["Client Domains"],
+        "summary": "List client active registered domains",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of active domains" }
+        }
+      }
+    },
+    "/client/domains/{id}/nameservers": {
+      "put": {
+        "tags": ["Client Domains"],
+        "summary": "Update domain DNS nameservers",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nameservers"],
+                "properties": {
+                  "nameservers": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Nameservers updated successfully" }
+        }
+      }
+    },
+    "/client/domains/{id}/toggle-autorenew": {
+      "post": {
+        "tags": ["Client Domains"],
+        "summary": "Toggle domain auto renewal status",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Auto renew status toggled" }
+        }
+      }
+    },
+    "/client/licenses": {
+      "get": {
+        "tags": ["Client Licenses"],
+        "summary": "List active software licenses and binding configuration",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of client software licenses" }
+        }
+      }
+    },
+    "/client/licenses/{id}/reset": {
+      "post": {
+        "tags": ["Client Licenses"],
+        "summary": "Reset domain/IP validation lock for a software license",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "License lock reset successfully" }
+        }
+      }
+    },
+    "/client/downloads": {
+      "get": {
+        "tags": ["Client Downloads"],
+        "summary": "List downloadable digital assets with active service verification",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of accessible downloadable assets" }
         }
       }
     },

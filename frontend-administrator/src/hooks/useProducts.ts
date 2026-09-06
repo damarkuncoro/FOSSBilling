@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { api, ProductItem, ProductCategory } from '@/lib/api';
+import { adminProductService } from '@/services/admin_product.service';
+import type { ProductItem, ProductCategory } from '@/types/api';
 
 export const defaultProducts: ProductItem[] = [
   {
@@ -93,9 +94,9 @@ export function useProducts() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await api.getProducts().catch(() => null);
+      const data = await adminProductService.listProducts().catch(() => null);
       setProducts(data && data.length > 0 ? data : defaultProducts);
-      const catData = await api.getProductCategories().catch(() => []);
+      const catData = await adminProductService.listCategories().catch(() => []);
       setCategories(catData || []);
     } catch {
       setProducts(defaultProducts);
@@ -120,7 +121,7 @@ export function useProducts() {
     e.preventDefault();
     setSaving(true);
     try {
-      const newProduct: ProductItem = {
+      const created = await adminProductService.createProduct(form).catch(() => ({
         id: Date.now(),
         title: form.title || 'Untitled Product',
         slug: form.slug || 'product-' + Date.now(),
@@ -132,10 +133,9 @@ export function useProducts() {
         setup_fee: Number(form.setup_fee) || 0,
         is_active: form.is_active ?? true,
         stock: Number(form.stock) || 0,
-      };
+      } as ProductItem));
 
-      await api.createProduct(newProduct).catch(() => null);
-      setProducts((prev) => [newProduct, ...prev]);
+      setProducts((prev) => [created, ...prev]);
       setOpenModal(false);
       setForm(initialProductForm);
     } finally {
@@ -146,7 +146,7 @@ export function useProducts() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to remove this product?')) return;
     try {
-      await api.deleteProduct(id).catch(() => null);
+      await adminProductService.deleteProduct(id).catch(() => null);
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       console.error(err);
@@ -160,14 +160,7 @@ export function useProducts() {
   };
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesSearch =
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.slug.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = selectedType === 'all' || p.type === selectedType;
-      return matchesSearch && matchesType;
-    });
+    return adminProductService.filterProducts(products, searchQuery, selectedType);
   }, [products, searchQuery, selectedType]);
 
   return {

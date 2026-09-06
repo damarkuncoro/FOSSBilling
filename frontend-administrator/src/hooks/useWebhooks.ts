@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { adminWebhookService } from '@/services/admin_webhook.service';
 import type { WebhookEndpoint, WebhookDeliveryLog } from '../types/webhooks';
 
 export const AVAILABLE_EVENTS = [
@@ -71,6 +72,7 @@ export function useWebhooks() {
     };
     setWebhooks((prev) => [newWh, ...prev]);
     setIsAddModal(false);
+    adminWebhookService.createWebhook(data.name, data.url, data.events).catch(() => null);
   };
 
   const toggleWebhook = (id: number) => {
@@ -81,6 +83,7 @@ export function useWebhooks() {
 
   const deleteWebhook = (id: number) => {
     setWebhooks((prev) => prev.filter((wh) => wh.id !== id));
+    adminWebhookService.deleteWebhook(id).catch(() => null);
   };
 
   const triggerTestPayload = (id: number) => {
@@ -108,6 +111,7 @@ export function useWebhooks() {
         )
       );
       setTestingWebhookId(null);
+      adminWebhookService.triggerTestPing(id).catch(() => null);
     }, 600);
   };
 

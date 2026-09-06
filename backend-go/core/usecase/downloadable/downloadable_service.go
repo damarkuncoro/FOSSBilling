@@ -113,3 +113,67 @@ func (s *DownloadableService) VerifyAndGetFile(ctx context.Context, clientID, fi
 	return file, nil
 }
 
+type ClientDownloadDTO struct {
+	ID                    int64     `json:"id"`
+	Title                 string    `json:"title"`
+	Category              string    `json:"category"`
+	Version               string    `json:"version"`
+	FileSize              string    `json:"file_size"`
+	Description           string    `json:"description"`
+	RequiresActiveService bool      `json:"requires_active_service"`
+	DownloadURL           string    `json:"download_url"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+func formatBytes(bytes int64) string {
+	if bytes >= 1024*1024*1024 {
+		return fmt.Sprintf("%.1f GB", float64(bytes)/(1024*1024*1024))
+	}
+	if bytes >= 1024*1024 {
+		return fmt.Sprintf("%.1f MB", float64(bytes)/(1024*1024))
+	}
+	if bytes >= 1024 {
+		return fmt.Sprintf("%.1f KB", float64(bytes)/1024)
+	}
+	return fmt.Sprintf("%d B", bytes)
+}
+
+func (s *DownloadableService) ListClientDownloads(ctx context.Context, clientID int64) ([]ClientDownloadDTO, error) {
+	files, err := s.downloadRepo.ListByClientID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ClientDownloadDTO, 0, len(files))
+	for _, f := range files {
+		sizeStr := formatBytes(f.FileSize)
+		if f.FileSize <= 0 {
+			sizeStr = "N/A"
+		}
+
+		expiresAt := time.Now().UTC().Add(24 * time.Hour)
+		expUnix := expiresAt.Unix()
+		raw := fmt.Sprintf("%d:%d:%d", clientID, f.ID, expUnix)
+		h := hmac.New(sha256.New, []byte(s.jwtSecret))
+		h.Write([]byte(raw))
+		signature := hex.EncodeToString(h.Sum(nil))
+		downloadURL := fmt.Sprintf("/api/v1/client/downloads/%d/file?client_id=%d&expires=%d&sig=%s",
+			f.ID, clientID, expUnix, signature)
+
+		result = append(result, ClientDownloadDTO{
+			ID:                    f.ID,
+			Title:                 f.Filename,
+			Category:              "Digital Goods",
+			Version:               f.Version,
+			FileSize:              sizeStr,
+			Description:           "Product download file for " + f.Filename,
+			RequiresActiveService: true,
+			DownloadURL:           downloadURL,
+			UpdatedAt:             f.UpdatedAt,
+		})
+	}
+
+	return result, nil
+}
+
+

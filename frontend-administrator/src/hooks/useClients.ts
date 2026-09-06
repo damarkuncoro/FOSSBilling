@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { api } from '@/lib/api';
+import { adminClientService } from '@/services/admin_client.service';
+import type { ClientProfile } from '@/types/api';
 
 export interface CreateClientInput {
   first_name: string;
@@ -13,7 +14,7 @@ export interface CreateClientInput {
 }
 
 export function useClients() {
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
@@ -21,7 +22,7 @@ export function useClients() {
   const fetchClients = async () => {
     setLoading(true);
     try {
-      const data = await api.getClients();
+      const data = await adminClientService.listClients();
       setClients(data || []);
     } catch (err) {
       console.error(err);
@@ -33,7 +34,7 @@ export function useClients() {
   const createClient = async (input: CreateClientInput): Promise<boolean> => {
     setSaving(true);
     try {
-      const newClient = await api.createClient(input);
+      const newClient = await adminClientService.createClient(input as any);
       setClients((prev) => [newClient, ...prev]);
       return true;
     } catch (err) {
@@ -47,7 +48,7 @@ export function useClients() {
   const updateClient = async (id: number, input: Partial<CreateClientInput>): Promise<boolean> => {
     setSaving(true);
     try {
-      const updated = await api.updateClient(id, input);
+      const updated = await adminClientService.updateClient(id, input as any);
       setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
       return true;
     } catch (err) {
@@ -61,7 +62,7 @@ export function useClients() {
   const deleteClient = async (id: number): Promise<boolean> => {
     setSaving(true);
     try {
-      await api.deleteClient(id);
+      await adminClientService.deleteClient(id);
       setClients((prev) => prev.filter((c) => c.id !== id));
       return true;
     } catch (err) {
@@ -77,13 +78,7 @@ export function useClients() {
   }, []);
 
   const filtered = useMemo(() => {
-    return clients.filter(
-      (c) =>
-        c.email?.toLowerCase().includes(search.toLowerCase()) ||
-        c.first_name?.toLowerCase().includes(search.toLowerCase()) ||
-        c.last_name?.toLowerCase().includes(search.toLowerCase()) ||
-        c.company?.toLowerCase().includes(search.toLowerCase())
-    );
+    return adminClientService.filterClients(clients, search);
   }, [clients, search]);
 
   return {

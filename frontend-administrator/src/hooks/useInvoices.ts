@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { adminInvoiceService } from '@/services/admin_invoice.service';
+import { adminClientService } from '@/services/admin_client.service';
+import { adminStatsService } from '@/services/admin_stats.service';
+import type { Invoice, ClientProfile, DashboardStats } from '@/types/api';
 
 export function useInvoices() {
-  const [stats, setStats] = useState<any>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
       const [invData, clientData, statsData] = await Promise.allSettled([
-        api.getInvoices(),
-        api.getClients(),
-        api.getDashboardStats(),
+        adminInvoiceService.listInvoices(),
+        adminClientService.listClients(),
+        adminStatsService.getDashboardMetrics(),
       ]);
 
       if (invData.status === 'fulfilled' && Array.isArray(invData.value)) {
@@ -35,7 +38,7 @@ export function useInvoices() {
   const exportInvoicesToCSV = useCallback(() => {
     if (!invoices.length) return;
     const headers = ['Invoice ID', 'Serie Nr', 'Client ID', 'Subtotal', 'Tax', 'Total', 'Currency', 'Status', 'Created At', 'Due At'];
-    const rows = invoices.map((inv) => [
+    const rows = invoices.map((inv: any) => [
       inv.id,
       inv.nr || inv.serie_nr || `INV${inv.id}`,
       inv.client_id,
@@ -58,6 +61,13 @@ export function useInvoices() {
     document.body.removeChild(link);
   }, [invoices]);
 
+  const createInvoice = useCallback(async (arg1: any, arg2?: any) => {
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      return adminInvoiceService.createInvoice(arg1.client_id, arg1.items);
+    }
+    return adminInvoiceService.createInvoice(arg1, arg2);
+  }, []);
+
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
@@ -69,6 +79,6 @@ export function useInvoices() {
     loading,
     fetchInvoices,
     exportInvoicesToCSV,
-    createInvoice: api.createInvoice,
+    createInvoice,
   };
 }
