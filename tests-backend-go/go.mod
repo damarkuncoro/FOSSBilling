@@ -1,6 +1,6 @@
 module github.com/damarkuncoro/FOSSBilling/tests-backend-go
 
-go 1.25
+go 1.22
 
 require (
 	github.com/damarkuncoro/FOSSBilling/backend-go v0.0.0
