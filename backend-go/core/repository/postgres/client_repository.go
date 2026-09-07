@@ -64,9 +64,15 @@ func (r *ClientRepository) Create(ctx context.Context, c *domain.Client) error {
 	query := `INSERT INTO clients (group_id, email, password_hash, first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone_cc, phone, currency, tax_exempt, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id, created_at, updated_at`
 	now := time.Now().UTC()
 	c.CreatedAt, c.UpdatedAt = now, now
-	if c.Status == "" { c.Status = domain.ClientStatusActive }
-	if c.Currency == "" { c.Currency = "USD" }
-	if c.Country == "" { c.Country = "US" }
+	if c.Status == "" {
+		c.Status = domain.ClientStatusActive
+	}
+	if c.Currency == "" {
+		c.Currency = "USD"
+	}
+	if c.Country == "" {
+		c.Country = "US"
+	}
 
 	return r.pool.QueryRow(ctx, query,
 		c.GroupID, c.Email, c.PasswordHash, c.FirstName, c.LastName, c.Company,
@@ -130,4 +136,3 @@ func (r *ClientRepository) Delete(ctx context.Context, id int64) error {
 	}
 	return nil
 }
-

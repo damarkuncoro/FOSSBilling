@@ -84,4 +84,3 @@ const serviceActivatedTemplate = `
   </div>
 </body>
 </html>`
-

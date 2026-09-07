@@ -14,17 +14,24 @@ type CronService struct {
 	orderRepo      domain.OrderRepository
 	orderService   *order.OrderService
 	invoiceService *billing.InvoiceService
+	supportRepo    domain.SupportRepository
 }
 
 func NewCronService(
 	orderRepo domain.OrderRepository,
 	orderService *order.OrderService,
 	invoiceService *billing.InvoiceService,
+	supportRepo ...domain.SupportRepository,
 ) *CronService {
+	var sRepo domain.SupportRepository
+	if len(supportRepo) > 0 {
+		sRepo = supportRepo[0]
+	}
 	return &CronService{
 		orderRepo:      orderRepo,
 		orderService:   orderService,
 		invoiceService: invoiceService,
+		supportRepo:    sRepo,
 	}
 }
 
@@ -98,6 +105,32 @@ func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, gracePe
 			continue
 		}
 		result.SuccessCount++
+	}
+
+	result.Duration = time.Since(start)
+	return result, nil
+}
+
+// AutoCloseInactiveTicketsBatch closes resolved or abandoned tickets exceeding inactiveDays
+func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, inactiveDays int) (*domain.CronTaskResult, error) {
+	start := time.Now()
+	result := &domain.CronTaskResult{
+		TaskName: "BatchAutoCloseTickets",
+	}
+
+	if s.supportRepo == nil {
+		result.Duration = time.Since(start)
+		return result, nil
+	}
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -inactiveDays)
+	closedCount, err := s.supportRepo.CloseInactiveTickets(ctx, cutoff)
+	if err != nil {
+		result.ErrorCount++
+		result.Errors = append(result.Errors, fmt.Sprintf("Close inactive tickets error: %v", err))
+	} else {
+		result.ProcessedCount = closedCount
+		result.SuccessCount = closedCount
 	}
 
 	result.Duration = time.Since(start)

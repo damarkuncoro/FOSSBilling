@@ -1,35 +1,36 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/pdf"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
-
 type InvoiceHandler struct {
 	invoiceRepo    domain.InvoiceRepository
 	clientRepo     domain.ClientRepository
 	invoiceService *billing.InvoiceService
+	paymentService *paymentUsecase.PaymentService
 }
 
-func NewInvoiceHandler(invoiceRepo domain.InvoiceRepository, clientRepo domain.ClientRepository, invoiceService *billing.InvoiceService) *InvoiceHandler {
+func NewInvoiceHandler(invoiceRepo domain.InvoiceRepository, clientRepo domain.ClientRepository, invoiceService *billing.InvoiceService, paymentService *paymentUsecase.PaymentService) *InvoiceHandler {
 	return &InvoiceHandler{
 		invoiceRepo:    invoiceRepo,
 		clientRepo:     clientRepo,
 		invoiceService: invoiceService,
+		paymentService: paymentService,
 	}
 }
-
 
 func (h *InvoiceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {
 	clientID := middleware.GetClientID(r.Context())
@@ -71,9 +72,8 @@ func (h *InvoiceHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	invoiceIDStr := parts[len(parts)-1]
-	invoiceID, err := strconv.ParseInt(invoiceIDStr, 10, 64)
+	idStr := r.PathValue("id")
+	invoiceID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
 		return
@@ -104,14 +104,8 @@ func (h *InvoiceHandler) PayWithBalance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Path e.g. /api/v1/client/invoices/123/pay-balance
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid path", nil)
-		return
-	}
-	invoiceIDStr := parts[len(parts)-2]
-	invoiceID, err := strconv.ParseInt(invoiceIDStr, 10, 64)
+	idStr := r.PathValue("id")
+	invoiceID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
 		return
@@ -140,6 +134,37 @@ func (h *InvoiceHandler) PayWithBalance(w http.ResponseWriter, r *http.Request) 
 	}, nil)
 }
 
+func (h *InvoiceHandler) PayWithGateway(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	if clientID == 0 {
+		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	invoiceID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
+		return
+	}
+
+	var req struct {
+		Gateway string `json:"gateway"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Gateway == "" {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Payment gateway is required", nil)
+		return
+	}
+
+	res, err := h.paymentService.InitiateInvoicePayment(r.Context(), invoiceID, req.Gateway)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "PAYMENT_INIT_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res, nil)
+}
+
 func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 	clientID := middleware.GetClientID(r.Context())
 	role := middleware.GetRole(r.Context())
@@ -150,13 +175,8 @@ func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid path", nil)
-		return
-	}
-	invoiceIDStr := parts[len(parts)-2]
-	invoiceID, err := strconv.ParseInt(invoiceIDStr, 10, 64)
+	idStr := r.PathValue("id")
+	invoiceID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
 		return
@@ -189,4 +209,3 @@ func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(pdfContent)
 }
-

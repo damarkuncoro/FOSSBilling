@@ -41,6 +41,9 @@ func (m *mockOrderRepoForLicense) ListByClientID(ctx context.Context, clientID i
 func (m *mockOrderRepoForLicense) List(ctx context.Context, limit, offset int) ([]*domain.Order, int, error) {
 	return nil, 0, nil
 }
+func (m *mockOrderRepoForLicense) ListByInvoiceID(ctx context.Context, invoiceID int64) ([]*domain.Order, error) {
+	return nil, nil
+}
 func (m *mockOrderRepoForLicense) ListDueOrders(ctx context.Context, dueBefore time.Time) ([]*domain.Order, error) {
 	return nil, nil
 }

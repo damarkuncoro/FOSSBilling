@@ -79,13 +79,13 @@ func (h *BillingModuleHandler) ListEmailTemplates(w http.ResponseWriter, r *http
 
 func (h *BillingModuleHandler) GetMailConfig(w http.ResponseWriter, r *http.Request) {
 	config := map[string]interface{}{
-		"transport": "smtp",
-		"smtp_host": "smtp.mailgun.org",
-		"smtp_port": 587,
-		"smtp_username": "postmaster@fossbilling.org",
+		"transport":       "smtp",
+		"smtp_host":       "smtp.mailgun.org",
+		"smtp_port":       587,
+		"smtp_username":   "postmaster@fossbilling.org",
 		"smtp_encryption": "tls",
-		"from_email": "noreply@fossbilling.org",
-		"from_name": "FOSSBilling System",
+		"from_email":      "noreply@fossbilling.org",
+		"from_name":       "FOSSBilling System",
 	}
 	response.JSON(w, http.StatusOK, config, nil)
 }

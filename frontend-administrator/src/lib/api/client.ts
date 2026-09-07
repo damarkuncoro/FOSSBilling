@@ -46,3 +46,45 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
   return json.data;
 }
+
+export const apiClient = {
+  get: async <T>(url: string, params?: Record<string, any>) => {
+    let finalUrl = url;
+    if (params) {
+      const q = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) q.append(k, String(v));
+      });
+      const qs = q.toString();
+      if (qs) finalUrl += `?${qs}`;
+    }
+    const data = await request<T>(finalUrl, { method: 'GET' });
+    return { data };
+  },
+  post: async <T>(url: string, body?: any) => {
+    const data = await request<T>(url, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  },
+  put: async <T>(url: string, body?: any) => {
+    const data = await request<T>(url, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  },
+  delete: async <T>(url: string) => {
+    const data = await request<T>(url, { method: 'DELETE' });
+    return { data };
+  },
+  patch: async <T>(url: string, body?: any) => {
+    const data = await request<T>(url, {
+      method: 'PATCH',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  },
+};
+

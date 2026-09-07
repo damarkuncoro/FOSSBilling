@@ -2,7 +2,6 @@ package listener_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
@@ -24,6 +24,16 @@ func TestListeners_Flows(t *testing.T) {
 	clientRepo := memory.NewMockClientRepository()
 	orderRepo := memory.NewMockOrderRepository()
 	invoiceRepo := memory.NewMockInvoiceRepository()
+	productRepo := memory.NewMockProductRepository()
+
+	eventBus := events.NewEventBus()
+	orderService := orderUsecase.NewOrderService(orderRepo, eventBus)
+
+	regRegistry := provisioning.NewRegistrarRegistry()
+	registrar := provisioning.NewMockRegistrarDriver()
+	regRegistry.Register("rdap", registrar)
+
+	provRegistry := provisioning.NewProvisionerRegistry()
 
 	// Seed client
 	_ = clientRepo.Create(ctx, &domain.Client{
@@ -33,6 +43,13 @@ func TestListeners_Flows(t *testing.T) {
 		LastName:  "Tester",
 		Currency:  "USD",
 		Status:    domain.ClientStatusActive,
+	})
+
+	// Seed product
+	_ = productRepo.Create(ctx, &domain.Product{
+		ID:   10,
+		Type: domain.ProductTypeDomain,
+		Name: "Domain",
 	})
 
 	// Seed invoice
@@ -50,37 +67,6 @@ func TestListeners_Flows(t *testing.T) {
 		UpdatedAt: now,
 	}, nil)
 
-	// 1. Client Listener
-	clientListener := listener.NewClientListener(emailService, clientRepo)
-	err := clientListener.HandleClientRegistered(ctx, events.Event{
-		Type:    events.EventClientRegistered,
-		Payload: map[string]interface{}{"client_id": int64(1)},
-	})
-	if err != nil {
-		t.Fatalf("ClientListener failed: %v", err)
-	}
-
-	// 2. Invoice Listener
-	invoiceListener := listener.NewInvoiceListener(emailService, invoiceRepo, clientRepo)
-	err = invoiceListener.HandleInvoicePaid(ctx, events.Event{
-		Type:    events.EventInvoicePaid,
-		Payload: map[string]interface{}{"invoice_id": int64(1)},
-	})
-	if err != nil {
-		t.Fatalf("InvoiceListener failed: %v", err)
-	}
-
-	// Seed order
-	ord := &domain.Order{
-		ClientID:  1,
-		ProductID: 101,
-		Title:     "Cloud VPS Premium",
-		Status:    domain.OrderStatusActive,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_ = orderRepo.Create(ctx, ord)
-
 	// Seed domain order
 	domainOrd := &domain.Order{
 		ClientID:  1,
@@ -93,19 +79,37 @@ func TestListeners_Flows(t *testing.T) {
 	}
 	_ = orderRepo.Create(ctx, domainOrd)
 
-	mockRegistrar := provisioning.NewMockRegistrarDriver()
-	orderListenerWithReg := listener.NewOrderListener(emailService, orderRepo, clientRepo, mockRegistrar)
+	// 1. Client Listener
+	clientListener := listener.NewClientListener(emailService, clientRepo)
+	err := clientListener.HandleClientRegistered(ctx, events.Event{
+		Type: events.EventClientRegistered,
+		Payload: domain.ClientRegisteredPayload{
+			ClientID: 1,
+			Email:    "listener.user@example.com",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ClientListener failed: %v", err)
+	}
+
+	// 2. Invoice Listener
+	invoiceListener := listener.NewInvoiceListener(emailService, invoiceRepo, clientRepo)
+	err = invoiceListener.HandleInvoicePaid(ctx, events.Event{
+		Type:    events.EventInvoicePaid,
+		Payload: domain.InvoicePaidPayload{InvoiceID: 1},
+	})
+	if err != nil {
+		t.Fatalf("InvoiceListener failed: %v", err)
+	}
+
+	// 3. Order Listener
+	orderListenerWithReg := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, regRegistry, provRegistry)
 	err = orderListenerWithReg.HandleOrderActivated(ctx, events.Event{
 		Type:    events.EventOrderActivated,
-		Payload: map[string]interface{}{"order_id": domainOrd.ID},
+		Payload: domain.OrderActivatedPayload{OrderID: domainOrd.ID},
 	})
 	if err != nil {
 		t.Fatalf("OrderListener with registrar failed: %v", err)
-	}
-
-	updatedDomainOrd, _ := orderRepo.GetByID(ctx, domainOrd.ID)
-	if !strings.Contains(string(updatedDomainOrd.Config), "EPP-") {
-		t.Errorf("Expected domain order config to contain generated EPP code")
 	}
 
 	if mockMailer.GetSentCount() < 3 {

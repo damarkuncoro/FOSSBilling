@@ -56,4 +56,3 @@ type InvoiceRepository interface {
 	MarkAsPaid(ctx context.Context, id int64, paidAt time.Time) error
 	Update(ctx context.Context, invoice *Invoice) error
 }
-

@@ -30,14 +30,14 @@ type Server struct {
 }
 
 type TLD struct {
-	ID               int64   `json:"id"`
-	Tld              string  `json:"tld"`
-	RegistrarID      string  `json:"registrar_id"`
+	ID                int64   `json:"id"`
+	Tld               string  `json:"tld"`
+	RegistrarID       string  `json:"registrar_id"`
 	PriceRegistration float64 `json:"price_registration"`
 	PriceRenewal      float64 `json:"price_renewal"`
 	PriceTransfer     float64 `json:"price_transfer"`
-	MinYears         int     `json:"min_years"`
-	IsActive         bool    `json:"is_active"`
+	MinYears          int     `json:"min_years"`
+	IsActive          bool    `json:"is_active"`
 }
 
 type CatalogRepository interface {

@@ -14,7 +14,6 @@ type Meta struct {
 	TotalPages   int `json:"total_pages,omitempty"`
 }
 
-
 type APIError struct {
 	Code    string      `json:"code"`
 	Message string      `json:"message"`

@@ -175,5 +175,3 @@ func (s *DownloadableService) ListClientDownloads(ctx context.Context, clientID 
 
 	return result, nil
 }
-
-

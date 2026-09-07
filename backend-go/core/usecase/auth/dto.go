@@ -3,16 +3,18 @@ package auth
 import "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 
 type RegisterDTO struct {
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Company   string `json:"company,omitempty"`
-	Address1  string `json:"address_1,omitempty"`
-	City      string `json:"city,omitempty"`
-	Country   string `json:"country,omitempty"`
-	Phone     string `json:"phone,omitempty"`
-	Currency  string `json:"currency,omitempty"`
+	Email        string `json:"email"`
+	Password     string `json:"password"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Company      string `json:"company,omitempty"`
+	Address1     string `json:"address_1,omitempty"`
+	City         string `json:"city,omitempty"`
+	Country      string `json:"country,omitempty"`
+	Phone        string `json:"phone,omitempty"`
+	Currency     string `json:"currency,omitempty"`
+	Honeypot     string `json:"website_hp,omitempty"`
+	CaptchaToken string `json:"captcha_token,omitempty"`
 }
 
 type LoginDTO struct {

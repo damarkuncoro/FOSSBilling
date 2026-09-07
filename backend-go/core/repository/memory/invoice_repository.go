@@ -88,7 +88,6 @@ func (r *MockInvoiceRepository) List(ctx context.Context, limit, offset int) ([]
 	return all[offset:end], total, nil
 }
 
-
 func (r *MockInvoiceRepository) Create(ctx context.Context, inv *domain.Invoice, items []domain.InvoiceItem) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

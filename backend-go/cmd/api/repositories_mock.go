@@ -42,5 +42,16 @@ func NewMockRepositories(ctx context.Context) *Repositories {
 		APIKey:       memory.NewMockAPIKeyRepository(),
 		MassMail:     memory.NewMockMassMailRepository(),
 		Company:      memory.NewMockCompanyRepository(),
+		Product:      memory.NewMockProductRepository(),
+		Catalog:      memory.NewMockCatalogRepository(),
+		System:       memory.NewMockSystemRepository(),
+		Activity:     memory.NewMockActivityRepository(),
+		Notification: memory.NewMockNotificationRepository(),
+		Page:         memory.NewMockPageRepository(),
+		Antispam:     memory.NewMockAntispamRepository(),
+		Formbuilder:  memory.NewMockFormbuilderRepository(),
+		Extension:    memory.NewMockExtensionRepository(),
+		Redirect:     memory.NewRedirectRepository(),
+		Theme:        memory.NewThemeRepository(),
 	}
 }

@@ -84,8 +84,8 @@ func (d *EmailRegistrarDriver) sendEmail(ctx context.Context, subject, content s
 
 	// We use the underlying mailer directly to send to admin
 	return d.emailService.GetMailer().Send(ctx, mailer.Message{
-		To:      []string{d.adminEmail},
-		Subject: subject,
+		To:       []string{d.adminEmail},
+		Subject:  subject,
 		TextBody: content,
 	})
 }

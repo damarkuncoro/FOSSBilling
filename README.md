@@ -29,7 +29,7 @@ This repository features the **100% Modern Cloud-Native Clean Architecture Ecosy
 - ⚡ **Backend Engine:** Golang 1.22+ Clean Architecture REST API, Background Worker, & Management CLI (`backend-go`)
 - 🖥️ **Administrator Portal:** Vite + React + TypeScript + shadcn/ui Dashboard (`frontend-administrator`)
 - 🛍️ **Customer Client Portal:** Vite + React + TypeScript + shadcn/ui Storefront & Client Hub (`frontend-client`)
-- 🧪 **Automated Testing:** 30/30 Comprehensive Unit & Integration Test Suites (`tests-backend-go`)
+- 🧪 **Automated Testing:** 43/43 Comprehensive Go Test Suites (Unit, Integration, E2E), 53 Admin Portal Tests, and 32 Customer Portal Tests (**100% Passing**)
 - 🏗️ **Design Patterns:** Fluent Builders (`InvoiceBuilder`, `OrderBuilder`, `ClientBuilder`, `MessageBuilder`) & Dynamic Factories (`ProvisionerFactory`, `PaymentGatewayFactory`)
 - 🐳 **Multi-Environment Deployment:** Docker Compose for `dev` (live reload), `prod` (production), and `test` (`deploy/`)
 
@@ -109,9 +109,10 @@ make demo
 | Portal | URL | Default Credentials | Description |
 | :--- | :--- | :--- | :--- |
 | 🛍️ **Customer Portal** | `http://localhost:3001` | `client@fossbilling.org` / `Password123!` | Storefront, Domain Lookup, Cart, Hosting Dashboard, Invoices |
-| 🖥️ **Administrator Portal** | `http://localhost:3000` | `admin@fossbilling.org` / `SuperSecretAdmin123!` | Executive MRR/ARR Dashboard, Service Provisioning, Currencies |
+| 🖥️ **Administrator Portal** | `http://localhost:3000` | `admin@fossbilling.org` / `admin123` | Executive MRR/ARR Dashboard, Service Provisioning, Currencies |
 | ⚡ **Golang REST API** | `http://localhost:8080` | - | High-performance JSON REST API |
 | 📖 **Scalar API Documentation** | `http://localhost:8080/docs` | - | Interactive OpenAPI 3.0 Reference & Test Console |
+| 📚 **VitePress Documentation Portal** | `http://localhost:5173` / `make docs-dev` | - | Full User, Admin, Developer & Provisioning Guide |
 
 ---
 
@@ -119,11 +120,26 @@ make demo
 
 Administrators can perform system operations directly from the terminal:
 ```bash
-# Check runtime version and active system drivers
+# Check runtime version and registered payment, registrar, and provisioning drivers
 go run ./backend-go/cmd/cli status
 
 # Create a new client account interactively via ClientBuilder
 go run ./backend-go/cmd/cli client:create --email="user@cloud.id" --first-name="Budi" --company="PT Solusi Cloud"
+
+# Create a new administrator account with Bcrypt password hashing
+go run ./backend-go/cmd/cli admin:create --email="admin@fossbilling.org" --name="System Administrator" --role="superadmin"
+
+# Construct and preview an invoice with items via InvoiceBuilder
+go run ./backend-go/cmd/cli invoice:build --price=49.99 --qty=2 --tax-rate=11.0 --currency=USD
+
+# Generate cryptographically secure random passwords
+go run ./backend-go/cmd/cli tools:password --length=18
+
+# Lookup country and Unicode flag emoji for an IP address
+go run ./backend-go/cmd/cli tools:geoip 8.8.8.8
+
+# List all supported system locales and directional metadata (LTR/RTL)
+go run ./backend-go/cmd/cli locale:list
 ```
 
 ---
@@ -131,12 +147,14 @@ go run ./backend-go/cmd/cli client:create --email="user@cloud.id" --first-name="
 ## 🧪 Testing & Verification
 
 ```bash
-# Run all 30 Go unit, builder, factory, and integration test suites:
+# Run all 44 Go unit, builder, factory, and integration test suites:
 make test
 
-# Run frontend test suites (Vitest):
-cd frontend-administrator && npm test -- --run
-cd frontend-client && npm test -- --run
+# Run frontend test suites (Vitest: 53 Admin + 32 Client = 85 tests):
+make test-front
+
+# Run entire backend & frontend test suite:
+make test-all
 ```
 
 ---
@@ -145,3 +163,4 @@ cd frontend-client && npm test -- --run
 
 - **Detailed Technical Architecture:** See [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - **License:** Released under the [Apache 2.0 License](LICENSE).
+

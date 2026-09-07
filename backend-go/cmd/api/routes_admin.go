@@ -26,7 +26,7 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("POST /api/v1/admin/orders/{id}/activate", aAuth(http.HandlerFunc(h.AdminStaff.ActivateOrder)))
 	mux.Handle("GET /api/v1/admin/support/tickets", aAuth(http.HandlerFunc(h.AdminStaff.ListTickets)))
 	mux.Handle("POST /api/v1/admin/support/tickets/{id}/reply", aAuth(http.HandlerFunc(h.AdminStaff.ReplyTicket)))
-	mux.Handle("GET /api/v1/admin/audit-logs", aAuth(http.HandlerFunc(h.AdminAuth.GetAuditLogs)))
+	mux.Handle("GET /api/v1/admin/activity", aAuth(http.HandlerFunc(h.AdminActivity.ListLogs)))
 
 	// Currencies, News, MassMail, Company
 	mux.Handle("GET /api/v1/admin/currencies", aAuth(http.HandlerFunc(h.AdminCurrency.List)))
@@ -72,12 +72,69 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("POST /api/v1/admin/settings/mail/test", aAuth(http.HandlerFunc(h.AdminBilling.SendTestEmail)))
 	mux.Handle("GET /api/v1/admin/reports/financial", aAuth(http.HandlerFunc(h.AdminBilling.GetFinancialReports)))
 
-	// System (Security, Health, Pages, KB, Extensions)
+	// System (Security, Health, Pages, KB)
 	mux.Handle("GET /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.GetSecuritySettings)))
 	mux.Handle("GET /api/v1/admin/system/status", aAuth(http.HandlerFunc(h.AdminSystem.GetSystemStatus)))
 	mux.Handle("POST /api/v1/admin/system/cron/run", aAuth(http.HandlerFunc(h.AdminSystem.TriggerCron)))
 	mux.Handle("POST /api/v1/admin/system/cache/clear", aAuth(http.HandlerFunc(h.AdminSystem.ClearCache)))
 	mux.Handle("GET /api/v1/admin/pages", aAuth(http.HandlerFunc(h.AdminSystem.ListPages)))
 	mux.Handle("GET /api/v1/admin/knowledgebase", aAuth(http.HandlerFunc(h.AdminSystem.ListKnowledgebase)))
-	mux.Handle("GET /api/v1/admin/extensions", aAuth(http.HandlerFunc(h.AdminSystem.ListExtensions)))
+
+	// Extensions & Marketplace Hub
+	mux.Handle("GET /api/v1/admin/extensions", aAuth(http.HandlerFunc(h.AdminExtension.ListExtensions)))
+	mux.Handle("GET /api/v1/admin/extensions/marketplace", aAuth(http.HandlerFunc(h.AdminExtension.ListMarketplace)))
+	mux.Handle("GET /api/v1/admin/extensions/marketplace/{id}/readme", aAuth(http.HandlerFunc(h.AdminExtension.GetMarketplaceReadme)))
+	mux.Handle("GET /api/v1/admin/extensions/{id}", aAuth(http.HandlerFunc(h.AdminExtension.GetExtension)))
+	mux.Handle("POST /api/v1/admin/extensions/{id}/activate", aAuth(http.HandlerFunc(h.AdminExtension.Activate)))
+	mux.Handle("POST /api/v1/admin/extensions/{id}/deactivate", aAuth(http.HandlerFunc(h.AdminExtension.Deactivate)))
+	mux.Handle("POST /api/v1/admin/extensions/{id}/install", aAuth(http.HandlerFunc(h.AdminExtension.Install)))
+	mux.Handle("POST /api/v1/admin/extensions/{id}/uninstall", aAuth(http.HandlerFunc(h.AdminExtension.Uninstall)))
+	mux.Handle("GET /api/v1/admin/extensions/{id}/config", aAuth(http.HandlerFunc(h.AdminExtension.GetConfig)))
+	mux.Handle("PUT /api/v1/admin/extensions/{id}/config", aAuth(http.HandlerFunc(h.AdminExtension.UpdateConfig)))
+
+	// Antispam & Abuse Protection
+	mux.Handle("GET /api/v1/admin/antispam/config", aAuth(http.HandlerFunc(h.AdminAntispam.GetConfig)))
+	mux.Handle("PUT /api/v1/admin/antispam/config", aAuth(http.HandlerFunc(h.AdminAntispam.UpdateConfig)))
+	mux.Handle("GET /api/v1/admin/antispam/blocked-ips", aAuth(http.HandlerFunc(h.AdminAntispam.ListBlockedIPs)))
+	mux.Handle("POST /api/v1/admin/antispam/blocked-ips", aAuth(http.HandlerFunc(h.AdminAntispam.AddBlockedIP)))
+	mux.Handle("DELETE /api/v1/admin/antispam/blocked-ips/{ip}", aAuth(http.HandlerFunc(h.AdminAntispam.DeleteBlockedIP)))
+
+	// Formbuilder (Custom Order Forms & Dynamic Fields)
+	mux.Handle("GET /api/v1/admin/forms", aAuth(http.HandlerFunc(h.AdminFormbuilder.ListForms)))
+	mux.Handle("POST /api/v1/admin/forms", aAuth(http.HandlerFunc(h.AdminFormbuilder.CreateForm)))
+	mux.Handle("GET /api/v1/admin/forms/{id}", aAuth(http.HandlerFunc(h.AdminFormbuilder.GetForm)))
+	mux.Handle("PUT /api/v1/admin/forms/{id}", aAuth(http.HandlerFunc(h.AdminFormbuilder.UpdateForm)))
+	mux.Handle("DELETE /api/v1/admin/forms/{id}", aAuth(http.HandlerFunc(h.AdminFormbuilder.DeleteForm)))
+	mux.Handle("POST /api/v1/admin/forms/{id}/fields", aAuth(http.HandlerFunc(h.AdminFormbuilder.AddField)))
+	mux.Handle("PUT /api/v1/admin/forms/fields/{field_id}", aAuth(http.HandlerFunc(h.AdminFormbuilder.UpdateField)))
+	mux.Handle("DELETE /api/v1/admin/forms/fields/{field_id}", aAuth(http.HandlerFunc(h.AdminFormbuilder.DeleteField)))
+
+	// Redirects Management (Vanity Links & HTTP Forwarding Rules)
+	mux.Handle("GET /api/v1/admin/redirects", aAuth(http.HandlerFunc(h.AdminRedirect.ListRedirects)))
+	mux.Handle("POST /api/v1/admin/redirects", aAuth(http.HandlerFunc(h.AdminRedirect.CreateRedirect)))
+	mux.Handle("GET /api/v1/admin/redirects/{id}", aAuth(http.HandlerFunc(h.AdminRedirect.GetRedirect)))
+	mux.Handle("PUT /api/v1/admin/redirects/{id}", aAuth(http.HandlerFunc(h.AdminRedirect.UpdateRedirect)))
+	mux.Handle("DELETE /api/v1/admin/redirects/{id}", aAuth(http.HandlerFunc(h.AdminRedirect.DeleteRedirect)))
+
+	// Cookie Consent Configuration
+	mux.Handle("GET /api/v1/admin/cookie-consent", aAuth(http.HandlerFunc(h.AdminCookieConsent.GetConfig)))
+	mux.Handle("PUT /api/v1/admin/cookie-consent", aAuth(http.HandlerFunc(h.AdminCookieConsent.UpdateConfig)))
+
+	// Theme Management
+	mux.Handle("GET /api/v1/admin/themes", aAuth(http.HandlerFunc(h.AdminTheme.ListThemes)))
+	mux.Handle("GET /api/v1/admin/themes/current", aAuth(http.HandlerFunc(h.AdminTheme.GetCurrentTheme)))
+	mux.Handle("POST /api/v1/admin/themes/select", aAuth(http.HandlerFunc(h.AdminTheme.SelectTheme)))
+	mux.Handle("GET /api/v1/admin/themes/{code}/config", aAuth(http.HandlerFunc(h.AdminTheme.GetConfig)))
+	mux.Handle("PUT /api/v1/admin/themes/{code}/config", aAuth(http.HandlerFunc(h.AdminTheme.UpdateConfig)))
+
+	// SEO & Search Engine Management
+	mux.Handle("GET /api/v1/admin/seo/info", aAuth(http.HandlerFunc(h.AdminSEO.GetInfo)))
+	mux.Handle("POST /api/v1/admin/seo/ping", aAuth(http.HandlerFunc(h.AdminSEO.PingSearchEngines)))
+
+	// Widget Registry
+	mux.Handle("GET /api/v1/admin/widgets", aAuth(http.HandlerFunc(h.AdminWidget.GetRegistry)))
+
+	// System Tools & GeoIP Utilities
+	mux.Handle("GET /api/v1/admin/system/tools/password", aAuth(http.HandlerFunc(h.AdminSystem.GeneratePassword)))
+	mux.Handle("GET /api/v1/admin/system/geoip", aAuth(http.HandlerFunc(h.AdminSystem.ResolveGeoIP)))
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type GatewayConfig struct {
-	ID       string                 `json:"id"`       // "midtrans", "stripe", "paypal", "bank_transfer"
+	ID       string                 `json:"id"` // "midtrans", "stripe", "paypal", "bank_transfer"
 	Enabled  bool                   `json:"enabled"`
 	IsProd   bool                   `json:"is_prod"`
 	Settings map[string]interface{} `json:"settings"`

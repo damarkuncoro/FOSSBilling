@@ -8,34 +8,34 @@ import (
 )
 
 var (
-	ErrProvisionerNotFound = errors.New("service provisioner not registered for this product type")
+	ErrProvisionerNotFound = errors.New("service provisioner driver not found")
 )
 
 // ProvisionerRegistry manages registered hosting and service provisioner drivers
 type ProvisionerRegistry struct {
-	mu          sync.RWMutex
-	provisioners map[domain.ProductType]domain.ServiceProvisioner
+	mu      sync.RWMutex
+	drivers map[string]domain.ServiceProvisioner
 }
 
 // NewProvisionerRegistry initializes a thread-safe provisioner driver registry
 func NewProvisionerRegistry() *ProvisionerRegistry {
 	return &ProvisionerRegistry{
-		provisioners: make(map[domain.ProductType]domain.ServiceProvisioner),
+		drivers: make(map[string]domain.ServiceProvisioner),
 	}
 }
 
-// Register binds a provisioner driver to a specific ProductType
-func (r *ProvisionerRegistry) Register(p domain.ServiceProvisioner) {
+// Register binds a provisioner driver to a specific ID (e.g. "cpanel", "plesk")
+func (r *ProvisionerRegistry) Register(id string, p domain.ServiceProvisioner) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.provisioners[p.Type()] = p
+	r.drivers[id] = p
 }
 
-// Get retrieves a provisioner driver for a given ProductType
-func (r *ProvisionerRegistry) Get(productType domain.ProductType) (domain.ServiceProvisioner, error) {
+// Get retrieves a provisioner driver by ID
+func (r *ProvisionerRegistry) Get(id string) (domain.ServiceProvisioner, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	prov, exists := r.provisioners[productType]
+	prov, exists := r.drivers[id]
 	if !exists {
 		return nil, ErrProvisionerNotFound
 	}
@@ -43,12 +43,12 @@ func (r *ProvisionerRegistry) Get(productType domain.ProductType) (domain.Servic
 }
 
 // List returns all registered service provisioners
-func (r *ProvisionerRegistry) List() []domain.ServiceProvisioner {
+func (r *ProvisionerRegistry) List() map[string]domain.ServiceProvisioner {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	list := make([]domain.ServiceProvisioner, 0, len(r.provisioners))
-	for _, p := range r.provisioners {
-		list = append(list, p)
+	copy := make(map[string]domain.ServiceProvisioner)
+	for k, v := range r.drivers {
+		copy[k] = v
 	}
-	return list
+	return copy
 }

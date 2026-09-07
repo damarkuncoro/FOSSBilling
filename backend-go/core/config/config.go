@@ -6,12 +6,12 @@ import (
 )
 
 type Config struct {
-	AppEnv         string
-	Port           string
-	DatabaseURL    string
-	RedisURL       string
-	JWTSecret      string
-	AppURL         string
+	AppEnv          string
+	Port            string
+	DatabaseURL     string
+	RedisURL        string
+	JWTSecret       string
+	AppURL          string
 	DefaultCurrency string
 }
 

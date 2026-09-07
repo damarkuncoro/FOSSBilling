@@ -33,13 +33,15 @@ import { CookieConsent } from '@/pages/CookieConsent';
 import { Redirects } from '@/pages/Redirects';
 import { SystemHealth } from '@/pages/SystemHealth';
 import { AuditLogs } from '@/pages/AuditLogs';
+import { I18nProvider } from '@/lib/i18n';
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <I18nProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
@@ -79,6 +81,7 @@ export const App: React.FC = () => {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </I18nProvider>
   );
 };
 

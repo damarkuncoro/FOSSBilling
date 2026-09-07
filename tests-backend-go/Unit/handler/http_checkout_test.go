@@ -63,7 +63,9 @@ func TestHTTP_RegistrationAndCheckoutLifecycle(t *testing.T) {
 	var regData struct {
 		Data struct {
 			Token  string `json:"token"`
-			Client struct{ ID int64 `json:"id"` } `json:"client"`
+			Client struct {
+				ID int64 `json:"id"`
+			} `json:"client"`
 		} `json:"data"`
 	}
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
@@ -72,7 +74,7 @@ func TestHTTP_RegistrationAndCheckoutLifecycle(t *testing.T) {
 	cartBody, _ := json.Marshal(map[string]interface{}{
 		"client_id": clientID, "promo_code": "MERDEKA20",
 		"items": []map[string]interface{}{
-			{"product_id": 1, "title": "Cloud Hosting Pro", "period": "1M", "price": 1000000, "quantity": 1},
+			{"product_id": 1, "title": "Cloud Hosting Pro", "period": "1M", "price": 100.0, "quantity": 1},
 		},
 	})
 	checkoutResp, err := http.Post(ts.URL+"/api/v1/guest/cart/checkout", "application/json", bytes.NewBuffer(cartBody))
@@ -112,7 +114,9 @@ func TestHTTP_RegistrationAndCheckoutLifecycle(t *testing.T) {
 	req, _ = http.NewRequest("GET", fmt.Sprintf("%s/api/v1/client/orders/%d", ts.URL, orderID), nil)
 	req.Header.Set("Authorization", "Bearer "+clientToken)
 	getOrdResp, _ := http.DefaultClient.Do(req)
-	var ordData struct{ Data domain.Order `json:"data"` }
+	var ordData struct {
+		Data domain.Order `json:"data"`
+	}
 	_ = json.NewDecoder(getOrdResp.Body).Decode(&ordData)
 	if ordData.Data.Status != domain.OrderStatusActive {
 		t.Errorf("Expected order status active after payment, got: %s", ordData.Data.Status)

@@ -42,6 +42,20 @@ export function useClientInvoices() {
     }
   };
 
+  const handlePayGateway = async (id: number, gateway = 'midtrans') => {
+    setPaying(true);
+    try {
+      const res = await invoiceService.payWithGateway(id, gateway);
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url;
+      }
+    } catch (err: any) {
+      alert(`Payment initiation failed: ${err.message}`);
+    } finally {
+      setPaying(false);
+    }
+  };
+
   return {
     user,
     balance,
@@ -53,5 +67,6 @@ export function useClientInvoices() {
     message,
     fetchInvoices,
     handlePayBalance,
+    handlePayGateway,
   };
 }

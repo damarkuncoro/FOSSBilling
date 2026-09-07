@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build:
@@ -46,6 +44,18 @@ services:
     networks:
       - fossbilling-dev-net
 
+  docs-portal:
+    build:
+      context: ../docs
+      dockerfile: Dockerfile
+    container_name: fossbilling-docs-portal-dev
+    restart: unless-stopped
+    ports:
+      - "3002:80"
+    networks:
+      - fossbilling-dev-net
+
 networks:
   fossbilling-dev-net:
     driver: bridge
+

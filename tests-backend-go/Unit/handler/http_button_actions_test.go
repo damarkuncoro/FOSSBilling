@@ -29,8 +29,10 @@ func TestTDD_AllInteractiveButtonActions(t *testing.T) {
 
 	var regData struct {
 		Data struct {
-			Token string `json:"token"`
-			Client struct{ ID int64 `json:"id"` } `json:"client"`
+			Token  string `json:"token"`
+			Client struct {
+				ID int64 `json:"id"`
+			} `json:"client"`
 		} `json:"data"`
 	}
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
@@ -40,7 +42,7 @@ func TestTDD_AllInteractiveButtonActions(t *testing.T) {
 	promoBody, _ := json.Marshal(map[string]interface{}{
 		"client_id": clientID, "promo_code": "MERDEKA20",
 		"items": []map[string]interface{}{
-			{"product_id": 1, "title": "NVMe Cloud", "period": "1M", "price": 1000000, "quantity": 1},
+			{"product_id": 1, "title": "NVMe Cloud", "period": "1M", "price": 100.0, "quantity": 1},
 		},
 	})
 	calcResp, err := http.Post(ts.URL+"/api/v1/guest/cart/calculate", "application/json", bytes.NewBuffer(promoBody))
@@ -49,14 +51,14 @@ func TestTDD_AllInteractiveButtonActions(t *testing.T) {
 	}
 	var calcData struct {
 		Data struct {
-			Subtotal int64 `json:"subtotal"`
-			Discount int64 `json:"discount"`
-			Total    int64 `json:"total"`
+			Subtotal float64 `json:"subtotal"`
+			Discount float64 `json:"discount"`
+			Total    float64 `json:"total"`
 		} `json:"data"`
 	}
 	_ = json.NewDecoder(calcResp.Body).Decode(&calcData)
-	if calcData.Data.Discount != 200000 {
-		t.Errorf("Expected 20%% discount (200000), got %d", calcData.Data.Discount)
+	if calcData.Data.Discount != 20.0 {
+		t.Errorf("Expected 20%% discount (20.0), got %f", calcData.Data.Discount)
 	}
 
 	// 3. Cart "Checkout" Button
@@ -98,7 +100,11 @@ func TestTDD_AllInteractiveButtonActions(t *testing.T) {
 		"email": "admin@fossbilling.org", "password": "SuperSecretAdmin123!",
 	})
 	adminResp, _ := http.Post(ts.URL+"/api/v1/admin/auth/login", "application/json", bytes.NewBuffer(adminLoginBody))
-	var adminData struct{ Data struct{ Token string `json:"token"` } `json:"data"` }
+	var adminData struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
 	_ = json.NewDecoder(adminResp.Body).Decode(&adminData)
 	adminToken := adminData.Data.Token
 
@@ -134,7 +140,9 @@ func TestTDD_AllInteractiveButtonActions(t *testing.T) {
 	openReq, _ := http.NewRequest("POST", ts.URL+"/api/v1/client/support/tickets", bytes.NewBuffer(tReqBody))
 	openReq.Header.Set("Authorization", "Bearer "+clientToken)
 	openResp, _ := http.DefaultClient.Do(openReq)
-	var tData struct{ Data domain.Ticket `json:"data"` }
+	var tData struct {
+		Data domain.Ticket `json:"data"`
+	}
 	_ = json.NewDecoder(openResp.Body).Decode(&tData)
 	ticketID := tData.Data.ID
 

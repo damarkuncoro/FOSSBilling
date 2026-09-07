@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 var (
@@ -29,15 +31,22 @@ type CreateTicketDTO struct {
 type SupportService struct {
 	supportRepo domain.SupportRepository
 	clientRepo  domain.ClientRepository
+	eventBus    *events.EventBus
 }
 
 func NewSupportService(
 	supportRepo domain.SupportRepository,
 	clientRepo domain.ClientRepository,
+	eventBus ...*events.EventBus,
 ) *SupportService {
+	var bus *events.EventBus
+	if len(eventBus) > 0 {
+		bus = eventBus[0]
+	}
 	return &SupportService{
 		supportRepo: supportRepo,
 		clientRepo:  clientRepo,
+		eventBus:    bus,
 	}
 }
 
@@ -78,6 +87,20 @@ func (s *SupportService) OpenTicket(ctx context.Context, dto CreateTicketDTO) (*
 		return nil, err
 	}
 
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventTicketOpened,
+			Payload: domain.TicketOpenedPayload{
+				TicketID:  ticket.ID,
+				ClientID:  ticket.ClientID,
+				Subject:   ticket.Subject,
+				Priority:  string(ticket.Priority),
+				CreatedAt: time.Now().UTC(),
+			},
+		})
+	}
+
 	return s.supportRepo.GetTicketByID(ctx, ticket.ID)
 }
 
@@ -113,6 +136,18 @@ func (s *SupportService) ClientReply(ctx context.Context, ticketID, clientID int
 
 	_ = s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusAwaitingStaff)
 
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventTicketReplied,
+			Payload: map[string]interface{}{
+				"ticket_id": ticketID,
+				"client_id": clientID,
+				"author":    "client",
+			},
+		})
+	}
+
 	return msg, nil
 }
 
@@ -143,6 +178,18 @@ func (s *SupportService) StaffReply(ctx context.Context, ticketID, adminID int64
 
 	_ = s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusAwaitingClient)
 
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventTicketReplied,
+			Payload: map[string]interface{}{
+				"ticket_id": ticketID,
+				"admin_id":  adminID,
+				"author":    "staff",
+			},
+		})
+	}
+
 	return msg, nil
 }
 
@@ -155,7 +202,23 @@ func (s *SupportService) CloseTicket(ctx context.Context, ticketID int64, client
 	if clientID > 0 && ticket.ClientID != clientID {
 		return appErrors.ErrForbidden
 	}
-	return s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusClosed)
+
+	if err := s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusClosed); err != nil {
+		return err
+	}
+
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventTicketClosed,
+			Payload: map[string]interface{}{
+				"ticket_id": ticketID,
+				"closed_by": clientID,
+			},
+		})
+	}
+
+	return nil
 }
 
 type TicketDetails struct {
@@ -196,4 +259,3 @@ func (s *SupportService) ListAllTickets(ctx context.Context, limit, offset int) 
 	}
 	return s.supportRepo.ListTickets(ctx, limit, offset)
 }
-

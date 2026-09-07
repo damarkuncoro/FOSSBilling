@@ -48,7 +48,14 @@ export function useClientCartPage() {
     try {
       await api.checkoutCart({
         client_id: user?.id || 1,
-        items: items.map((i) => ({ product_id: i.product_id, period: i.period })),
+        items: items.map((i) => ({
+          product_id: i.product_id,
+          title: i.title,
+          period: i.period,
+          price: i.price,
+          quantity: 1,
+          config: i.domain_name ? { domain_name: i.domain_name } : undefined,
+        })),
         promo_code: promoCode || undefined,
         gateway: 'midtrans',
       });

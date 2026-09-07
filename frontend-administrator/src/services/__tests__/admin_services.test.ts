@@ -15,6 +15,11 @@ import { AdminLicenseService } from '../admin_license.service';
 import { AdminSystemService } from '../admin_system.service';
 import { AdminWebhookService } from '../admin_webhook.service';
 import { AdminFormBuilderService } from '../admin_form_builder.service';
+import { AdminExtensionService } from '../admin_extension.service';
+import { AdminSeoService } from '../admin_seo.service';
+import { AdminRedirectService } from '../admin_redirect.service';
+import { AdminThemeService } from '../admin_theme.service';
+import { AdminWidgetService } from '../admin_widget.service';
 
 describe('Admin Clean Architecture Services Suite', () => {
   describe('AdminClientService', () => {
@@ -427,4 +432,146 @@ describe('Admin Clean Architecture Services Suite', () => {
       expect(withNew).toHaveLength(2);
     });
   });
+
+  describe('AdminExtensionService', () => {
+    let mockRepo: any;
+    let service: AdminExtensionService;
+
+    beforeEach(() => {
+      mockRepo = {
+        listExtensions: vi.fn().mockResolvedValue([{ id: 'antispam', type: 'mod', status: 'active' }]),
+        listMarketplace: vi.fn().mockResolvedValue([{ id: 'stripe', name: 'Stripe Gateway' }]),
+        activateExtension: vi.fn().mockResolvedValue({ success: true }),
+        deactivateExtension: vi.fn().mockResolvedValue({ success: true }),
+        installExtension: vi.fn().mockResolvedValue({ success: true }),
+        uninstallExtension: vi.fn().mockResolvedValue({ success: true }),
+        getConfig: vi.fn().mockResolvedValue({ api_key: 'test' }),
+        updateConfig: vi.fn().mockResolvedValue({ success: true }),
+      };
+      service = new AdminExtensionService(mockRepo);
+    });
+
+    it('should validate extension ID on activate/deactivate', async () => {
+      await expect(service.activate('')).rejects.toThrow('Extension ID is required');
+      await expect(service.deactivate('   ')).rejects.toThrow('Extension ID is required');
+    });
+
+    it('should activate extension', async () => {
+      const res = await service.activate('antispam');
+      expect(res.success).toBe(true);
+      expect(mockRepo.activateExtension).toHaveBeenCalledWith('antispam');
+    });
+
+    it('should filter extensions by type', () => {
+      const exts = [
+        { id: '1', type: 'mod' },
+        { id: '2', type: 'payment-gateway' },
+      ];
+      expect(service.filterByType(exts, 'mod')).toHaveLength(1);
+      expect(service.filterByType(exts, 'all')).toHaveLength(2);
+    });
+  });
+
+  describe('AdminSeoService', () => {
+    let mockRepo: any;
+    let service: AdminSeoService;
+
+    beforeEach(() => {
+      mockRepo = {
+        getSettings: vi.fn().mockResolvedValue({ meta_title: 'FOSSBilling Portal' }),
+        updateSettings: vi.fn().mockResolvedValue({ success: true }),
+      };
+      service = new AdminSeoService(mockRepo);
+    });
+
+    it('should get and update SEO config', async () => {
+      const data = await service.getSeoConfig();
+      expect(data.meta_title).toBe('FOSSBilling Portal');
+
+      await expect(service.updateSeoConfig(null)).rejects.toThrow('SEO configuration payload is required');
+      const res = await service.updateSeoConfig({ meta_title: 'Updated Title' });
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe('AdminRedirectService', () => {
+    let mockRepo: any;
+    let service: AdminRedirectService;
+
+    beforeEach(() => {
+      mockRepo = {
+        listRedirects: vi.fn().mockResolvedValue([{ id: 1, path: '/vps', target: 'https://site.com/vps' }]),
+        createRedirect: vi.fn().mockResolvedValue({ id: 2 }),
+        deleteRedirect: vi.fn().mockResolvedValue({ success: true }),
+      };
+      service = new AdminRedirectService(mockRepo);
+    });
+
+    it('should validate redirect inputs', async () => {
+      await expect(service.createRedirectRule('', 'https://dest.com')).rejects.toThrow('Source path is required');
+      await expect(service.createRedirectRule('/test', '')).rejects.toThrow('Target URL is required');
+      await expect(service.removeRedirect(0)).rejects.toThrow('Valid redirect ID is required');
+    });
+
+    it('should create and remove redirect rule', async () => {
+      const created = await service.createRedirectRule('/promo', 'https://site.com/promo', 302);
+      expect(created.id).toBe(2);
+      const deleted = await service.removeRedirect(1);
+      expect(deleted.success).toBe(true);
+    });
+  });
+
+  describe('AdminThemeService', () => {
+    let mockRepo: any;
+    let service: AdminThemeService;
+
+    beforeEach(() => {
+      mockRepo = {
+        listThemes: vi.fn().mockResolvedValue([{ id: 'huraga', name: 'Huraga Modern' }]),
+        getActiveTheme: vi.fn().mockResolvedValue({ id: 'huraga' }),
+        setActiveTheme: vi.fn().mockResolvedValue({ success: true }),
+        updateThemeSettings: vi.fn().mockResolvedValue({ success: true }),
+      };
+      service = new AdminThemeService(mockRepo);
+    });
+
+    it('should validate theme ID', async () => {
+      await expect(service.selectTheme('')).rejects.toThrow('Theme ID is required');
+      await expect(service.saveSettings('', {})).rejects.toThrow('Theme ID is required');
+    });
+
+    it('should select theme and save settings', async () => {
+      const res = await service.selectTheme('huraga');
+      expect(res.success).toBe(true);
+      const settingsRes = await service.saveSettings('huraga', { primary_color: '#0055ff' });
+      expect(settingsRes.success).toBe(true);
+    });
+  });
+
+  describe('AdminWidgetService', () => {
+    let mockRepo: any;
+    let service: AdminWidgetService;
+
+    beforeEach(() => {
+      mockRepo = {
+        listWidgets: vi.fn().mockResolvedValue({
+          'admin.dashboard.top': [{ id: 'stats', component: 'DashboardStats' }],
+        }),
+        registerWidget: vi.fn().mockResolvedValue({ success: true }),
+      };
+      service = new AdminWidgetService(mockRepo);
+    });
+
+    it('should retrieve widgets and validate widget registration', async () => {
+      const widgets = await service.getAllWidgets();
+      expect(widgets['admin.dashboard.top']).toHaveLength(1);
+
+      await expect(service.addWidget({ id: '', slot: 'client.footer', title: 'Footer', component: 'FooterComp' })).rejects.toThrow(
+        'Widget ID, slot, and component are required'
+      );
+      const added = await service.addWidget({ id: 'footer_links', slot: 'client.footer', title: 'Footer', component: 'FooterLinks' });
+      expect(added.success).toBe(true);
+    });
+  });
 });
+

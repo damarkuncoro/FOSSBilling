@@ -18,10 +18,10 @@ const (
 type TransactionStatus string
 
 const (
-	TransactionStatusPending   TransactionStatus = "pending"
-	TransactionStatusComplete  TransactionStatus = "complete"
-	TransactionStatusFailed    TransactionStatus = "failed"
-	TransactionStatusRefunded  TransactionStatus = "refunded"
+	TransactionStatusPending  TransactionStatus = "pending"
+	TransactionStatusComplete TransactionStatus = "complete"
+	TransactionStatusFailed   TransactionStatus = "failed"
+	TransactionStatusRefunded TransactionStatus = "refunded"
 )
 
 type Transaction struct {

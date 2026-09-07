@@ -133,14 +133,30 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if req.FirstName != "" { client.FirstName = req.FirstName }
-	if req.LastName != "" { client.LastName = req.LastName }
-	if req.Email != "" { client.Email = req.Email }
-	if req.Company != "" { client.Company = req.Company }
-	if req.Country != "" { client.Country = req.Country }
-	if req.Currency != "" { client.Currency = req.Currency }
-	if req.Status != "" { client.Status = domain.ClientStatus(req.Status) }
-	if req.Password != "" { client.PasswordHash, _ = auth.HashPassword(req.Password) }
+	if req.FirstName != "" {
+		client.FirstName = req.FirstName
+	}
+	if req.LastName != "" {
+		client.LastName = req.LastName
+	}
+	if req.Email != "" {
+		client.Email = req.Email
+	}
+	if req.Company != "" {
+		client.Company = req.Company
+	}
+	if req.Country != "" {
+		client.Country = req.Country
+	}
+	if req.Currency != "" {
+		client.Currency = req.Currency
+	}
+	if req.Status != "" {
+		client.Status = domain.ClientStatus(req.Status)
+	}
+	if req.Password != "" {
+		client.PasswordHash, _ = auth.HashPassword(req.Password)
+	}
 
 	if err := h.clientRepo.Update(r.Context(), client); err != nil {
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update client", err.Error())

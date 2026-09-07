@@ -10,8 +10,8 @@ import (
 )
 
 type clientVisitor struct {
-	tokens     int
-	lastSeen   time.Time
+	tokens   int
+	lastSeen time.Time
 }
 
 type RateLimiter struct {

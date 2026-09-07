@@ -24,7 +24,9 @@ func (s *NotificationService) CreateNotification(ctx context.Context, clientID i
 }
 
 func (s *NotificationService) ListMyNotifications(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Notification, int, error) {
-	if limit <= 0 { limit = 20 }
+	if limit <= 0 {
+		limit = 20
+	}
 	return s.repo.ListByClientID(ctx, clientID, limit, offset)
 }
 

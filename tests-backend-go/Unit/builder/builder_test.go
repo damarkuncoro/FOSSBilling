@@ -110,4 +110,3 @@ func TestClientBuilder(t *testing.T) {
 		t.Errorf("expected passwordHash to be set")
 	}
 }
-

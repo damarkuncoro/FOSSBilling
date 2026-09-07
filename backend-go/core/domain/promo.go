@@ -15,19 +15,19 @@ const (
 )
 
 type Promo struct {
-	ID             int64         `json:"id"`
-	Code           string        `json:"code"`
-	Description    string        `json:"description"`
-	Type           PromoType     `json:"type"` // percentage or absolute
-	Value          decimal.Money `json:"value"` // percentage (e.g. 200000 = 20.00%) or fixed money amount
-	MaxUses        int           `json:"max_uses"`
-	UsedCount      int           `json:"used_count"`
-	OncePerClient  bool          `json:"once_per_client"`
-	StartDate      *time.Time    `json:"start_date,omitempty"`
-	EndDate        *time.Time    `json:"end_date,omitempty"`
-	Active         bool          `json:"active"`
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+	ID            int64         `json:"id"`
+	Code          string        `json:"code"`
+	Description   string        `json:"description"`
+	Type          PromoType     `json:"type"`  // percentage or absolute
+	Value         decimal.Money `json:"value"` // percentage (e.g. 200000 = 20.00%) or fixed money amount
+	MaxUses       int           `json:"max_uses"`
+	UsedCount     int           `json:"used_count"`
+	OncePerClient bool          `json:"once_per_client"`
+	StartDate     *time.Time    `json:"start_date,omitempty"`
+	EndDate       *time.Time    `json:"end_date,omitempty"`
+	Active        bool          `json:"active"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 }
 
 type PromoRedemption struct {

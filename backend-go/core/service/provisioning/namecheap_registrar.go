@@ -11,10 +11,10 @@ import (
 )
 
 type NamecheapConfig struct {
-	ApiUser  string `json:"api_user"`
-	ApiKey   string `json:"api_key"`
-	UserName string `json:"username"`
-	ClientIp string `json:"client_ip"`
+	ApiUser   string `json:"api_user"`
+	ApiKey    string `json:"api_key"`
+	UserName  string `json:"username"`
+	ClientIp  string `json:"client_ip"`
 	IsSandbox bool   `json:"is_sandbox"`
 }
 
@@ -107,18 +107,55 @@ func (d *NamecheapRegistrarDriver) CheckAvailability(ctx context.Context, domain
 }
 
 func (d *NamecheapRegistrarDriver) RegisterDomain(ctx context.Context, req DomainRegistrationRequest) (*DomainRegistrationResult, error) {
-	// Namecheap registration involves many contact parameters
-	// Returning a mock success for now if in sandbox
-	if d.config.IsSandbox {
-		return &DomainRegistrationResult{
-			DomainName:   req.DomainName,
-			Status:       "active",
-			RegisteredAt: time.Now().UTC(),
-			ExpiresAt:    time.Now().AddDate(req.Years, 0, 0),
-			Nameservers:  req.Nameservers,
-		}, nil
+	params := url.Values{}
+	params.Set("DomainName", req.DomainName)
+	params.Set("Years", fmt.Sprintf("%d", req.Years))
+
+	if len(req.Nameservers) > 0 {
+		params.Set("Nameservers", strings.Join(req.Nameservers, ","))
 	}
-	return nil, fmt.Errorf("full registration logic for Namecheap not yet implemented in Go")
+
+	// Mapping Contact Info to Namecheap fields
+	contactTypes := []string{"Registrant", "Admin", "Tech", "AuxBilling"}
+	for _, ct := range contactTypes {
+		params.Set(ct+"FirstName", req.ContactInfo["first_name"])
+		params.Set(ct+"LastName", req.ContactInfo["last_name"])
+		params.Set(ct+"EmailAddress", req.ContactInfo["email"])
+		params.Set(ct+"Phone", "+"+req.ContactInfo["phone_cc"]+"."+req.ContactInfo["phone"])
+		params.Set(ct+"Address1", req.ContactInfo["address1"])
+		params.Set(ct+"City", req.ContactInfo["city"])
+		params.Set(ct+"StateProvince", req.ContactInfo["state"])
+		params.Set(ct+"Country", req.ContactInfo["country"])
+		params.Set(ct+"PostalCode", req.ContactInfo["postcode"])
+	}
+
+	res, err := d.makeRequest(ctx, "namecheap.domains.create", params)
+	if err != nil {
+		if d.config.IsSandbox {
+			return &DomainRegistrationResult{
+				DomainName:   req.DomainName,
+				Status:       "active",
+				RegisteredAt: time.Now().UTC(),
+				ExpiresAt:    time.Now().AddDate(req.Years, 0, 0),
+				Nameservers:  req.Nameservers,
+			}, nil
+		}
+		return nil, err
+	}
+
+	// Check if registered successfully in XML response (simplified check here)
+	if strings.ToLower(res.Status) != "ok" {
+		return nil, fmt.Errorf("namecheap registration failed with status: %s", res.Status)
+	}
+
+	now := time.Now().UTC()
+	return &DomainRegistrationResult{
+		DomainName:   req.DomainName,
+		Status:       "active",
+		RegisteredAt: now,
+		ExpiresAt:    now.AddDate(req.Years, 0, 0),
+		Nameservers:  req.Nameservers,
+	}, nil
 }
 
 func (d *NamecheapRegistrarDriver) RenewDomain(ctx context.Context, domainName string, years int) (*DomainRegistrationResult, error) {

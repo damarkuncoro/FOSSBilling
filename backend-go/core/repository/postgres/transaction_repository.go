@@ -72,8 +72,13 @@ func (r *TransactionRepository) Create(ctx context.Context, txn *domain.Transact
 		txn.Currency = "USD"
 	}
 
+	raw := txn.RawPayload
+	if len(raw) == 0 {
+		raw = []byte("{}")
+	}
+
 	return r.pool.QueryRow(ctx, query,
-		txn.InvoiceID, txn.GatewayID, txn.TxnID, txn.Type, txn.Amount, txn.Currency, txn.Status, txn.RawPayload,
+		txn.InvoiceID, txn.GatewayID, txn.TxnID, txn.Type, txn.Amount, txn.Currency, txn.Status, raw,
 	).Scan(&txn.ID, &txn.CreatedAt)
 }
 

@@ -7,6 +7,8 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 func main() {
@@ -21,13 +23,19 @@ func main() {
 		defer pgPool.Close()
 	}
 
-	// 2. Data Access Layer (Repositories)
+	// 2. Event Bus
+	eventBus := events.NewEventBus()
+
+	// 3. Cache System
+	appCache := cache.NewMemoryCache()
+
+	// 4. Data Access Layer (Repositories)
 	repos := InitRepositories(ctx, cfg, pgPool)
 
-	// 3. Domain Business Logic Layer (Services & Use Cases)
-	services := InitServices(cfg, repos)
+	// 5. Domain Business Logic Layer (Services & Use Cases)
+	services := InitServices(cfg, repos, eventBus, appCache)
 
-	// 4. HTTP Presentation Layer (Handlers & Router)
+	// 6. HTTP Presentation Layer (Handlers & Router)
 	handlers := InitHandlers(services, repos)
 
 	rateLimiter := middleware.NewRateLimiter(60, time.Second)

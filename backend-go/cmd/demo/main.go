@@ -53,12 +53,12 @@ func main() {
 
 	taxCalc := billing.NewTaxCalculator([]billing.TaxRule{{Name: "Indonesian PPN", Country: "ID", Rate: 11.0}})
 	authUc := auth.NewAuthUsecase(clientRepo, jwtSecret)
-	orderService := order.NewOrderService(orderRepo)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
+	orderService := order.NewOrderService(orderRepo, eventBus)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, invService)
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, orderService, orderRepo)
-	supportService := support.NewSupportService(supportRepo, clientRepo)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invService)
+	webhookService := payment.NewWebhookService(txnRepo, invRepo, eventBus)
+	supportService := support.NewSupportService(supportRepo, clientRepo, eventBus)
 	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
 
 	currencyService := currency.NewCurrencyService(currencyRepo)
@@ -69,7 +69,11 @@ func main() {
 
 	cpanelProv := provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{Host: "sg1.nusantara-cloud.com"})
 	daProv := provisioning.NewDirectAdminProvisioner("da.nusantara-cloud.com", 2222, "admin", "secret")
-	pleskProv := provisioning.NewPleskProvisioner("plesk.nusantara-cloud.com", 8443, "plesk-api-key")
+	pleskProv := provisioning.NewPleskProvisioner(provisioning.PleskConfig{
+		Host:   "plesk.nusantara-cloud.com",
+		Port:   8443,
+		APIKey: "plesk-api-key",
+	})
 	licenseProv := provisioning.NewLicenseProvisioner("fossbilling-enterprise-master-key")
 	domainDriver := provisioning.NewMockRegistrarDriver()
 
@@ -94,12 +98,14 @@ func main() {
 	_, _ = currencyService.CreateCurrency(ctx, currency.CreateCurrencyDTO{Code: "USD", Title: "US Dollar", ConversionRate: 0.000065, Format: "$ {{price}}", PriceFormat: "2"})
 
 	// 3. Checkout
-	hostingCfg, _ := json.Marshal(map[string]string{"domain": "solusinusantara.com"})
+	cpanelCfg, _ := json.Marshal(map[string]string{"domain": "solusinusantara.com", "server_type": "cpanel", "plan": "Advanced"})
+	daCfg, _ := json.Marshal(map[string]string{"domain": "da-demo.com", "server_type": "directadmin", "plan": "Business"})
+
 	shoppingCart := &cart.Cart{
 		ClientID: regRes.Client.ID, PromoCode: "MERDEKA20",
 		Items: []cart.CartItem{
-			{ProductID: 101, Title: "Cloud VPS cPanel Pro", Period: "1M", Price: decimal.FromFloat(200000.00), Quantity: 1, Config: hostingCfg},
-			{ProductID: 202, Title: "DirectAdmin Hosting", Period: "1M", Price: decimal.FromFloat(150000.00), Quantity: 1},
+			{ProductID: 101, Title: "Cloud VPS cPanel Pro", Period: "1M", Price: decimal.FromFloat(200000.00), Quantity: 1, Config: cpanelCfg},
+			{ProductID: 202, Title: "DirectAdmin Hosting", Period: "1M", Price: decimal.FromFloat(150000.00), Quantity: 1, Config: daCfg},
 			{ProductID: 303, Title: "FOSSBilling Enterprise", Period: "1Y", Price: decimal.FromFloat(500000.00), Quantity: 1},
 			{ProductID: 404, Title: "Nusantara Cloud OS", Period: "ONETIME", Price: decimal.FromFloat(100000.00), Quantity: 1},
 		},
@@ -121,11 +127,19 @@ func main() {
 	fmt.Printf("   ✅ Invoice PDF Dihasilkan: %d bytes\n", len(pdfBytes))
 
 	runProvisioningDemo(ctx, orderRepo, checkoutRes.Orders, cpanelProv, daProv, pleskProv, licenseProv)
+	_ = orderService
 
 	// 6. Signed Download Link & API Key
 	dlFile, _ := downloadRepo.GetByProductID(ctx, 404)
-	signedLink, _ := downloadService.GenerateDownloadLink(ctx, regRes.Client.ID, dlFile.ID, 2*time.Hour)
-	fmt.Printf("   🔗 Link Unduh HMAC: %s\n", signedLink.URL)
+	if dlFile != nil {
+		// Mock an active order for the product so DownloadLink generation passes verification
+		_ = orderRepo.Create(ctx, &domain.Order{ClientID: regRes.Client.ID, ProductID: 404, Status: domain.OrderStatusActive})
+
+		signedLink, err := downloadService.GenerateDownloadLink(ctx, regRes.Client.ID, dlFile.ID, 2*time.Hour)
+		if err == nil {
+			fmt.Printf("   🔗 Link Unduh HMAC: %s\n", signedLink.URL)
+		}
+	}
 
 	apiKey, _ := apiKeyService.GenerateKey(ctx, regRes.Client.ID, "Deployment Bot", 90)
 	fmt.Printf("   🔑 API Key: %s\n", apiKey.Key)

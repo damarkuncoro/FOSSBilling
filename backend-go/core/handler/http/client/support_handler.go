@@ -66,10 +66,14 @@ func (h *SupportHandler) ListTickets(w http.ResponseWriter, r *http.Request) {
 
 	limit, offset := 20, 0
 	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 { limit = v }
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
 	}
 	if o := r.URL.Query().Get("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil && v >= 0 { offset = v }
+		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+			offset = v
+		}
 	}
 
 	tickets, total, err := h.supportService.ListClientTickets(r.Context(), clientID, limit, offset)
@@ -120,7 +124,9 @@ func (h *SupportHandler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct{ Message string `json:"message"` }
+	var req struct {
+		Message string `json:"message"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
 		return

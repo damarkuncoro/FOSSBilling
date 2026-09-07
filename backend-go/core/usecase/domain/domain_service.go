@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	ErrDomainNotFound      = errors.New("domain order not found")
-	ErrUnauthorizedDomain  = errors.New("unauthorized domain access")
-	ErrInvalidDomainName   = errors.New("invalid domain name")
-	ErrInvalidNameservers  = errors.New("at least one valid nameserver is required")
+	ErrDomainNotFound     = errors.New("domain order not found")
+	ErrUnauthorizedDomain = errors.New("unauthorized domain access")
+	ErrInvalidDomainName  = errors.New("invalid domain name")
+	ErrInvalidNameservers = errors.New("at least one valid nameserver is required")
 )
 
 type DomainAvailabilityDTO struct {
@@ -47,14 +47,14 @@ type DomainConfig struct {
 }
 
 type DomainService struct {
-	orderRepo domain.OrderRepository
-	registrar provisioning.RegistrarDriver
+	orderRepo         domain.OrderRepository
+	registrarRegistry *provisioning.RegistrarRegistry
 }
 
-func NewDomainService(orderRepo domain.OrderRepository, registrar provisioning.RegistrarDriver) *DomainService {
+func NewDomainService(orderRepo domain.OrderRepository, registrarRegistry *provisioning.RegistrarRegistry) *DomainService {
 	return &DomainService{
-		orderRepo: orderRepo,
-		registrar: registrar,
+		orderRepo:         orderRepo,
+		registrarRegistry: registrarRegistry,
 	}
 }
 
@@ -65,7 +65,21 @@ func (s *DomainService) CheckAvailability(ctx context.Context, domainName string
 		return nil, ErrInvalidDomainName
 	}
 
-	result, err := s.registrar.CheckAvailability(ctx, clean)
+	// Try to use a default registrar or RDAP
+	registrar, err := s.registrarRegistry.Get("rdap")
+	if err != nil {
+		// Fallback to the first available registrar
+		drivers := s.registrarRegistry.List()
+		if len(drivers) == 0 {
+			return nil, fmt.Errorf("no domain registrars configured")
+		}
+		for _, d := range drivers {
+			registrar = d
+			break
+		}
+	}
+
+	result, err := registrar.CheckAvailability(ctx, clean)
 	if err != nil {
 		return nil, fmt.Errorf("registry check failed: %w", err)
 	}

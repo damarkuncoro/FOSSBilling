@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 var (
@@ -16,10 +17,18 @@ var (
 
 type OrderService struct {
 	orderRepo domain.OrderRepository
+	eventBus  *events.EventBus
 }
 
-func NewOrderService(orderRepo domain.OrderRepository) *OrderService {
-	return &OrderService{orderRepo: orderRepo}
+func NewOrderService(orderRepo domain.OrderRepository, eventBus ...*events.EventBus) *OrderService {
+	var bus *events.EventBus
+	if len(eventBus) > 0 {
+		bus = eventBus[0]
+	}
+	return &OrderService{
+		orderRepo: orderRepo,
+		eventBus:  bus,
+	}
 }
 
 // Activate transitions order from PendingSetup/Suspended to Active and calculates expiry & due date
@@ -61,6 +70,20 @@ func (s *OrderService) Activate(ctx context.Context, orderID int64, fromDate tim
 		return nil, err
 	}
 
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventOrderActivated,
+			Payload: domain.OrderActivatedPayload{
+				OrderID:     order.ID,
+				ClientID:    order.ClientID,
+				ProductID:   order.ProductID,
+				Title:       order.Title,
+				ActivatedAt: now,
+			},
+		})
+	}
+
 	return order, nil
 }
 
@@ -77,6 +100,19 @@ func (s *OrderService) Suspend(ctx context.Context, orderID int64, reason string
 
 	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.OrderStatusSuspended, &reason); err != nil {
 		return nil, err
+	}
+
+	// Publish Event
+	if s.eventBus != nil {
+		s.eventBus.PublishAsync(ctx, events.Event{
+			Type: events.EventOrderSuspended,
+			Payload: domain.OrderSuspendedPayload{
+				OrderID:     order.ID,
+				ClientID:    order.ClientID,
+				Reason:      reason,
+				SuspendedAt: time.Now().UTC(),
+			},
+		})
 	}
 
 	return s.orderRepo.GetByID(ctx, orderID)
@@ -188,4 +224,20 @@ func (s *OrderService) CancelForClient(ctx context.Context, clientID, orderID in
 	return s.Cancel(ctx, order.ID, reason)
 }
 
+// ActivateOrdersByInvoiceID activates all orders linked to the given invoice
+func (s *OrderService) ActivateOrdersByInvoiceID(ctx context.Context, invoiceID int64) error {
+	orders, err := s.orderRepo.ListByInvoiceID(ctx, invoiceID)
+	if err != nil {
+		return err
+	}
 
+	now := time.Now().UTC()
+	for _, ord := range orders {
+		if ord.Status == domain.OrderStatusPendingSetup || ord.Status == domain.OrderStatusSuspended {
+			_, _ = s.Activate(ctx, ord.ID, now)
+		} else if ord.Status == domain.OrderStatusActive {
+			_, _ = s.Renew(ctx, ord.ID)
+		}
+	}
+	return nil
+}

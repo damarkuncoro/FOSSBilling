@@ -109,4 +109,3 @@ func (h *DownloadHandler) ListDownloads(w http.ResponseWriter, r *http.Request) 
 
 	response.JSON(w, http.StatusOK, downloads, nil)
 }
-

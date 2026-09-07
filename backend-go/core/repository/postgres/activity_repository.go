@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/jackc/pgx/v5/pgxpool"

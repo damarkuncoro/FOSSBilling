@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -14,6 +14,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/api ./cmd/api
 # Build Worker binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/worker ./cmd/worker
+# Build CLI binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/cli ./cmd/cli
 
 # Final Stage (Minimal Image)
 FROM alpine:3.19
@@ -24,6 +26,7 @@ WORKDIR /app
 
 COPY --from=builder /app/bin/api /app/api
 COPY --from=builder /app/bin/worker /app/worker
+COPY --from=builder /app/bin/cli /app/cli
 COPY --from=builder /app/migrations /app/migrations
 COPY --from=builder /app/docs /app/docs
 

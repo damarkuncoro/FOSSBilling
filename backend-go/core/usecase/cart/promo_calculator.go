@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	ErrPromoExpired       = errors.New("promo code has expired")
-	ErrPromoNotStarted    = errors.New("promo code is not yet active")
-	ErrPromoInactive      = errors.New("promo code is disabled")
-	ErrPromoMaxUses       = errors.New("promo code maximum usage limit reached")
-	ErrPromoAlreadyUsed   = errors.New("promo code can only be used once per client")
+	ErrPromoExpired     = errors.New("promo code has expired")
+	ErrPromoNotStarted  = errors.New("promo code is not yet active")
+	ErrPromoInactive    = errors.New("promo code is disabled")
+	ErrPromoMaxUses     = errors.New("promo code maximum usage limit reached")
+	ErrPromoAlreadyUsed = errors.New("promo code can only be used once per client")
 )
 
 type PromoCalculator struct {

@@ -18,4 +18,10 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 
 	// 2. Overdue Order Auto-Suspension Job (7 days grace period)
 	tasks.RunOverdueSuspensionsTask(jobCtx, cronService, 7)
+
+	// 3. Inactive Support Tickets Auto-Close (7 days inactive)
+	tasks.RunTicketAutoCloseTask(jobCtx, cronService, 7)
+
+	// 4. Housekeeping & Maintenance
+	tasks.RunSystemMaintenanceTask(jobCtx)
 }

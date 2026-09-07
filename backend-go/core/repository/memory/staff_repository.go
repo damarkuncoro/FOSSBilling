@@ -11,13 +11,13 @@ import (
 )
 
 type MockStaffRepository struct {
-	mu         sync.RWMutex
-	staffs     map[int64]*domain.Staff
-	groups     map[int64]*domain.AdminGroup
-	auditLogs  []*domain.AuditLog
-	nextID     int64
-	nextGrpID  int64
-	nextLogID  int64
+	mu        sync.RWMutex
+	staffs    map[int64]*domain.Staff
+	groups    map[int64]*domain.AdminGroup
+	auditLogs []*domain.AuditLog
+	nextID    int64
+	nextGrpID int64
+	nextLogID int64
 }
 
 func NewMockStaffRepository() *MockStaffRepository {
@@ -134,4 +134,3 @@ func (r *MockStaffRepository) GetAuditLogs() []*domain.AuditLog {
 	defer r.mu.RUnlock()
 	return r.auditLogs
 }
-

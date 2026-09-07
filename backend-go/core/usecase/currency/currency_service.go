@@ -8,7 +8,6 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 )
 
-
 var (
 	ErrInvalidCurrencyCode = errors.New("currency code must be 3 characters (e.g. USD, IDR)")
 	ErrCannotDeleteDefault = errors.New("cannot delete the default base currency")

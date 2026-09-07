@@ -30,6 +30,7 @@ type Cart struct {
 	PromoCode string        `json:"promo_code,omitempty"`
 	Subtotal  decimal.Money `json:"subtotal"`
 	Discount  decimal.Money `json:"discount"`
+	Tax       decimal.Money `json:"tax"`
 	Total     decimal.Money `json:"total"`
 }
 
@@ -42,6 +43,8 @@ type CartService struct {
 	promoCalculator *PromoCalculator
 	promoRepo       domain.PromoRepository
 	orderRepo       domain.OrderRepository
+	clientRepo      domain.ClientRepository
+	taxCalculator   *billing.TaxCalculator
 	invoiceService  *billing.InvoiceService
 }
 
@@ -49,17 +52,21 @@ func NewCartService(
 	promoCalculator *PromoCalculator,
 	promoRepo domain.PromoRepository,
 	orderRepo domain.OrderRepository,
+	clientRepo domain.ClientRepository,
+	taxCalculator *billing.TaxCalculator,
 	invoiceService *billing.InvoiceService,
 ) *CartService {
 	return &CartService{
 		promoCalculator: promoCalculator,
 		promoRepo:       promoRepo,
 		orderRepo:       orderRepo,
+		clientRepo:      clientRepo,
+		taxCalculator:   taxCalculator,
 		invoiceService:  invoiceService,
 	}
 }
 
-// CalculateTotals calculates subtotal, applied promo discount, and total
+// CalculateTotals calculates subtotal, applied promo discount, tax and total
 func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 	var subtotal decimal.Money
 	for _, it := range cart.Items {
@@ -72,7 +79,6 @@ func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 
 	cart.Subtotal = subtotal
 	cart.Discount = 0
-	cart.Total = subtotal
 
 	if cart.PromoCode != "" {
 		promo, err := s.promoRepo.GetByCode(ctx, cart.PromoCode)
@@ -80,8 +86,20 @@ func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 			if err := s.promoCalculator.ValidatePromo(ctx, promo, cart.ClientID, time.Now().UTC()); err == nil {
 				discount := s.promoCalculator.CalculateDiscount(subtotal, promo)
 				cart.Discount = discount
-				cart.Total = subtotal - discount
 			}
+		}
+	}
+
+	afterDiscount := subtotal - cart.Discount
+	cart.Tax = 0
+	cart.Total = afterDiscount
+
+	if s.taxCalculator != nil && cart.ClientID > 0 {
+		if client, err := s.clientRepo.GetByID(ctx, cart.ClientID); err == nil && client != nil {
+			rate, _ := s.taxCalculator.GetTaxRateForClient(client)
+			tax, total := s.taxCalculator.CalculateInvoiceTotals(afterDiscount, rate)
+			cart.Tax = tax
+			cart.Total = total
 		}
 	}
 
@@ -139,7 +157,7 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 			Title:    discountTitle,
 			Price:    negDiscount,
 			Quantity: 1,
-			Taxable:  false,
+			Taxable:  true,
 		})
 	}
 

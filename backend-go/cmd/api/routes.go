@@ -14,34 +14,52 @@ import (
 
 // AppHandlers bundles all presentation layer HTTP handlers
 type AppHandlers struct {
-	GuestAuth      *guest.AuthHandler
-	GuestCart      *guest.CartHandler
-	GuestWebhook   *guest.WebhookHandler
-	GuestCurrency  *guest.CurrencyHandler
-	GuestNews      *guest.NewsHandler
-	GuestCompany   *guest.CompanyHandler
-	GuestDomain    *guest.DomainHandler
-	ClientProfile  *client.ProfileHandler
-	ClientOrder    *client.OrderHandler
-	ClientDomain   *client.DomainHandler
-	ClientInvoice  *client.InvoiceHandler
-	ClientDeposit  *client.DepositHandler
-	ClientSupport  *client.SupportHandler
-	ClientDownload *client.DownloadHandler
-	ClientLicense  *client.LicenseHandler
-	ClientAPIKey   *client.APIKeyHandler
-	AdminAuth      *admin.StaffAuthHandler
-	AdminStaff     *admin.StaffManagementHandler
-	AdminClient    *admin.ClientManagementHandler
-	AdminInvoice   *admin.InvoiceManagementHandler
-	AdminStats     *admin.StatsHandler
-	AdminCurrency  *admin.CurrencyHandler
-	AdminNews      *admin.NewsHandler
-	AdminMassMail  *admin.MassMailHandler
-	AdminCompany   *admin.CompanyHandler
-	AdminCatalog   *admin.CatalogHandler
-	AdminBilling   *admin.BillingModuleHandler
-	AdminSystem    *admin.SystemModuleHandler
+	GuestAuth          *guest.AuthHandler
+	GuestCart          *guest.CartHandler
+	GuestWebhook       *guest.WebhookHandler
+	GuestCurrency      *guest.CurrencyHandler
+	GuestNews          *guest.NewsHandler
+	GuestPage          *guest.PageHandler
+	GuestCompany       *guest.CompanyHandler
+	GuestDomain        *guest.DomainHandler
+	GuestFormbuilder   *guest.FormbuilderHandler
+	GuestRedirect      *guest.RedirectHandler
+	GuestCookieConsent *guest.CookieConsentHandler
+	GuestTheme         *guest.ThemeHandler
+	GuestSEO           *guest.SEOHandler
+	GuestWidget        *guest.WidgetHandler
+	ClientProfile      *client.ProfileHandler
+	ClientOrder        *client.OrderHandler
+	ClientDomain       *client.DomainHandler
+	ClientInvoice      *client.InvoiceHandler
+	ClientDeposit      *client.DepositHandler
+	ClientSupport      *client.SupportHandler
+	ClientActivity     *client.ActivityHandler
+	ClientNotification *client.NotificationHandler
+	ClientDownload     *client.DownloadHandler
+	ClientLicense      *client.LicenseHandler
+	ClientAPIKey       *client.APIKeyHandler
+	AdminAuth          *admin.StaffAuthHandler
+	AdminStaff         *admin.StaffManagementHandler
+	AdminClient        *admin.ClientManagementHandler
+	AdminInvoice       *admin.InvoiceManagementHandler
+	AdminStats         *admin.StatsHandler
+	AdminCurrency      *admin.CurrencyHandler
+	AdminNews          *admin.NewsHandler
+	AdminMassMail      *admin.MassMailHandler
+	AdminCompany       *admin.CompanyHandler
+	AdminCatalog       *admin.CatalogHandler
+	AdminBilling       *admin.BillingModuleHandler
+	AdminSystem        *admin.SystemModuleHandler
+	AdminActivity      *admin.ActivityHandler
+	AdminAntispam      *admin.AntispamHandler
+	AdminFormbuilder   *admin.FormbuilderHandler
+	AdminExtension     *admin.ExtensionHandler
+	AdminRedirect      *admin.RedirectHandler
+	AdminCookieConsent *admin.CookieConsentHandler
+	AdminTheme         *admin.ThemeHandler
+	AdminSEO           *admin.SEOHandler
+	AdminWidget        *admin.WidgetHandler
 }
 
 // setupRoutes initializes system routes and dispatches to role-scoped routers
@@ -77,6 +95,26 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter *middleware.Rat
 		}
 		_, _ = w.Write(data)
 	})
+	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		html := `<!doctype html>
+<html>
+  <head>
+    <title>FOSSBilling Next-Gen API Documentation</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="https://fossbilling.org/favicon.ico" />
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="/openapi.json"
+      src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`
+		_, _ = w.Write([]byte(html))
+	})
+	mux.HandleFunc("GET /sitemap.xml", h.GuestSEO.GetSitemap)
 
 	// 2. Auth Middlewares
 	clientAuth := middleware.RequireAuth(cfg.JWTSecret, "client", "admin", "superadmin")

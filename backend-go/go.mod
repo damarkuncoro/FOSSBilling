@@ -1,8 +1,9 @@
 module github.com/damarkuncoro/FOSSBilling/backend-go
 
-go 1.22
+go 1.23
 
 require (
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.6.0
 	golang.org/x/crypto v0.26.0

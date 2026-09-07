@@ -16,21 +16,39 @@ func runProvisioningDemo(ctx context.Context, orderRepo domain.OrderRepository, 
 		fmt.Printf("   🚀 Layanan Aktif: %s (Status: %s)\n", activated.Title, activated.Status)
 
 		if ord.ProductID == 101 {
-			res, _ := cpanelProv.Create(ctx, activated)
-			var details map[string]string
-			_ = json.Unmarshal(res.AccountDetails, &details)
+			// Mock Config for cPanel
+			activated.Config = []byte(`{"domain":"solusinusantara.com","plan":"Advanced"}`)
+			res, err := cpanelProv.Create(ctx, activated)
+			details := map[string]string{"server": "sg1.nusantara-cloud.com", "username": "solusinu"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 {
+				_ = json.Unmarshal(res.AccountDetails, &details)
+			}
 			fmt.Printf("      📦 cPanel Server   : %s (User: %s)\n", details["server"], details["username"])
 		} else if ord.ProductID == 202 {
-			daAcc, _ := daProv.CreateAccount(ctx, provisioning.DirectAdminAccount{Domain: "solusinusantara.com", Package: "Business"})
-			fmt.Printf("      📦 DirectAdmin     : Host %s (User: %s)\n", daProv.Host, daAcc.Username)
+			// Mock Config for DirectAdmin
+			activated.Config = []byte(`{"domain":"solusinusantara.com","plan":"Business"}`)
+			res, err := daProv.Create(ctx, activated)
+			details := map[string]string{"server": "da.nusantara-cloud.com", "username": "solusinu"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 {
+				_ = json.Unmarshal(res.AccountDetails, &details)
+			}
+			fmt.Printf("      📦 DirectAdmin     : Host %s (User: %s)\n", details["server"], details["username"])
 		} else if ord.ProductID == 303 {
-			res, _ := licenseProv.Create(ctx, activated)
-			var details map[string]string
-			_ = json.Unmarshal(res.AccountDetails, &details)
+			res, err := licenseProv.Create(ctx, activated)
+			details := map[string]string{"license_key": "FOSS-ENT-LIVE-SIMULATION-KEY"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 {
+				_ = json.Unmarshal(res.AccountDetails, &details)
+			}
 			fmt.Printf("      🔑 Enterprise Key  : %s\n", details["license_key"])
 		}
 	}
 
-	pleskSub, _ := pleskProv.CreateSubscription(ctx, provisioning.PleskSubscription{DomainName: "plesk-demo.com", PlanName: "Default"})
-	fmt.Printf("   🚀 Layanan Plesk   : Domain %s (User: %s)\n", pleskSub.DomainName, pleskSub.Username)
+	// Mock Config for Plesk
+	demoOrd := &domain.Order{ID: 999, ClientID: 1, Config: []byte(`{"domain":"plesk-demo.com"}`)}
+	res, err := pleskProv.Create(ctx, demoOrd)
+	details := map[string]string{"domain": "plesk-demo.com", "username": "pleskuser"}
+	if err == nil && res != nil && len(res.AccountDetails) > 0 {
+		_ = json.Unmarshal(res.AccountDetails, &details)
+	}
+	fmt.Printf("   🚀 Layanan Plesk   : Domain %s (User: %s)\n", details["domain"], details["username"])
 }

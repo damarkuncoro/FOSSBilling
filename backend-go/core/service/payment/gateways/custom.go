@@ -27,7 +27,7 @@ func (g *CustomGateway) InitiatePayment(ctx context.Context, req payment.Payment
 		TransactionID: txnID,
 		RedirectURL:   fmt.Sprintf("/api/v1/guest/webhook/custom?invoice_id=%d&amount=%s&currency=%s&txn_id=%s", req.InvoiceID, req.Amount.String(), req.Currency, txnID),
 		Token:         txnID,
-	}
+	}, nil
 }
 
 func (g *CustomGateway) ParseWebhook(r *http.Request) (*payment.WebhookResult, error) {

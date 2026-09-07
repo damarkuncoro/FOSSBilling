@@ -44,6 +44,9 @@ func (m *mockOrderRepoForDomain) ListByClientID(ctx context.Context, clientID in
 func (m *mockOrderRepoForDomain) List(ctx context.Context, limit, offset int) ([]*domain.Order, int, error) {
 	return nil, 0, nil
 }
+func (m *mockOrderRepoForDomain) ListByInvoiceID(ctx context.Context, invoiceID int64) ([]*domain.Order, error) {
+	return nil, nil
+}
 func (m *mockOrderRepoForDomain) ListDueOrders(ctx context.Context, dueBefore time.Time) ([]*domain.Order, error) {
 	return nil, nil
 }
@@ -62,9 +65,12 @@ func (m *mockOrderRepoForDomain) UpdateStatus(ctx context.Context, id int64, sta
 }
 
 func TestGuestDomainHandler_CheckAvailability(t *testing.T) {
+	regRegistry := provisioning.NewRegistrarRegistry()
 	registrar := provisioning.NewMockRegistrarDriver()
+	regRegistry.Register("rdap", registrar)
+
 	mockRepo := &mockOrderRepoForDomain{orders: make(map[int64]*domain.Order)}
-	domainService := domainUsecase.NewDomainService(mockRepo, registrar)
+	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry)
 	h := guestHandler.NewDomainHandler(domainService)
 
 	t.Run("Valid available domain", func(t *testing.T) {
@@ -134,8 +140,11 @@ func TestClientDomainHandler_CRUD(t *testing.T) {
 		},
 	}
 
+	regRegistry := provisioning.NewRegistrarRegistry()
 	registrar := provisioning.NewMockRegistrarDriver()
-	domainService := domainUsecase.NewDomainService(mockRepo, registrar)
+	regRegistry.Register("rdap", registrar)
+
+	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry)
 	h := clientHandler.NewDomainHandler(domainService)
 
 	t.Run("List client domains authenticated", func(t *testing.T) {
@@ -148,7 +157,7 @@ func TestClientDomainHandler_CRUD(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 
 		var res struct {
-			Success bool                             `json:"success"`
+			Success bool                            `json:"success"`
 			Data    []domainUsecase.DomainRecordDTO `json:"data"`
 		}
 		err := json.NewDecoder(rec.Body).Decode(&res)
@@ -170,7 +179,7 @@ func TestClientDomainHandler_CRUD(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 
 		var res struct {
-			Success bool                             `json:"success"`
+			Success bool                            `json:"success"`
 			Data    []domainUsecase.DomainRecordDTO `json:"data"`
 		}
 		err := json.NewDecoder(rec.Body).Decode(&res)

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
@@ -193,4 +194,17 @@ func (r *SupportRepository) GetMessages(ctx context.Context, ticketID int64) ([]
 		messages = append(messages, &m)
 	}
 	return messages, nil
+}
+
+func (r *SupportRepository) CloseInactiveTickets(ctx context.Context, cutoff time.Time) (int, error) {
+	query := `
+		UPDATE support_tickets
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE status != $1 AND updated_at <= $2
+	`
+	tag, err := r.pool.Exec(ctx, query, domain.TicketStatusClosed, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }

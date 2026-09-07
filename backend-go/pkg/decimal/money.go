@@ -1,6 +1,7 @@
 package decimal
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -42,4 +43,31 @@ func (m Money) String() string {
 func (m Money) FormatPrecision(decimals int) string {
 	format := fmt.Sprintf("%%.%df", decimals)
 	return fmt.Sprintf(format, m.ToFloat())
+}
+
+func (m *Money) UnmarshalJSON(data []byte) error {
+	// 1. Try as string (e.g. "9.99")
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		val, err := FromString(s)
+		if err != nil {
+			return err
+		}
+		*m = val
+		return nil
+	}
+
+	// 2. Try as float (e.g. 9.99 or 100)
+	// We treat ALL numbers in JSON as float (dollars) for consistency
+	var f float64
+	if err := json.Unmarshal(data, &f); err == nil {
+		*m = FromFloat(f)
+		return nil
+	}
+
+	return fmt.Errorf("invalid money value: %s", string(data))
+}
+
+func (m Money) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.ToFloat())
 }

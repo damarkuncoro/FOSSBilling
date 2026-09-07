@@ -55,22 +55,46 @@ export const Services: React.FC = () => {
                   Cycle: {order.period || 'Monthly'} • Price: {formatMoney(order.price, order.currency)}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                {order.server_id ? (
+              <CardContent className="space-y-3 text-xs flex-grow">
+                {order.config?.account_details ? (
                   <div className="p-3 rounded-lg bg-muted/40 border space-y-1.5 font-mono text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Server Host:</span>
-                      <span className="font-semibold text-foreground">sg1.nusantara-cloud.com</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Username:</span>
-                      <span className="font-semibold text-foreground">solusinu</span>
-                    </div>
+                    {(() => {
+                      try {
+                        const details = JSON.parse(order.config.account_details);
+                        return (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Server Host:</span>
+                              <span className="font-semibold text-foreground">{details.server || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Username:</span>
+                              <span className="font-semibold text-foreground">{details.username || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Password:</span>
+                              <span className="font-semibold text-foreground select-all">{details.password || '******'}</span>
+                            </div>
+                            {details.cpanel_url && (
+                              <div className="pt-2">
+                                <a href={details.cpanel_url} target="_blank" rel="noreferrer">
+                                  <Button variant="secondary" size="sm" className="w-full h-7 text-[10px]">
+                                    Open Control Panel
+                                  </Button>
+                                </a>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } catch (e) {
+                        return <p className="text-destructive">Invalid account details</p>;
+                      }
+                    })()}
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-muted/40 border space-y-1 text-muted-foreground">
-                    <p className="font-semibold text-foreground">Digital Product / License</p>
-                    <p>Instant access verified with HMAC cryptographic tokens.</p>
+                  <div className="p-3 rounded-lg bg-muted/40 border space-y-1 text-muted-foreground h-full">
+                    <p className="font-semibold text-foreground">Service Information</p>
+                    <p>Details will appear here once the service is fully provisioned.</p>
                   </div>
                 )}
               </CardContent>

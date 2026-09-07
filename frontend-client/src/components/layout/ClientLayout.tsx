@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { NavUserMenu } from './NavUserMenu';
 import { DepositModal } from '../invoices/DepositModal';
 
+import { LanguageSwitcher } from '../common/LanguageSwitcher';
+
 export const ClientLayout: React.FC = () => {
   const { user, balance, isAuthenticated, logout, theme, toggleTheme } = useClientAuth();
   const { items } = useCart();
@@ -74,6 +76,9 @@ export const ClientLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Language Switcher */}
+            <LanguageSwitcher />
+
             {/* Theme Switcher */}
             <Button
               variant="ghost"

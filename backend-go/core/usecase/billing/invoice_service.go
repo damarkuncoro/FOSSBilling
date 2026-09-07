@@ -6,25 +6,33 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 type InvoiceService struct {
 	invoiceRepo   domain.InvoiceRepository
 	clientRepo    domain.ClientRepository
 	taxCalculator *TaxCalculator
+	eventBus      *events.EventBus
 }
 
 func NewInvoiceService(
 	invoiceRepo domain.InvoiceRepository,
 	clientRepo domain.ClientRepository,
 	taxCalculator *TaxCalculator,
+	eventBus ...*events.EventBus,
 ) *InvoiceService {
+	var bus *events.EventBus
+	if len(eventBus) > 0 {
+		bus = eventBus[0]
+	}
 	return &InvoiceService{
 		invoiceRepo:   invoiceRepo,
 		clientRepo:    clientRepo,
 		taxCalculator: taxCalculator,
+		eventBus:      bus,
 	}
 }
 
@@ -59,6 +67,7 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 	}
 
 	var subtotal decimal.Money
+	var taxableSubtotal decimal.Money
 	var items []domain.InvoiceItem
 
 	for _, it := range dto.Items {
@@ -67,6 +76,9 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 		}
 		lineTotal := it.Price * decimal.Money(it.Quantity)
 		subtotal += lineTotal
+		if it.Taxable {
+			taxableSubtotal += lineTotal
+		}
 
 		items = append(items, domain.InvoiceItem{
 			OrderID:  it.OrderID,
@@ -87,7 +99,8 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 	if s.taxCalculator != nil {
 		rate, _ := s.taxCalculator.GetTaxRateForClient(client)
 		taxRate = rate
-		tax, total = s.taxCalculator.CalculateInvoiceTotals(subtotal, taxRate)
+		tax, _ = s.taxCalculator.CalculateInvoiceTotals(taxableSubtotal, taxRate)
+		total = subtotal + tax
 	}
 
 	now := time.Now().UTC()
@@ -149,6 +162,20 @@ func (s *InvoiceService) PayWithBalance(ctx context.Context, invoiceID int64) (*
 	now := time.Now().UTC()
 	if err := s.invoiceRepo.MarkAsPaid(ctx, inv.ID, now); err != nil {
 		return nil, err
+	}
+
+	// Publish Event
+	if s.eventBus != nil {
+		_ = s.eventBus.Publish(ctx, events.Event{
+			Type: events.EventInvoicePaid,
+			Payload: domain.InvoicePaidPayload{
+				InvoiceID: inv.ID,
+				ClientID:  inv.ClientID,
+				Amount:    inv.Total,
+				Currency:  inv.Currency,
+				PaidAt:    now,
+			},
+		})
 	}
 
 	return s.invoiceRepo.GetByID(ctx, inv.ID)

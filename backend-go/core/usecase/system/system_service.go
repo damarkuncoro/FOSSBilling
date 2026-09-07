@@ -32,9 +32,9 @@ func (s *SystemService) GetSecuritySettings(ctx context.Context) (map[string]int
 	// Defaults if empty
 	if len(result) == 0 {
 		return map[string]interface{}{
-			"recaptcha_enabled": false,
+			"recaptcha_enabled":  false,
 			"max_login_attempts": 5,
-			"force_ssl": true,
+			"force_ssl":          true,
 		}, nil
 	}
 

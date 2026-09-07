@@ -23,7 +23,7 @@ func setupCartService() (*cart.CartService, *memory.MockPromoRepository, *memory
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
 
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, invService)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invService)
 	return cartService, promoRepo, orderRepo, clientRepo
 }
 

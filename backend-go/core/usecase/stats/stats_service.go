@@ -16,18 +16,18 @@ type RevenueTrend struct {
 }
 
 type DashboardStats struct {
-	TotalRevenue      decimal.Money  `json:"total_revenue"`
-	MonthlyRecurring  decimal.Money  `json:"mrr"`
-	AnnualRecurring   decimal.Money  `json:"arr"`
-	TotalClients      int            `json:"total_clients"`
-	ActiveOrders      int            `json:"active_orders"`
-	SuspendedOrders   int            `json:"suspended_orders"`
-	PendingOrders     int            `json:"pending_orders"`
-	UnpaidInvoices    int            `json:"unpaid_invoices"`
-	PaidInvoices      int            `json:"paid_invoices"`
-	OpenTickets       int            `json:"open_tickets"`
-	ClosedTickets     int            `json:"closed_tickets"`
-	RevenueTrends     []RevenueTrend `json:"revenue_trends"`
+	TotalRevenue     decimal.Money  `json:"total_revenue"`
+	MonthlyRecurring decimal.Money  `json:"mrr"`
+	AnnualRecurring  decimal.Money  `json:"arr"`
+	TotalClients     int            `json:"total_clients"`
+	ActiveOrders     int            `json:"active_orders"`
+	SuspendedOrders  int            `json:"suspended_orders"`
+	PendingOrders    int            `json:"pending_orders"`
+	UnpaidInvoices   int            `json:"unpaid_invoices"`
+	PaidInvoices     int            `json:"paid_invoices"`
+	OpenTickets      int            `json:"open_tickets"`
+	ClosedTickets    int            `json:"closed_tickets"`
+	RevenueTrends    []RevenueTrend `json:"revenue_trends"`
 }
 
 type StatsService struct {

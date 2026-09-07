@@ -26,8 +26,10 @@ func TestTDD_NewFeaturesBackendEndpoints(t *testing.T) {
 
 	var regData struct {
 		Data struct {
-			Token string `json:"token"`
-			Client struct{ ID int64 `json:"id"` } `json:"client"`
+			Token  string `json:"token"`
+			Client struct {
+				ID int64 `json:"id"`
+			} `json:"client"`
 		} `json:"data"`
 	}
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
@@ -93,7 +95,9 @@ func TestTDD_NewFeaturesBackendEndpoints(t *testing.T) {
 	loginBody, _ := json.Marshal(map[string]string{"email": "admin@fossbilling.org", "password": "SuperSecretAdmin123!"})
 	loginResp, _ := http.Post(ts.URL+"/api/v1/admin/auth/login", "application/json", bytes.NewBuffer(loginBody))
 	var adminData struct {
-		Data struct { Token string `json:"token"` } `json:"data"`
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
 	}
 	_ = json.NewDecoder(loginResp.Body).Decode(&adminData)
 	adminToken := adminData.Data.Token
@@ -126,7 +130,7 @@ func TestTDD_NewFeaturesBackendEndpoints(t *testing.T) {
 
 		var listData struct {
 			Data []struct {
-				ID int64 `json:"id"`
+				ID    int64 `json:"id"`
 				Total int64 `json:"total"`
 			} `json:"data"`
 		}

@@ -8,10 +8,10 @@ import (
 type TicketStatus string
 
 const (
-	TicketStatusOpen             TicketStatus = "open"
-	TicketStatusAwaitingClient   TicketStatus = "awaiting_client"
-	TicketStatusAwaitingStaff    TicketStatus = "awaiting_staff"
-	TicketStatusClosed           TicketStatus = "closed"
+	TicketStatusOpen           TicketStatus = "open"
+	TicketStatusAwaitingClient TicketStatus = "awaiting_client"
+	TicketStatusAwaitingStaff  TicketStatus = "awaiting_staff"
+	TicketStatusClosed         TicketStatus = "closed"
 )
 
 type TicketPriority string
@@ -24,16 +24,16 @@ const (
 )
 
 type Ticket struct {
-	ID           int64          `json:"id"`
-	ClientID     int64          `json:"client_id"`
-	HelpdeskID   int64          `json:"helpdesk_id"`
-	Subject      string         `json:"subject"`
-	Status       TicketStatus   `json:"status"`
-	Priority     TicketPriority `json:"priority"`
-	RelType      *string        `json:"rel_type,omitempty"` // e.g. "order"
-	RelID        *int64         `json:"rel_id,omitempty"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID         int64          `json:"id"`
+	ClientID   int64          `json:"client_id"`
+	HelpdeskID int64          `json:"helpdesk_id"`
+	Subject    string         `json:"subject"`
+	Status     TicketStatus   `json:"status"`
+	Priority   TicketPriority `json:"priority"`
+	RelType    *string        `json:"rel_type,omitempty"` // e.g. "order"
+	RelID      *int64         `json:"rel_id,omitempty"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
 }
 
 type TicketMessage struct {
@@ -54,5 +54,5 @@ type SupportRepository interface {
 	AddMessage(ctx context.Context, message *TicketMessage) error
 	UpdateTicketStatus(ctx context.Context, id int64, status TicketStatus) error
 	GetMessages(ctx context.Context, ticketID int64) ([]*TicketMessage, error)
+	CloseInactiveTickets(ctx context.Context, cutoff time.Time) (int, error)
 }
-

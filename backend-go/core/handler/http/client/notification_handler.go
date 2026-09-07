@@ -27,14 +27,14 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	notifications, total, err := h.notifService.ListMyNotifications(r.Context(), clientID, limit, offset)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
 		return
 	}
 
-	meta := map[string]interface{}{
-		"total":  total,
-		"limit":  limit,
-		"offset": offset,
+	meta := &response.Meta{
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}
 	response.JSON(w, http.StatusOK, notifications, meta)
 }
@@ -42,12 +42,12 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if id == 0 {
-		response.Error(w, http.StatusBadRequest, "invalid notification id")
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid notification id", nil)
 		return
 	}
 
 	if err := h.notifService.MarkAsRead(r.Context(), id); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *NotificationHandler) MarkAllAsRead(w http.ResponseWriter, r *http.Reque
 	clientID := middleware.GetClientID(r.Context())
 
 	if err := h.notifService.MarkAllAsRead(r.Context(), clientID); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
 		return
 	}
 

@@ -11,8 +11,8 @@ var (
 
 // RegistrarRegistry manages multiple domain registrar drivers
 type RegistrarRegistry struct {
-	mu       sync.RWMutex
-	drivers  map[string]RegistrarDriver
+	mu      sync.RWMutex
+	drivers map[string]RegistrarDriver
 }
 
 func NewRegistrarRegistry() *RegistrarRegistry {

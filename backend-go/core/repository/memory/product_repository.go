@@ -2,8 +2,8 @@ package memory
 
 import (
 	"context"
-	"sync"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"sync"
 )
 
 type MockProductRepository struct {

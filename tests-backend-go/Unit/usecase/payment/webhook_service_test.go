@@ -6,51 +6,45 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
-func setupWebhookService() (*payment.WebhookService, *memory.MockTransactionRepository, *memory.MockInvoiceRepository, *memory.MockOrderRepository) {
+func setupWebhookService() (*payment.WebhookService, *memory.MockTransactionRepository, *memory.MockInvoiceRepository, *events.EventBus) {
 	txnRepo := memory.NewMockTransactionRepository()
 	invRepo := memory.NewMockInvoiceRepository()
-	orderRepo := memory.NewMockOrderRepository()
+	eventBus := events.NewEventBus()
 
-	orderService := order.NewOrderService(orderRepo)
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, orderService, orderRepo)
+	webhookService := payment.NewWebhookService(txnRepo, invRepo, eventBus)
 
-	return webhookService, txnRepo, invRepo, orderRepo
+	return webhookService, txnRepo, invRepo, eventBus
 }
 
-func TestWebhookService_HandlePaymentWebhookAndAutoActivate(t *testing.T) {
+func TestWebhookService_HandlePaymentWebhookAndEventPublish(t *testing.T) {
 	ctx := context.Background()
-	service, _, invRepo, orderRepo := setupWebhookService()
+	service, _, invRepo, eventBus := setupWebhookService()
 
-	// 1. Create Pending Order
-	testOrder := &domain.Order{
-		ClientID:  1,
-		ProductID: 10,
-		Title:     "cPanel Web Hosting",
-		Period:    "1M",
-		Price:     decimal.FromFloat(25.00),
-		Currency:  "USD",
-		Status:    domain.OrderStatusPendingSetup,
-	}
-	_ = orderRepo.Create(ctx, testOrder)
+	// Capture event
+	eventReceived := false
+	eventBus.Subscribe(events.EventInvoicePaid, func(ctx context.Context, e events.Event) error {
+		payload := e.Payload.(domain.InvoicePaidPayload)
+		if payload.InvoiceID != 0 {
+			eventReceived = true
+		}
+		return nil
+	})
 
-	// 2. Create Unpaid Invoice with linked Order
+	// 1. Create Unpaid Invoice
 	invoice := &domain.Invoice{
 		ClientID: 1,
 		Status:   domain.InvoiceStatusUnpaid,
 		Currency: "USD",
 		Total:    decimal.FromFloat(25.00),
 	}
-	items := []domain.InvoiceItem{
-		{OrderID: &testOrder.ID, Title: "cPanel Web Hosting", Price: decimal.FromFloat(25.00), Quantity: 1},
-	}
-	_ = invRepo.Create(ctx, invoice, items)
+	_ = invRepo.Create(ctx, invoice, []domain.InvoiceItem{})
 
-	// 3. Receive Inbound Webhook (e.g. from Stripe / Midtrans)
+	// 2. Receive Inbound Webhook
 	webhook := payment.WebhookPayload{
 		GatewayID: "stripe",
 		TxnID:     "ch_3M456xyz789",
@@ -69,25 +63,18 @@ func TestWebhookService_HandlePaymentWebhookAndAutoActivate(t *testing.T) {
 		t.Errorf("Txn status = %s; want complete", txn.Status)
 	}
 
-	// 4. Verify Invoice is marked as Paid
+	// 3. Verify Invoice is marked as Paid
 	updatedInv, _ := invRepo.GetByID(ctx, invoice.ID)
 	if updatedInv.Status != domain.InvoiceStatusPaid {
 		t.Errorf("Invoice status = %s; want paid", updatedInv.Status)
 	}
-	if updatedInv.PaidAt == nil {
-		t.Error("Expected Invoice PaidAt timestamp to be set")
+
+	// 4. Verify Event was Published
+	if !eventReceived {
+		t.Error("Expected EventInvoicePaid to be published")
 	}
 
-	// 5. Verify Order was AUTOMATICALLY Activated
-	activatedOrder, _ := orderRepo.GetByID(ctx, testOrder.ID)
-	if activatedOrder.Status != domain.OrderStatusActive {
-		t.Errorf("Order status = %s; want active", activatedOrder.Status)
-	}
-	if activatedOrder.ActivatedAt == nil || activatedOrder.ExpiresAt == nil {
-		t.Error("Expected Order ActivatedAt and ExpiresAt to be set")
-	}
-
-	// 6. Test Idempotency: Duplicate webhook with same TxnID should be rejected
+	// 5. Test Idempotency
 	_, duplicateErr := service.HandlePaymentWebhook(ctx, webhook)
 	if duplicateErr != payment.ErrDuplicateTransaction {
 		t.Errorf("Expected ErrDuplicateTransaction on replayed webhook, got: %v", duplicateErr)

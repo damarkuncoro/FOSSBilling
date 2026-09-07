@@ -9,12 +9,13 @@ type EventType string
 
 const (
 	EventClientRegistered EventType = "client.registered"
-	EventInvoiceCreated    EventType = "invoice.created"
-	EventInvoicePaid       EventType = "invoice.paid"
-	EventOrderActivated    EventType = "order.activated"
-	EventOrderSuspended    EventType = "order.suspended"
-	EventTicketOpened      EventType = "ticket.opened"
-	EventTicketReplied     EventType = "ticket.replied"
+	EventInvoiceCreated   EventType = "invoice.created"
+	EventInvoicePaid      EventType = "invoice.paid"
+	EventOrderActivated   EventType = "order.activated"
+	EventOrderSuspended   EventType = "order.suspended"
+	EventTicketOpened     EventType = "ticket.opened"
+	EventTicketReplied    EventType = "ticket.replied"
+	EventTicketClosed     EventType = "ticket.closed"
 )
 
 type Event struct {

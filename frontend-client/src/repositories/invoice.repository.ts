@@ -5,6 +5,7 @@ export interface IInvoiceRepository {
   listInvoices(limit?: number, offset?: number): Promise<Invoice[]>;
   getInvoice(id: number): Promise<Invoice>;
   payWithBalance(id: number): Promise<any>;
+  payWithGateway(id: number, gateway: string): Promise<{ redirect_url: string }>;
   depositFunds(amount: number, gateway?: string): Promise<{ invoice_id: number; redirect_url?: string }>;
 }
 
@@ -20,6 +21,13 @@ export class InvoiceRepository implements IInvoiceRepository {
   async payWithBalance(id: number): Promise<any> {
     return request(`/client/invoices/${id}/pay-balance`, {
       method: 'POST',
+    });
+  }
+
+  async payWithGateway(id: number, gateway: string): Promise<{ redirect_url: string }> {
+    return request<{ redirect_url: string }>(`/client/invoices/${id}/pay-gateway`, {
+      method: 'POST',
+      body: JSON.stringify({ gateway }),
     });
   }
 

@@ -1,4 +1,4 @@
-name: Frontend Portals CI (Admin & Client)
+name: Frontend Portals & Docs CI (Admin, Client, Docs)
 
 on:
   push:
@@ -6,17 +6,19 @@ on:
     paths:
       - 'frontend-administrator/**'
       - 'frontend-client/**'
+      - 'docs/**'
       - '.github/workflows/frontends-ci.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'frontend-administrator/**'
       - 'frontend-client/**'
+      - 'docs/**'
       - '.github/workflows/frontends-ci.yml'
 
 jobs:
   test-and-build:
-    name: Test & Build Frontends
+    name: Test & Build Frontends and Docs
     runs-on: ubuntu-latest
 
     steps:
@@ -42,3 +44,10 @@ jobs:
           npm ci
           npm test -- --run
           npm run build
+
+      - name: Build VitePress Documentation Site
+        working-directory: docs
+        run: |
+          npm ci
+          npm run docs:build
+

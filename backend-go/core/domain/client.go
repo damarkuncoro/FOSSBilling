@@ -65,4 +65,3 @@ type ClientRepository interface {
 	GetBalance(ctx context.Context, clientID int64) (decimal.Money, error)
 	AddBalanceTransaction(ctx context.Context, balance *ClientBalance) error
 }
-

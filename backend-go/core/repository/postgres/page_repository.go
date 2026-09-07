@@ -18,7 +18,9 @@ func (r *PageRepository) GetBySlug(ctx context.Context, slug string) (*domain.Pa
 	var p domain.Page
 	err := r.pool.QueryRow(ctx, `SELECT id, title, slug, content, published, created_at, updated_at FROM pages WHERE slug = $1`, slug).
 		Scan(&p.ID, &p.Title, &p.Slug, &p.Content, &p.Published, &p.CreatedAt, &p.UpdatedAt)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &p, nil
 }
 
@@ -27,13 +29,17 @@ func (r *PageRepository) List(ctx context.Context, limit, offset int) ([]*domain
 	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM pages`).Scan(&total)
 
 	rows, err := r.pool.Query(ctx, `SELECT id, title, slug, content, published, created_at, updated_at FROM pages ORDER BY id DESC LIMIT $1 OFFSET $2`, limit, offset)
-	if err != nil { return nil, 0, err }
+	if err != nil {
+		return nil, 0, err
+	}
 	defer rows.Close()
 
 	var list []*domain.Page
 	for rows.Next() {
 		p := &domain.Page{}
-		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Content, &p.Published, &p.CreatedAt, &p.UpdatedAt); err != nil { return nil, 0, err }
+		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Content, &p.Published, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, err
+		}
 		list = append(list, p)
 	}
 	return list, total, nil

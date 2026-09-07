@@ -6,18 +6,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatMoney(amount: number, currencyCode = 'USD'): string {
+  const safeAmount = Number(amount) || 0;
+
   if (currencyCode === 'IDR') {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(safeAmount);
   }
 
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currencyCode,
-  }).format(amount);
+  }).format(safeAmount);
 }
 
 export function formatDate(dateStr: string | undefined): string {

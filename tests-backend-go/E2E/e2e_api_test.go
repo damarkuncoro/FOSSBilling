@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -224,5 +225,228 @@ func TestE2E_LiveSupportTicketFlow(t *testing.T) {
 		t.Fatalf("Failed to list tickets: %v", err)
 	}
 	defer listResp.Body.Close()
+}
+
+func TestE2E_FullCheckoutAndPaymentFlow(t *testing.T) {
+	baseURL := getBaseURL()
+	resp, err := http.Get(baseURL + "/health")
+	if err != nil {
+		t.Skipf("API server is not running at %s (skipping live e2e test): %v", baseURL, err)
+		return
+	}
+	_ = resp.Body.Close()
+
+	// 1. Admin Login & Create Product (to avoid FK violation)
+	adminLoginPayload := map[string]string{
+		"email":    "admin@fossbilling.org",
+		"password": "admin123",
+	}
+	adminBody, _ := json.Marshal(adminLoginPayload)
+	adminLoginResp, err := http.Post(baseURL+"/api/v1/admin/auth/login", "application/json", bytes.NewBuffer(adminBody))
+	if err != nil {
+		t.Fatalf("Admin login request failed: %v", err)
+	}
+	defer adminLoginResp.Body.Close()
+	if adminLoginResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(adminLoginResp.Body)
+		t.Fatalf("Admin login failed with status %d: %s", adminLoginResp.StatusCode, string(body))
+	}
+	var adminData struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(adminLoginResp.Body).Decode(&adminData)
+	adminToken := adminData.Data.Token
+
+	productPayload := map[string]interface{}{
+		"id":          101, // Attempt to set ID 101 specifically
+		"type":        "hosting",
+		"name":        "Cloud VPS Starter E2E",
+		"slug":        fmt.Sprintf("cloud-vps-starter-e2e-%d", time.Now().Unix()),
+		"description": "Auto-generated for E2E testing",
+		"status":      "enabled",
+		"setup_type":  "recurring",
+	}
+	prodBody, _ := json.Marshal(productPayload)
+	prodReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/products", bytes.NewBuffer(prodBody))
+	prodReq.Header.Set("Authorization", "Bearer "+adminToken)
+	prodReq.Header.Set("Content-Type", "application/json")
+	prodResp, err := http.DefaultClient.Do(prodReq)
+	if err != nil {
+		t.Fatalf("Failed to create product: %v", err)
+	}
+	// We don't check for 201 strictly here because it might already exist or ID 101 might be taken
+	// But we try to get a valid product ID.
+	var createdProduct struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	if prodResp.StatusCode == http.StatusCreated {
+		_ = json.NewDecoder(prodResp.Body).Decode(&createdProduct)
+	} else {
+		// Fallback: list products and take the first one
+		listReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/admin/products", nil)
+		listReq.Header.Set("Authorization", "Bearer "+adminToken)
+		listResp, _ := http.DefaultClient.Do(listReq)
+		var listData struct {
+			Data []struct {
+				ID int64 `json:"id"`
+			} `json:"data"`
+		}
+		_ = json.NewDecoder(listResp.Body).Decode(&listData)
+		if len(listData.Data) > 0 {
+			createdProduct.Data.ID = listData.Data[0].ID
+		} else {
+			t.Fatal("No products available for checkout test")
+		}
+	}
+	productID := createdProduct.Data.ID
+
+	uniqueEmail := fmt.Sprintf("checkout.user.%d@example.com", time.Now().UnixNano())
+
+	// 2. Register Client
+	regPayload := map[string]string{
+		"email":      uniqueEmail,
+		"password":   "SecurePassword123!",
+		"first_name": "E2E",
+		"last_name":  "Buyer",
+		"country":    "ID",
+		"currency":   "USD",
+	}
+	body, _ := json.Marshal(regPayload)
+	regResp, err := http.Post(baseURL+"/api/v1/guest/auth/register", "application/json", bytes.NewBuffer(body))
+	if err != nil || regResp.StatusCode != http.StatusCreated {
+		t.Fatalf("Register failed: %v", err)
+	}
+	var regData struct {
+		Data struct {
+			Token  string `json:"token"`
+			Client struct {
+				ID int64 `json:"id"`
+			} `json:"client"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(regResp.Body).Decode(&regData)
+	token := regData.Data.Token
+	clientID := regData.Data.Client.ID
+
+	// 3. Checkout (Creating Order & Invoice)
+	checkoutPayload := map[string]interface{}{
+		"client_id": clientID,
+		"items": []map[string]interface{}{
+			{
+				"product_id": productID,
+				"title":      "Cloud VPS Starter",
+				"period":     "1M",
+				"price":      9.99,
+				"quantity":   1,
+			},
+		},
+	}
+	body, _ = json.Marshal(checkoutPayload)
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/guest/cart/checkout", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	checkResp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Checkout failed: %v", err)
+	}
+	defer checkResp.Body.Close()
+	if checkResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(checkResp.Body)
+		t.Fatalf("Checkout failed with status %d: %s", checkResp.StatusCode, string(body))
+	}
+
+	var checkoutData struct {
+		Data struct {
+			Invoice struct {
+				ID    int64   `json:"id"`
+				Total float64 `json:"total"`
+			} `json:"invoice"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(checkResp.Body).Decode(&checkoutData)
+	invID := checkoutData.Data.Invoice.ID
+
+	// 4. Simulate Webhook Payment (Custom Gateway)
+	webhookURL := fmt.Sprintf("%s/api/v1/guest/webhook/custom?invoice_id=%d&txn_id=E2E-TEST-TXN-%d&currency=USD", baseURL, invID, time.Now().UnixNano())
+	webResp, err := http.Post(webhookURL, "application/json", nil)
+	if err != nil {
+		t.Fatalf("Webhook simulation failed with err: %v", err)
+	}
+	defer webResp.Body.Close()
+	if webResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(webResp.Body)
+		t.Fatalf("Webhook simulation failed with status %d: %s", webResp.StatusCode, string(b))
+	}
+
+	// 5. Verify Invoice is Paid
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/client/invoices/%d", baseURL, invID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	invResp, err := http.DefaultClient.Do(req)
+	if err != nil || invResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to fetch invoice: %v", err)
+	}
+	var invData struct {
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(invResp.Body).Decode(&invData)
+	if invData.Data.Status != "paid" {
+		t.Errorf("Invoice status = %s; want paid", invData.Data.Status)
+	}
+}
+
+func TestE2E_LocalesGeoIPAndDocs(t *testing.T) {
+	baseURL := getBaseURL()
+	resp, err := http.Get(baseURL + "/health")
+	if err != nil {
+		t.Skipf("API server is not running at %s (skipping live e2e test): %v", baseURL, err)
+		return
+	}
+	_ = resp.Body.Close()
+
+	// 1. Check Locales
+	locResp, err := http.Get(baseURL + "/api/v1/guest/locales")
+	if err != nil {
+		t.Fatalf("Locales request failed: %v", err)
+	}
+	defer locResp.Body.Close()
+	if locResp.StatusCode != http.StatusOK {
+		t.Errorf("Locales status = %d; want 200", locResp.StatusCode)
+	}
+
+	// 2. Check GeoIP lookup
+	geoResp, err := http.Get(baseURL + "/api/v1/guest/system/geoip?ip=8.8.8.8")
+	if err != nil {
+		t.Fatalf("GeoIP request failed: %v", err)
+	}
+	defer geoResp.Body.Close()
+	if geoResp.StatusCode != http.StatusOK {
+		t.Errorf("GeoIP status = %d; want 200", geoResp.StatusCode)
+	}
+
+	// 3. Check OpenAPI specification endpoint
+	specResp, err := http.Get(baseURL + "/openapi.json")
+	if err != nil {
+		t.Fatalf("OpenAPI spec failed: %v", err)
+	}
+	defer specResp.Body.Close()
+	if specResp.StatusCode != http.StatusOK {
+		t.Errorf("OpenAPI spec status = %d; want 200", specResp.StatusCode)
+	}
+
+	// 4. Check Scalar Docs endpoint
+	docsResp, err := http.Get(baseURL + "/docs")
+	if err != nil {
+		t.Fatalf("Scalar docs failed: %v", err)
+	}
+	defer docsResp.Body.Close()
+	if docsResp.StatusCode != http.StatusOK {
+		t.Errorf("Docs status = %d; want 200", docsResp.StatusCode)
+	}
 }
 

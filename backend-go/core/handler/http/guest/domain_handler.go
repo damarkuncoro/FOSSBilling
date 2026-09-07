@@ -32,4 +32,3 @@ func (h *DomainHandler) CheckAvailability(w http.ResponseWriter, r *http.Request
 
 	response.JSON(w, http.StatusOK, result, nil)
 }
-

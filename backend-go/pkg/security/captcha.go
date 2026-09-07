@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-
 type CaptchaVerifier interface {
 	Verify(ctx context.Context, token, remoteIP string) (bool, error)
 }
@@ -38,6 +37,10 @@ type turnstileResponse struct {
 }
 
 func (v *TurnstileVerifier) Verify(ctx context.Context, token, remoteIP string) (bool, error) {
+	if strings.TrimSpace(token) == "" {
+		return false, fmt.Errorf("empty captcha token")
+	}
+
 	// If secret key is empty or in mock/testing mode, pass
 	if v.SecretKey == "" || token == "MOCK_PASSED_TOKEN" {
 		return true, nil
@@ -61,7 +64,6 @@ func (v *TurnstileVerifier) Verify(ctx context.Context, token, remoteIP string) 
 		return false, fmt.Errorf("turnstile request error: %w", err)
 	}
 	defer resp.Body.Close()
-
 
 	var res turnstileResponse
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {

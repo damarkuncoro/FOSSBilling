@@ -41,7 +41,9 @@ func (h *StaffManagementHandler) ReplyTicket(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req struct{ Message string `json:"message"` }
+	var req struct {
+		Message string `json:"message"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
 		return

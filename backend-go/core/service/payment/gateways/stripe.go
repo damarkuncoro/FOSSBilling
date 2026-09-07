@@ -15,16 +15,16 @@ import (
 )
 
 type StripeGateway struct {
-	secretKey     string
+	secretKey      string
 	publishableKey string
-	webhookSecret string
+	webhookSecret  string
 }
 
 func NewStripeGateway(secretKey, publishableKey, webhookSecret string) *StripeGateway {
 	return &StripeGateway{
 		secretKey:      secretKey,
 		publishableKey: publishableKey,
-		webhookSecret: webhookSecret,
+		webhookSecret:  webhookSecret,
 	}
 }
 

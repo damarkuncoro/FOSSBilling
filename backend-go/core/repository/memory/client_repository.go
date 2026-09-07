@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 )
 
 type MockClientRepository struct {
@@ -72,7 +72,6 @@ func (r *MockClientRepository) List(ctx context.Context, limit, offset int) ([]*
 	}
 	return all[offset:end], total, nil
 }
-
 
 func (r *MockClientRepository) Create(ctx context.Context, c *domain.Client) error {
 	r.mu.Lock()

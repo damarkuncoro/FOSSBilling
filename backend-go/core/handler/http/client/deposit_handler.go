@@ -6,21 +6,27 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type DepositHandler struct {
 	invoiceService *billing.InvoiceService
+	paymentService *paymentUsecase.PaymentService
 }
 
-func NewDepositHandler(invoiceService *billing.InvoiceService) *DepositHandler {
-	return &DepositHandler{invoiceService: invoiceService}
+func NewDepositHandler(invoiceService *billing.InvoiceService, paymentService *paymentUsecase.PaymentService) *DepositHandler {
+	return &DepositHandler{
+		invoiceService: invoiceService,
+		paymentService: paymentService,
+	}
 }
 
 type depositRequest struct {
 	Amount   float64 `json:"amount"`
 	Currency string  `json:"currency"`
+	Gateway  string  `json:"gateway"`
 }
 
 func (h *DepositHandler) DepositFunds(w http.ResponseWriter, r *http.Request) {
@@ -59,12 +65,22 @@ func (h *DepositHandler) DepositFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, map[string]interface{}{
+	data := map[string]interface{}{
 		"invoice_id": inv.ID,
 		"nr":         inv.Nr,
 		"total":      inv.Total.ToFloat(),
 		"currency":   inv.Currency,
 		"status":     inv.Status,
 		"message":    "Deposit invoice generated successfully",
-	}, nil)
+	}
+
+	if req.Gateway != "" {
+		paymentRes, err := h.paymentService.InitiateInvoicePayment(r.Context(), inv.ID, req.Gateway)
+		if err == nil {
+			data["payment"] = paymentRes
+			data["redirect_url"] = paymentRes.RedirectURL
+		}
+	}
+
+	response.JSON(w, http.StatusCreated, data, nil)
 }

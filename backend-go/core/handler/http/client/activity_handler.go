@@ -26,14 +26,14 @@ func (h *ActivityHandler) ListMyLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, total, err := h.activityService.ListClientLogs(r.Context(), clientID, limit, offset)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
 		return
 	}
 
-	meta := map[string]interface{}{
-		"total":  total,
-		"limit":  limit,
-		"offset": offset,
+	meta := &response.Meta{
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}
 	response.JSON(w, http.StatusOK, logs, meta)
 }

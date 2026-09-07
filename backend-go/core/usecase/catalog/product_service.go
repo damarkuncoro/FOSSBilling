@@ -2,16 +2,25 @@ package catalog
 
 import (
 	"context"
+	"fmt"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
+	"time"
 )
 
 type ProductService struct {
 	productRepo domain.ProductRepository
+	cache       cache.Cache
 }
 
-func NewProductService(productRepo domain.ProductRepository) *ProductService {
+func NewProductService(productRepo domain.ProductRepository, c ...cache.Cache) *ProductService {
+	var cc cache.Cache
+	if len(c) > 0 {
+		cc = c[0]
+	}
 	return &ProductService{
 		productRepo: productRepo,
+		cache:       cc,
 	}
 }
 
@@ -19,7 +28,31 @@ func (s *ProductService) ListProducts(ctx context.Context, limit, offset int) ([
 	if limit <= 0 {
 		limit = 20
 	}
-	return s.productRepo.List(ctx, limit, offset)
+
+	cacheKey := fmt.Sprintf("products:list:%d:%d", limit, offset)
+	if s.cache != nil {
+		var cached struct {
+			Items []*domain.Product
+			Total int
+		}
+		if err := s.cache.Get(ctx, cacheKey, &cached); err == nil {
+			return cached.Items, cached.Total, nil
+		}
+	}
+
+	items, total, err := s.productRepo.List(ctx, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, cacheKey, struct {
+			Items []*domain.Product
+			Total int
+		}{Items: items, Total: total}, 10*time.Minute)
+	}
+
+	return items, total, nil
 }
 
 func (s *ProductService) GetProduct(ctx context.Context, id int64) (*domain.Product, error) {

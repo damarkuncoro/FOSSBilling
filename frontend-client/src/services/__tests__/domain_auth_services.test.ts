@@ -87,6 +87,7 @@ describe('InvoiceService', () => {
       listInvoices: vi.fn(),
       getInvoice: vi.fn(),
       payWithBalance: vi.fn(),
+      payWithGateway: vi.fn(),
       depositFunds: vi.fn(),
     };
     const service = new InvoiceService(mockRepo);

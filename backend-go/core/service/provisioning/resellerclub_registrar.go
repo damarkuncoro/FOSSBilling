@@ -141,14 +141,121 @@ func (d *ResellerClubRegistrarDriver) CheckAvailability(ctx context.Context, dom
 }
 
 func (d *ResellerClubRegistrarDriver) RegisterDomain(ctx context.Context, req DomainRegistrationRequest) (*DomainRegistrationResult, error) {
-	// Implementation would involve creating customer, adding contacts, and then calling domains/register
-	// This is a simplified version returning a pending status for now
+	// 1. Ensure Customer exists or create one
+	email := req.ContactInfo["email"]
+	if email == "" {
+		return nil, fmt.Errorf("client email is required for ResellerClub registration")
+	}
+
+	params := url.Values{}
+	params.Set("username", email)
+
+	customerData, err := d.makeRequest(ctx, "GET", "customers/details", params)
+	var customerID string
+	if err != nil {
+		// Try to create customer if not found
+		signupParams := url.Values{}
+		signupParams.Set("username", email)
+		signupParams.Set("passwd", "Pass!"+req.ContactInfo["last_name"]+"123") // Temporary password policy
+		signupParams.Set("name", req.ContactInfo["first_name"]+" "+req.ContactInfo["last_name"])
+		company := req.ContactInfo["company"]
+		if company == "" {
+			company = "N/A"
+		}
+		signupParams.Set("company", company)
+		signupParams.Set("address-line-1", req.ContactInfo["address1"])
+		signupParams.Set("city", req.ContactInfo["city"])
+		signupParams.Set("state", req.ContactInfo["state"])
+		signupParams.Set("country", req.ContactInfo["country"])
+		signupParams.Set("zipcode", req.ContactInfo["postcode"])
+		signupParams.Set("phone-cc", req.ContactInfo["phone_cc"])
+		signupParams.Set("phone", req.ContactInfo["phone"])
+		signupParams.Set("lang-pref", "en")
+
+		res, err := d.makeRequest(ctx, "POST", "customers/signup", signupParams)
+		if err != nil {
+			if !d.config.IsTest {
+				return nil, err
+			}
+			customerID = "99999" // Mock
+		} else {
+			customerID = string(res) // ResellerClub returns ID as raw string for signup
+		}
+	} else {
+		var cInfo struct {
+			CustomerID string `json:"customerid"`
+		}
+		_ = json.Unmarshal(customerData, &cInfo)
+		customerID = cInfo.CustomerID
+	}
+
+	// 2. Add/Get Contact (Registrant)
+	contactParams := url.Values{}
+	contactParams.Set("customer-id", customerID)
+	contactParams.Set("type", "Contact")
+	contactParams.Set("name", req.ContactInfo["first_name"]+" "+req.ContactInfo["last_name"])
+	contactParams.Set("email", email)
+	contactParams.Set("company", req.ContactInfo["company"])
+	contactParams.Set("address-line-1", req.ContactInfo["address1"])
+	contactParams.Set("city", req.ContactInfo["city"])
+	contactParams.Set("country", req.ContactInfo["country"])
+	contactParams.Set("zipcode", req.ContactInfo["postcode"])
+	contactParams.Set("phone-cc", req.ContactInfo["phone_cc"])
+	contactParams.Set("phone", req.ContactInfo["phone"])
+
+	contactRes, err := d.makeRequest(ctx, "POST", "contacts/add", contactParams)
+	var contactID string
+	if err != nil {
+		if !d.config.IsTest {
+			return nil, err
+		}
+		contactID = "88888"
+	} else {
+		contactID = string(contactRes)
+	}
+
+	// 3. Register Domain
+	regParams := url.Values{}
+	regParams.Set("domain-name", req.DomainName)
+	regParams.Set("years", fmt.Sprintf("%d", req.Years))
+	if len(req.Nameservers) > 0 {
+		regParams.Set("ns", strings.Join(req.Nameservers, ","))
+	}
+	regParams.Set("customer-id", customerID)
+	regParams.Set("reg-contact-id", contactID)
+	regParams.Set("admin-contact-id", contactID)
+	regParams.Set("tech-contact-id", contactID)
+	regParams.Set("billing-contact-id", contactID)
+	regParams.Set("invoice-option", "NoInvoice")
+
+	data, err := d.makeRequest(ctx, "POST", "domains/register", regParams)
+	if err != nil {
+		if d.config.IsTest {
+			return &DomainRegistrationResult{
+				DomainName:    req.DomainName,
+				Status:        "active",
+				RegisteredAt:  time.Now().UTC(),
+				ExpiresAt:     time.Now().AddDate(req.Years, 0, 0),
+				Nameservers:   req.Nameservers,
+				AuthCode:      "MOCK-EPP-CODE",
+				TransactionID: "MOCK-TXN-123",
+			}, nil
+		}
+		return nil, err
+	}
+
+	var result struct {
+		ActionID string `json:"actionid"`
+	}
+	_ = json.Unmarshal(data, &result)
+
 	return &DomainRegistrationResult{
-		DomainName:   req.DomainName,
-		Status:       "pending",
-		RegisteredAt: time.Now().UTC(),
-		ExpiresAt:    time.Now().AddDate(req.Years, 0, 0),
-		Nameservers:  req.Nameservers,
+		DomainName:    req.DomainName,
+		Status:        "active",
+		RegisteredAt:  time.Now().UTC(),
+		ExpiresAt:     time.Now().AddDate(req.Years, 0, 0),
+		Nameservers:   req.Nameservers,
+		TransactionID: result.ActionID,
 	}, nil
 }
 

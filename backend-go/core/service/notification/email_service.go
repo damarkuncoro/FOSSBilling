@@ -26,6 +26,10 @@ func NewEmailService(m mailer.Mailer, fromEmail, appName string) *EmailService {
 	return &EmailService{mailer: m, fromEmail: fromEmail, appName: appName}
 }
 
+func (s *EmailService) GetMailer() mailer.Mailer {
+	return s.mailer
+}
+
 func (s *EmailService) SendWelcomeEmail(ctx context.Context, client *domain.Client) error {
 	tmpl, err := template.New("welcome").Parse(welcomeTemplate)
 	if err != nil {
@@ -156,4 +160,3 @@ func (s *EmailService) SendServiceActivatedEmail(ctx context.Context, client *do
 		HTMLBody: buf.String(),
 	})
 }
-

@@ -8,7 +8,11 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/client"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/guest"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/listener"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	cartUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/cart"
@@ -16,11 +20,14 @@ import (
 	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	staffUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	supportUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.MockStaffRepository) {
 	jwtSecret := "test-ultra-secret-key-123456789012"
+	eventBus := events.NewEventBus()
 
 	clientRepo := memory.NewMockClientRepository()
 	orderRepo := memory.NewMockOrderRepository()
@@ -29,19 +36,37 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	promoRepo := memory.NewMockPromoRepository()
 	supportRepo := memory.NewMockSupportRepository()
 	staffRepo := memory.NewMockStaffRepository()
+	productRepo := memory.NewMockProductRepository()
+
+	mockMailer := mailer.NewMockMailer()
+	emailService := notification.NewEmailService(mockMailer, "admin@fossbilling.org", "FOSSBilling")
 
 	taxCalc := billingUsecase.NewTaxCalculator([]billingUsecase.TaxRule{
 		{Name: "PPN", Country: "ID", Rate: 11.0},
 	})
 	promoCalc := cartUsecase.NewPromoCalculator(promoRepo)
-	orderService := orderUsecase.NewOrderService(orderRepo)
-	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalc)
-	cartService := cartUsecase.NewCartService(promoCalc, promoRepo, orderRepo, invoiceService)
-	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, orderService, orderRepo)
-	supportService := supportUsecase.NewSupportService(supportRepo, clientRepo)
+
+	// Registries
+	regRegistry := provisioning.NewRegistrarRegistry()
+	regRegistry.Register("rdap", provisioning.NewMockRegistrarDriver())
+	provRegistry := provisioning.NewProvisionerRegistry()
+
+	orderService := orderUsecase.NewOrderService(orderRepo, eventBus)
+	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, eventBus)
+	cartService := cartUsecase.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invoiceService)
+	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, eventBus)
+
+	gatewayRegistry := payment.NewGatewayRegistry()
+	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, invoiceRepo, clientRepo)
+
+	supportService := supportUsecase.NewSupportService(supportRepo, clientRepo, eventBus)
 	staffService := staffUsecase.NewStaffService(staffRepo, jwtSecret)
 	authUc := authUsecase.NewAuthUsecase(clientRepo, jwtSecret)
 	passwordUc := authUsecase.NewPasswordUsecase(clientRepo)
+
+	orderListener := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, regRegistry, provRegistry)
+	eventBus.Subscribe(events.EventInvoicePaid, orderListener.HandleInvoicePaid)
+	eventBus.Subscribe(events.EventOrderActivated, orderListener.HandleOrderActivated)
 
 	guestAuthHandler := guest.NewAuthHandler(authUc)
 	guestCartHandler := guest.NewCartHandler(cartService)
@@ -49,8 +74,8 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 
 	clientProfileHandler := client.NewProfileHandler(authUc, passwordUc)
 	clientOrderHandler := client.NewOrderHandler(orderService)
-	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService)
-	clientDepositHandler := client.NewDepositHandler(invoiceService)
+	clientInvoiceHandler := client.NewInvoiceHandler(invoiceRepo, clientRepo, invoiceService, paymentService)
+	clientDepositHandler := client.NewDepositHandler(invoiceService, paymentService)
 	clientSupportHandler := client.NewSupportHandler(supportService)
 
 	adminStaffAuthHandler := admin.NewStaffAuthHandler(staffService)

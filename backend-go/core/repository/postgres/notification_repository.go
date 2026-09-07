@@ -25,13 +25,17 @@ func (r *NotificationRepository) ListByClientID(ctx context.Context, clientID in
 
 	query := `SELECT id, client_id, title, message, type, is_read, created_at FROM notifications WHERE client_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3`
 	rows, err := r.pool.Query(ctx, query, clientID, limit, offset)
-	if err != nil { return nil, 0, err }
+	if err != nil {
+		return nil, 0, err
+	}
 	defer rows.Close()
 
 	var list []*domain.Notification
 	for rows.Next() {
 		n := &domain.Notification{}
-		if err := rows.Scan(&n.ID, &n.ClientID, &n.Title, &n.Message, &n.Type, &n.IsRead, &n.CreatedAt); err != nil { return nil, 0, err }
+		if err := rows.Scan(&n.ID, &n.ClientID, &n.Title, &n.Message, &n.Type, &n.IsRead, &n.CreatedAt); err != nil {
+			return nil, 0, err
+		}
 		list = append(list, n)
 	}
 	return list, total, nil

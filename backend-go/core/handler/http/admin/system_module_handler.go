@@ -1,52 +1,52 @@
 package admin
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/page"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/geoip"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/tools"
+	"github.com/go-chi/chi/v5"
 )
 
-type SystemModuleHandler struct{}
+type SystemModuleHandler struct {
+	systemService *system.SystemService
+	pageService   *page.PageService
+}
 
-func NewSystemModuleHandler() *SystemModuleHandler {
-	return &SystemModuleHandler{}
+func NewSystemModuleHandler(systemService *system.SystemService, pageService *page.PageService) *SystemModuleHandler {
+	return &SystemModuleHandler{
+		systemService: systemService,
+		pageService:   pageService,
+	}
 }
 
 // --- Security Settings ---
 func (h *SystemModuleHandler) GetSecuritySettings(w http.ResponseWriter, r *http.Request) {
-	settings := map[string]interface{}{
-		"recaptcha_enabled": true,
-		"recaptcha_provider": "cloudflare_turnstile",
-		"site_key": "0x4AAAAAAAxMockSiteKey",
-		"ip_blacklist": []string{"198.51.100.4", "203.0.113.88"},
-		"max_login_attempts": 5,
-		"lockout_time_minutes": 15,
-		"force_ssl": true,
+	settings, err := h.systemService.GetSecuritySettings(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, settings, nil)
 }
 
 // --- System Health & Maintenance ---
 func (h *SystemModuleHandler) GetSystemStatus(w http.ResponseWriter, r *http.Request) {
-	status := map[string]interface{}{
-		"engine_version": "v0.7.0-NextGen (Go 1.27)",
-		"database_type": "PostgreSQL 16 High-Availability Pool",
-		"database_size": "24.5 MB",
-		"active_sessions": 8,
-		"cron_last_run": time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
-		"cron_status": "healthy",
-		"system_load": "0.18, 0.22, 0.15",
-		"memory_usage": "142 MB / 8 GB (1.7%)",
-		"uptime": "14 days, 6 hours",
-	}
+	status := h.systemService.GetSystemStatus(r.Context())
 	response.JSON(w, http.StatusOK, status, nil)
 }
 
 func (h *SystemModuleHandler) TriggerCron(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Cron scheduler tasks executed: 4 invoices generated, 1 expired service suspended.",
+		"success":   true,
+		"message":   "Cron scheduler tasks executed: 4 invoices generated, 1 expired service suspended.",
 		"timestamp": time.Now().Format(time.RFC3339),
 	}, nil)
 }
@@ -60,11 +60,45 @@ func (h *SystemModuleHandler) ClearCache(w http.ResponseWriter, r *http.Request)
 
 // --- Custom Pages & Knowledgebase ---
 func (h *SystemModuleHandler) ListPages(w http.ResponseWriter, r *http.Request) {
-	pages := []map[string]interface{}{
-		{"id": 1, "title": "Terms of Service", "slug": "terms-of-service", "published": true},
-		{"id": 2, "title": "Privacy Policy", "slug": "privacy-policy", "published": true},
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	pages, total, err := h.pageService.ListPages(r.Context(), limit, offset)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
-	response.JSON(w, http.StatusOK, pages, nil)
+
+	meta := &response.Meta{
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}
+	response.JSON(w, http.StatusOK, pages, meta)
+}
+
+func (h *SystemModuleHandler) CreatePage(w http.ResponseWriter, r *http.Request) {
+	var p domain.Page
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
+		return
+	}
+
+	if err := h.pageService.CreatePage(r.Context(), &p); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, p, nil)
+}
+
+func (h *SystemModuleHandler) DeletePage(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err := h.pageService.DeletePage(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
 }
 
 func (h *SystemModuleHandler) ListKnowledgebase(w http.ResponseWriter, r *http.Request) {
@@ -74,12 +108,44 @@ func (h *SystemModuleHandler) ListKnowledgebase(w http.ResponseWriter, r *http.R
 	response.JSON(w, http.StatusOK, kb, nil)
 }
 
-// --- Extensions Hub ---
-func (h *SystemModuleHandler) ListExtensions(w http.ResponseWriter, r *http.Request) {
-	extensions := []map[string]interface{}{
-		{"id": "servicehosting", "name": "cPanel & DirectAdmin Hosting", "version": "2.4.0", "author": "FOSSBilling", "type": "service", "is_enabled": true},
-		{"id": "midtrans", "name": "Midtrans Payment Gateway", "version": "1.2.0", "author": "Nusantara Devs", "type": "gateway", "is_enabled": true},
-		{"id": "antispam", "name": "Cloudflare Turnstile Shield", "version": "1.0.5", "author": "Security Team", "type": "plugin", "is_enabled": true},
+// --- System Tools & GeoIP Utilities ---
+func (h *SystemModuleHandler) GeneratePassword(w http.ResponseWriter, r *http.Request) {
+	length, _ := strconv.Atoi(r.URL.Query().Get("length"))
+	if length <= 0 {
+		length = 16
 	}
-	response.JSON(w, http.StatusOK, extensions, nil)
+	special := r.URL.Query().Get("special") != "false"
+
+	pwd, err := tools.GeneratePassword(length, special)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"password": pwd,
+		"length":   len(pwd),
+	}, nil)
+}
+
+func (h *SystemModuleHandler) ResolveGeoIP(w http.ResponseWriter, r *http.Request) {
+	ip := r.URL.Query().Get("ip")
+	if ip == "" {
+		ip = r.Header.Get("X-Forwarded-For")
+		if ip == "" {
+			ip = r.RemoteAddr
+		}
+	}
+
+	countryCode := r.URL.Query().Get("country")
+	if countryCode == "" {
+		countryCode = "US"
+	}
+
+	info := geoip.LookupCountry(countryCode)
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"ip":         ip,
+		"is_private": geoip.IsPrivateIP(ip),
+		"country":    info,
+	}, nil)
 }

@@ -25,11 +25,11 @@ func (d *CustomRegistrarDriver) CheckAvailability(ctx context.Context, domainNam
 	}
 
 	return &DomainAvailability{
-		DomainName:  domainName,
-		IsAvailable: true,
-		Price:       0,
-		Currency:    "USD",
-		CheckedAt:   time.Now().UTC(),
+		DomainName:   domainName,
+		IsAvailable:  true,
+		Price:        0,
+		Currency:     "USD",
+		CheckedAt:    time.Now().UTC(),
 		RegistrarRef: "custom",
 	}, nil
 }

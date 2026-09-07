@@ -43,10 +43,10 @@ export const clientPortalApi = {
   getInvoice: (id: number) => request<Invoice>(`/client/invoices/${id}`),
   payWithBalance: (id: number) =>
     request<any>(`/client/invoices/${id}/pay-balance`, { method: 'POST' }),
-  depositFunds: (amount: number, currency = 'USD') =>
+  depositFunds: (amount: number, currency = 'USD', gateway = '') =>
     request<any>('/client/funds/deposit', {
       method: 'POST',
-      body: JSON.stringify({ amount, currency }),
+      body: JSON.stringify({ amount, currency, gateway }),
     }),
 
   // Client Support

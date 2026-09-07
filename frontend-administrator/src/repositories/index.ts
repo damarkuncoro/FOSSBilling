@@ -15,3 +15,9 @@ export * from './admin_company.repository';
 export * from './admin_license.repository';
 export * from './admin_webhook.repository';
 export * from './admin_form_builder.repository';
+export * from './admin_extension.repository';
+export * from './admin_seo.repository';
+export * from './admin_redirect.repository';
+export * from './admin_theme.repository';
+export * from './admin_widget.repository';
+

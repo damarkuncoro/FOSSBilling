@@ -28,8 +28,8 @@ type StaffLoginDTO struct {
 }
 
 type StaffAuthResponse struct {
-	Token string        `json:"token"`
-	Staff domain.Staff  `json:"staff"`
+	Token string             `json:"token"`
+	Staff domain.Staff       `json:"staff"`
 	Group *domain.AdminGroup `json:"group,omitempty"`
 }
 
@@ -105,4 +105,3 @@ func (s *StaffService) ListAuditLogs(ctx context.Context, limit, offset int) ([]
 	}
 	return s.staffRepo.ListAuditLogs(ctx, limit, offset)
 }
-

@@ -277,6 +277,135 @@
           "200": { "description": "Dashboard analytics payload" }
         }
       }
+    },
+    "/admin/extensions": {
+      "get": {
+        "tags": ["Admin Extensions"],
+        "summary": "List installed extensions",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of installed extensions" }
+        }
+      }
+    },
+    "/admin/extensions/marketplace": {
+      "get": {
+        "tags": ["Admin Extensions"],
+        "summary": "Explore marketplace extension catalog",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Marketplace items" }
+        }
+      }
+    },
+    "/admin/extensions/{id}/activate": {
+      "post": {
+        "tags": ["Admin Extensions"],
+        "summary": "Activate an installed extension",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "Extension activated" }
+        }
+      }
+    },
+    "/admin/seo": {
+      "get": {
+        "tags": ["Admin SEO"],
+        "summary": "Get SEO and metadata configuration",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "SEO configuration" }
+        }
+      },
+      "put": {
+        "tags": ["Admin SEO"],
+        "summary": "Update SEO and metadata configuration",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "meta_title": { "type": "string" },
+                  "meta_description": { "type": "string" },
+                  "meta_keywords": { "type": "string" },
+                  "sitemap_enabled": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "SEO settings updated" }
+        }
+      }
+    },
+    "/admin/redirects": {
+      "get": {
+        "tags": ["Admin Redirects"],
+        "summary": "List URL redirect rules",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of redirects" }
+        }
+      },
+      "post": {
+        "tags": ["Admin Redirects"],
+        "summary": "Create a new URL redirect rule",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "target"],
+                "properties": {
+                  "path": { "type": "string", "example": "/promo/summer" },
+                  "target": { "type": "string", "example": "https://fossbilling.org/order/vps" },
+                  "status_code": { "type": "integer", "example": 301 },
+                  "is_active": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Redirect created" }
+        }
+      }
+    },
+    "/admin/widgets": {
+      "get": {
+        "tags": ["Admin Widgets"],
+        "summary": "List registered UI slots and injected widgets",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Widgets mapped by slot" }
+        }
+      }
+    },
+    "/guest/widgets": {
+      "get": {
+        "tags": ["Guest Widgets"],
+        "summary": "Get dynamic widgets for a layout slot",
+        "parameters": [{ "name": "slot", "in": "query", "required": true, "schema": { "type": "string", "example": "client.footer" } }],
+        "responses": {
+          "200": { "description": "List of widgets in slot" }
+        }
+      }
+    },
+    "/guest/cookie-consent": {
+      "get": {
+        "tags": ["Guest Cookie Consent"],
+        "summary": "Get active GDPR cookie consent banner settings",
+        "responses": {
+          "200": { "description": "Cookie banner settings" }
+        }
+      }
     }
   },
   "components": {

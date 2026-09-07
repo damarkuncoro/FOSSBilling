@@ -84,7 +84,6 @@ func (r *MockSupportRepository) ListTickets(ctx context.Context, limit, offset i
 	return all[offset:end], total, nil
 }
 
-
 func (r *MockSupportRepository) CreateTicket(ctx context.Context, ticket *domain.Ticket, initialMessage *domain.TicketMessage) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -156,4 +155,19 @@ func (r *MockSupportRepository) GetMessages(ctx context.Context, ticketID int64)
 		return []*domain.TicketMessage{}, nil
 	}
 	return msgs, nil
+}
+
+func (r *MockSupportRepository) CloseInactiveTickets(ctx context.Context, cutoff time.Time) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	count := 0
+	for _, t := range r.tickets {
+		if t.Status != domain.TicketStatusClosed && (t.UpdatedAt.Before(cutoff) || t.UpdatedAt.Equal(cutoff)) {
+			t.Status = domain.TicketStatusClosed
+			t.UpdatedAt = time.Now().UTC()
+			count++
+		}
+	}
+	return count, nil
 }

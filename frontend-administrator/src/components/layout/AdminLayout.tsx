@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+
 export const AdminLayout: React.FC = () => {
   const { user, logout, theme, toggleTheme } = useAuth();
   const navigate = useNavigate();
@@ -106,6 +108,8 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+
             <Button
               variant="outline"
               size="icon"

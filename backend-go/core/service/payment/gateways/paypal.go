@@ -59,13 +59,13 @@ func (g *PayPalGateway) ParseWebhook(r *http.Request) (*payment.WebhookResult, e
 	}
 
 	var payload struct {
-		ID           string `json:"id"`
-		EventType    string `json:"event_type"`
-		Resource     struct {
-			ID          string `json:"id"`
-			Status      string `json:"status"`
-			CustomID    string `json:"custom_id"`
-			Amount      struct {
+		ID        string `json:"id"`
+		EventType string `json:"event_type"`
+		Resource  struct {
+			ID       string `json:"id"`
+			Status   string `json:"status"`
+			CustomID string `json:"custom_id"`
+			Amount   struct {
 				Total    string `json:"total"`
 				Value    string `json:"value"`
 				Currency string `json:"currency_code"`

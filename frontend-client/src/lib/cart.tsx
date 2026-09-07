@@ -55,16 +55,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const calc = await api.calculateCart(
-        items.map((i) => ({ product_id: i.product_id, period: i.period })),
+        items.map((i) => ({
+          product_id: i.product_id,
+          title: i.title,
+          period: i.period,
+          price: Number(i.price),
+          quantity: 1,
+          config: i.domain_name ? { domain_name: i.domain_name } : undefined,
+        })),
         promoCode || undefined
       );
-      setSubtotal(calc.subtotal);
-      setDiscount(calc.discount);
-      setTax(calc.tax);
-      setTotal(calc.total);
+      setSubtotal(Number(calc.subtotal) || 0);
+      setDiscount(Number(calc.discount) || 0);
+      setTax(Number(calc.tax) || 0);
+      setTotal(Number(calc.total) || 0);
     } catch {
       // Fallback local calc
-      const rawSub = items.reduce((acc, curr) => acc + curr.price, 0);
+      const rawSub = items.reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
       const rawTax = rawSub * 0.11;
       setSubtotal(rawSub);
       setTax(rawTax);
@@ -90,13 +97,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPromoCodeState(code);
     try {
       const calc = await api.calculateCart(
-        items.map((i) => ({ product_id: i.product_id, period: i.period })),
+        items.map((i) => ({
+          product_id: i.product_id,
+          title: i.title,
+          period: i.period,
+          price: Number(i.price),
+          quantity: 1,
+          config: i.domain_name ? { domain_name: i.domain_name } : undefined,
+        })),
         code
       );
-      setSubtotal(calc.subtotal);
-      setDiscount(calc.discount);
-      setTax(calc.tax);
-      setTotal(calc.total);
+      setSubtotal(Number(calc.subtotal) || 0);
+      setDiscount(Number(calc.discount) || 0);
+      setTax(Number(calc.tax) || 0);
+      setTotal(Number(calc.total) || 0);
     } catch (err: any) {
       throw new Error(err.message || 'Invalid promotional voucher code');
     }

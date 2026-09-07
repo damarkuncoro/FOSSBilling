@@ -23,6 +23,17 @@ type Repositories struct {
 	APIKey       domain.APIKeyRepository
 	MassMail     domain.MassMailRepository
 	Company      domain.CompanyRepository
+	Product      domain.ProductRepository
+	Catalog      domain.CatalogRepository
+	System       domain.SystemRepository
+	Activity     domain.ActivityRepository
+	Notification domain.NotificationRepository
+	Page         domain.PageRepository
+	Antispam     domain.AntispamRepository
+	Formbuilder  domain.FormbuilderRepository
+	Extension    domain.ExtensionRepository
+	Redirect     domain.RedirectRepository
+	Theme        domain.ThemeRepository
 }
 
 // InitRepositories factory that determines whether to instantiate real PostgreSQL or mock repositories

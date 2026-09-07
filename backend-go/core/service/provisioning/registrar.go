@@ -20,21 +20,21 @@ type DomainAvailability struct {
 
 // DomainRegistrationRequest contains payload for registering a domain
 type DomainRegistrationRequest struct {
-	DomainName string            `json:"domain_name"`
-	Years      int               `json:"years"`
-	Nameservers []string         `json:"nameservers"`
+	DomainName  string            `json:"domain_name"`
+	Years       int               `json:"years"`
+	Nameservers []string          `json:"nameservers"`
 	ContactInfo map[string]string `json:"contact_info"`
 }
 
 // DomainRegistrationResult represents outcome of registrar API action
 type DomainRegistrationResult struct {
-	DomainName   string    `json:"domain_name"`
-	Status       string    `json:"status"` // "active", "pending", "failed"
-	RegisteredAt time.Time `json:"registered_at"`
-	ExpiresAt    time.Time `json:"expires_at"`
-	Nameservers  []string  `json:"nameservers"`
-	AuthCode     string    `json:"auth_code,omitempty"`
-	TransactionID string   `json:"transaction_id"`
+	DomainName    string    `json:"domain_name"`
+	Status        string    `json:"status"` // "active", "pending", "failed"
+	RegisteredAt  time.Time `json:"registered_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	Nameservers   []string  `json:"nameservers"`
+	AuthCode      string    `json:"auth_code,omitempty"`
+	TransactionID string    `json:"transaction_id"`
 }
 
 // RegistrarDriver defines the interface for domain registrars (e.g. Namecheap, ResellerClub, OpenSRS)
@@ -46,7 +46,7 @@ type RegistrarDriver interface {
 
 // MockRegistrarDriver implements a deterministic registrar driver for testing and default installs
 type MockRegistrarDriver struct {
-	tldPricing map[string]int64 // TLD -> Price (e.g. "com" -> 129900)
+	tldPricing   map[string]int64 // TLD -> Price (e.g. "com" -> 129900)
 	takenDomains map[string]bool
 }
 
@@ -61,10 +61,10 @@ func NewMockRegistrarDriver() *MockRegistrarDriver {
 			"io":  399900, // $39.99
 		},
 		takenDomains: map[string]bool{
-			"google.com":    true,
-			"github.com":    true,
+			"google.com":      true,
+			"github.com":      true,
 			"fossbilling.org": true,
-			"example.com":   true,
+			"example.com":     true,
 		},
 	}
 }

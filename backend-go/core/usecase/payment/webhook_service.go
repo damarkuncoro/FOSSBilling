@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 var (
@@ -25,29 +25,30 @@ type WebhookPayload struct {
 }
 
 type WebhookService struct {
-	txnRepo      domain.TransactionRepository
-	invoiceRepo  domain.InvoiceRepository
-	orderService *order.OrderService
-	orderRepo    domain.OrderRepository
+	txnRepo     domain.TransactionRepository
+	invoiceRepo domain.InvoiceRepository
+	eventBus    *events.EventBus
 }
 
 func NewWebhookService(
 	txnRepo domain.TransactionRepository,
 	invoiceRepo domain.InvoiceRepository,
-	orderService *order.OrderService,
-	orderRepo domain.OrderRepository,
+	eventBus ...*events.EventBus,
 ) *WebhookService {
+	var bus *events.EventBus
+	if len(eventBus) > 0 {
+		bus = eventBus[0]
+	}
 	return &WebhookService{
-		txnRepo:      txnRepo,
-		invoiceRepo:  invoiceRepo,
-		orderService: orderService,
-		orderRepo:    orderRepo,
+		txnRepo:     txnRepo,
+		invoiceRepo: invoiceRepo,
+		eventBus:    bus,
 	}
 }
 
-// HandlePaymentWebhook processes inbound payment IPN/webhooks idempotently and triggers order activation
+// HandlePaymentWebhook processes inbound payment IPN/webhooks idempotently and triggers order activation via events
 func (s *WebhookService) HandlePaymentWebhook(ctx context.Context, payload WebhookPayload) (*domain.Transaction, error) {
-	// 1. Idempotency Check: Prevent duplicate transaction processing
+	// 1. Idempotency Check
 	existing, err := s.txnRepo.GetByTxnID(ctx, payload.GatewayID, payload.TxnID)
 	if err == nil && existing != nil {
 		if existing.Status == domain.TransactionStatusComplete {
@@ -55,13 +56,27 @@ func (s *WebhookService) HandlePaymentWebhook(ctx context.Context, payload Webho
 		}
 	}
 
-	// 2. Fetch target Invoice
+	// 2. Fetch Invoice
 	invoice, err := s.invoiceRepo.GetByID(ctx, payload.InvoiceID)
 	if err != nil {
 		return nil, err
 	}
 
+	if payload.Amount == 0 {
+		payload.Amount = invoice.Total
+	}
+	if payload.Currency == "" {
+		payload.Currency = invoice.Currency
+	}
+
 	// 3. Record Transaction
+	var raw json.RawMessage
+	if len(payload.Raw) > 0 && json.Valid(payload.Raw) {
+		raw = json.RawMessage(payload.Raw)
+	} else {
+		raw = json.RawMessage("{}")
+	}
+
 	txn := &domain.Transaction{
 		InvoiceID:  &invoice.ID,
 		GatewayID:  payload.GatewayID,
@@ -70,7 +85,7 @@ func (s *WebhookService) HandlePaymentWebhook(ctx context.Context, payload Webho
 		Amount:     payload.Amount,
 		Currency:   payload.Currency,
 		Status:     domain.TransactionStatusComplete,
-		RawPayload: json.RawMessage(payload.Raw),
+		RawPayload: raw,
 	}
 
 	if err := s.txnRepo.Create(ctx, txn); err != nil {
@@ -85,17 +100,22 @@ func (s *WebhookService) HandlePaymentWebhook(ctx context.Context, payload Webho
 		}
 	}
 
-	// 5. Automated Service Provisioning / Order Activation
-	for _, it := range invoice.Items {
-		if it.OrderID != nil {
-			ord, err := s.orderRepo.GetByID(ctx, *it.OrderID)
-			if err == nil && ord != nil {
-				if ord.Status == domain.OrderStatusPendingSetup || ord.Status == domain.OrderStatusSuspended {
-					_, _ = s.orderService.Activate(ctx, ord.ID, now)
-				} else if ord.Status == domain.OrderStatusActive {
-					_, _ = s.orderService.Renew(ctx, ord.ID)
-				}
-			}
+	// 5. Publish Event (Listeners will handle order activation and provisioning)
+	if s.eventBus != nil {
+		err := s.eventBus.Publish(ctx, events.Event{
+			Type: events.EventInvoicePaid,
+			Payload: domain.InvoicePaidPayload{
+				InvoiceID: invoice.ID,
+				ClientID:  invoice.ClientID,
+				Amount:    payload.Amount,
+				Currency:  payload.Currency,
+				GatewayID: payload.GatewayID,
+				TxnID:     payload.TxnID,
+				PaidAt:    now,
+			},
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 

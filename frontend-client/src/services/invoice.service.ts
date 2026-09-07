@@ -20,6 +20,10 @@ export class InvoiceService {
     return this.repo.payWithBalance(id);
   }
 
+  async payWithGateway(id: number, gateway = 'midtrans'): Promise<{ redirect_url: string }> {
+    return this.repo.payWithGateway(id, gateway);
+  }
+
   async depositFunds(amount: number, gateway = 'midtrans'): Promise<{ invoice_id: number; redirect_url?: string }> {
     if (!amount || amount <= 0) {
       throw new Error('Deposit amount must be greater than zero');

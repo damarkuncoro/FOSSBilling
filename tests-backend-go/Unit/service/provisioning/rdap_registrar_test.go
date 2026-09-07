@@ -32,8 +32,8 @@ func TestRDAPRegistrarDriver(t *testing.T) {
 	t.Run("Register and check taken state transition", func(t *testing.T) {
 		domainName := "brandnewdomain2026.id"
 		reg, err := driver.RegisterDomain(ctx, provisioning.DomainRegistrationRequest{
-			DomainName: domainName,
-			Years:      1,
+			DomainName:  domainName,
+			Years:       1,
 			Nameservers: []string{"ns1.customdns.org", "ns2.customdns.org"},
 		})
 		require.NoError(t, err)

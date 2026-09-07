@@ -12,6 +12,7 @@ interface InvoicePayDialogProps {
   user: ClientProfile | null;
   paying: boolean;
   onPayBalance: (id: number) => void;
+  onPayGateway: (id: number) => void;
 }
 
 export const InvoicePayDialog: React.FC<InvoicePayDialogProps> = ({
@@ -21,6 +22,7 @@ export const InvoicePayDialog: React.FC<InvoicePayDialogProps> = ({
   user,
   paying,
   onPayBalance,
+  onPayGateway,
 }) => {
   if (!invoice) return null;
 
@@ -71,10 +73,11 @@ export const InvoicePayDialog: React.FC<InvoicePayDialogProps> = ({
             <Button
               className="w-full gap-2 text-xs font-semibold"
               variant="outline"
-              onClick={() => alert('Redirecting to secure Payment Gateway Checkout...')}
+              disabled={paying}
+              onClick={() => onPayGateway(invoice.id)}
             >
               <CreditCard className="h-4 w-4" />
-              Pay via Online Gateway
+              {paying ? 'Redirecting...' : 'Pay via Online Gateway'}
             </Button>
           </div>
         </div>

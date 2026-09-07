@@ -3,69 +3,119 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"time"
+	"strconv"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/catalog"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
+	"github.com/go-chi/chi/v5"
 )
 
-type CatalogHandler struct{}
+type CatalogHandler struct {
+	productService *catalog.ProductService
+	catalogRepo    domain.CatalogRepository
+}
 
-func NewCatalogHandler() *CatalogHandler {
-	return &CatalogHandler{}
+func NewCatalogHandler(productService *catalog.ProductService, catalogRepo domain.CatalogRepository) *CatalogHandler {
+	return &CatalogHandler{
+		productService: productService,
+		catalogRepo:    catalogRepo,
+	}
 }
 
 // --- Products & Categories ---
 func (h *CatalogHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	products := []map[string]interface{}{
-		{"id": 1, "title": "cPanel Starter Cloud", "slug": "cpanel-starter", "type": "hosting", "category_name": "Web Hosting", "price_monthly": 9.99, "is_active": true},
-		{"id": 2, "title": "Cloud VPS Pro", "slug": "cloud-vps-pro", "type": "hosting", "category_name": "Cloud VPS", "price_monthly": 29.99, "is_active": true},
-		{"id": 3, "title": "FOSSBilling License", "slug": "fossbilling-license", "type": "license", "category_name": "Licenses", "price_monthly": 199.00, "is_active": true},
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	products, total, err := h.productService.ListProducts(r.Context(), limit, offset)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
-	response.JSON(w, http.StatusOK, products, nil)
+
+	meta := &response.Meta{
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}
+	response.JSON(w, http.StatusOK, products, meta)
 }
 
 func (h *CatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	body["id"] = time.Now().Unix()
-	body["is_active"] = true
-	response.JSON(w, http.StatusCreated, body, nil)
+	var p domain.Product
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
+		return
+	}
+
+	if err := h.productService.CreateProduct(r.Context(), &p); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, p, nil)
 }
 
 func (h *CatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	response.JSON(w, http.StatusOK, body, nil)
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if id == 0 {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid product id", nil)
+		return
+	}
+
+	var p domain.Product
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
+		return
+	}
+	p.ID = id
+
+	if err := h.productService.UpdateProduct(r.Context(), &p); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, p, nil)
 }
 
 func (h *CatalogHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if id == 0 {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid product id", nil)
+		return
+	}
+
+	if err := h.productService.DeleteProduct(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
 }
 
 func (h *CatalogHandler) ListProductCategories(w http.ResponseWriter, r *http.Request) {
-	categories := []map[string]interface{}{
-		{"id": 1, "title": "Web Hosting", "slug": "web-hosting", "product_count": 4},
-		{"id": 2, "title": "Cloud VPS", "slug": "cloud-vps", "product_count": 3},
-		{"id": 3, "title": "Licenses", "slug": "licenses", "product_count": 2},
+	categories, err := h.catalogRepo.ListCategories(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, categories, nil)
 }
 
 // --- Domains & Registrars ---
 func (h *CatalogHandler) ListTlds(w http.ResponseWriter, r *http.Request) {
-	tlds := []map[string]interface{}{
-		{"id": 1, "tld": ".com", "registrar": "namecheap", "price_registration": 12.99, "price_renewal": 14.99, "price_transfer": 12.99, "min_years": 1, "is_active": true},
-		{"id": 2, "tld": ".id", "registrar": "custom", "price_registration": 18.00, "price_renewal": 18.00, "price_transfer": 18.00, "min_years": 1, "is_active": true},
-		{"id": 3, "tld": ".net", "registrar": "namecheap", "price_registration": 13.50, "price_renewal": 15.50, "price_transfer": 13.50, "min_years": 1, "is_active": true},
+	tlds, err := h.catalogRepo.ListTlds(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, tlds, nil)
 }
 
 func (h *CatalogHandler) CreateTld(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	body["id"] = time.Now().Unix()
-	response.JSON(w, http.StatusCreated, body, nil)
+	// Implementation placeholder for real TLD creation
+	response.JSON(w, http.StatusCreated, map[string]string{"message": "TLD creation not yet fully implemented"}, nil)
 }
 
 func (h *CatalogHandler) DeleteTld(w http.ResponseWriter, r *http.Request) {
@@ -73,35 +123,32 @@ func (h *CatalogHandler) DeleteTld(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) ListRegistrars(w http.ResponseWriter, r *http.Request) {
+	// In production, this would list registered registrar drivers
 	registrars := []map[string]interface{}{
-		{"id": "namecheap", "name": "Namecheap API", "enabled": true, "api_user": "api_fossbilling", "test_mode": false},
-		{"id": "enom", "name": "eNom Reseller", "enabled": true, "api_user": "reseller_demo", "test_mode": true},
-		{"id": "custom", "name": "DigitalRegistrar (.ID)", "enabled": true, "test_mode": false},
+		{"id": "namecheap", "name": "Namecheap API", "enabled": true},
+		{"id": "enom", "name": "eNom Reseller", "enabled": false},
 	}
 	response.JSON(w, http.StatusOK, registrars, nil)
 }
 
 // --- Servers ---
 func (h *CatalogHandler) ListServers(w http.ResponseWriter, r *http.Request) {
-	servers := []map[string]interface{}{
-		{"id": 1, "name": "SG-Cloud-Node-01", "hostname": "sg1.nusantara-cloud.com", "ip": "103.144.20.10", "manager": "cpanel", "status": "online", "active_accounts": 48, "max_accounts": 150, "is_default": true},
-		{"id": 2, "name": "JKT-DirectAdmin-02", "hostname": "jkt2.nusantara-cloud.com", "ip": "103.144.20.15", "manager": "directadmin", "status": "online", "active_accounts": 22, "max_accounts": 100, "is_default": false},
+	servers, err := h.catalogRepo.ListServers(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, servers, nil)
 }
 
 func (h *CatalogHandler) CreateServer(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	body["id"] = time.Now().Unix()
-	body["status"] = "online"
-	response.JSON(w, http.StatusCreated, body, nil)
+	response.JSON(w, http.StatusCreated, map[string]string{"message": "Server creation not yet fully implemented"}, nil)
 }
 
 func (h *CatalogHandler) TestServer(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Connection handshake successful! Latency: 18ms.",
+		"message": "Connection handshake successful!",
 	}, nil)
 }
 

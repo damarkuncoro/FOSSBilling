@@ -30,12 +30,37 @@ func (f *ProvisionerFactory) CreateProvisioner(cfg ServerConfig) (domain.Service
 			Host:     cfg.Host,
 			Username: cfg.Username,
 			APIToken: cfg.APIToken,
-			UseSSL:   cfg.UseSSL,
+			Insecure: !cfg.UseSSL,
 		}), nil
 	case "directadmin":
 		return NewDirectAdminProvisioner(cfg.Host, cfg.Port, cfg.Username, cfg.Password), nil
 	case "plesk":
-		return NewPleskProvisioner(cfg.Host, cfg.Port, cfg.APIToken), nil
+		return NewPleskProvisioner(PleskConfig{
+			Host:     cfg.Host,
+			Port:     cfg.Port,
+			APIKey:   cfg.APIToken,
+			Insecure: !cfg.UseSSL,
+		}), nil
+	case "hestia", "hestiacp":
+		return NewHestiaProvisioner(HestiaConfig{
+			Host:      cfg.Host,
+			Port:      cfg.Port,
+			AccessKey: cfg.Username,
+			SecretKey: cfg.Password,
+			Insecure:  !cfg.UseSSL,
+		}), nil
+	case "cwp":
+		return NewCWPProvisioner(CWPConfig{
+			Host:     cfg.Host,
+			Port:     cfg.Port,
+			APIKey:   cfg.APIToken,
+			Insecure: !cfg.UseSSL,
+		}), nil
+	case "custom":
+		return NewCustomServerProvisioner(CustomServerConfig{
+			EndpointURL: cfg.Host,
+			AuthToken:   cfg.APIToken,
+		}), nil
 	case "license":
 		salt := cfg.Password
 		if salt == "" {

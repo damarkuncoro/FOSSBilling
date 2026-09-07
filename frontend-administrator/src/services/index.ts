@@ -15,3 +15,9 @@ export * from './admin_company.service';
 export * from './admin_license.service';
 export * from './admin_webhook.service';
 export * from './admin_form_builder.service';
+export * from './admin_extension.service';
+export * from './admin_seo.service';
+export * from './admin_redirect.service';
+export * from './admin_theme.service';
+export * from './admin_widget.service';
+

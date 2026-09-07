@@ -153,4 +153,3 @@ func (s *LicenseService) ResetLicenseLock(ctx context.Context, clientID int64, o
 	order.Config = cfgBytes
 	return s.orderRepo.Update(ctx, order)
 }
-

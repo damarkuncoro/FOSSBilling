@@ -36,8 +36,10 @@ jobs:
       run: |
         go test -v ./...
 
-    - name: Build Binaries (API & Worker)
+    - name: Build Binaries (API, Worker, CLI & Demo)
       working-directory: backend-go
       run: |
         CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/api ./cmd/api
         CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/worker ./cmd/worker
+        CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/cli ./cmd/cli
+        CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/demo ./cmd/demo

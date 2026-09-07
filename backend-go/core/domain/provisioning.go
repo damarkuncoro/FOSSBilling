@@ -6,10 +6,10 @@ import (
 )
 
 type ProvisionResult struct {
-	Success       bool            `json:"success"`
-	RemoteID      string          `json:"remote_id"`
+	Success        bool            `json:"success"`
+	RemoteID       string          `json:"remote_id"`
 	AccountDetails json.RawMessage `json:"account_details,omitempty"`
-	ErrorMessage  string          `json:"error_message,omitempty"`
+	ErrorMessage   string          `json:"error_message,omitempty"`
 }
 
 type ServiceStatus struct {

@@ -35,12 +35,13 @@ func main() {
 	orderRepo := postgres.NewOrderRepository(pgPool)
 	clientRepo := postgres.NewClientRepository(pgPool)
 	invoiceRepo := postgres.NewInvoiceRepository(pgPool)
+	supportRepo := postgres.NewSupportRepository(pgPool)
 
 	taxCalculator := billingUsecase.NewTaxCalculator(nil)
 	orderService := orderUsecase.NewOrderService(orderRepo)
 	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalculator)
 
-	cronService := scheduler.NewCronService(orderRepo, orderService, invoiceService)
+	cronService := scheduler.NewCronService(orderRepo, orderService, invoiceService, supportRepo)
 
 	// 3. Periodic Scheduler Loop
 	ticker := time.NewTicker(1 * time.Minute)

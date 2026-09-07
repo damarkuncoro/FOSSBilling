@@ -46,7 +46,9 @@ func TestHTTP_SupportAndAdminLifecycle(t *testing.T) {
 		t.Fatalf("Open ticket failed: %v, status: %d", err, ticketResp.StatusCode)
 	}
 
-	var ticketData struct{ Data domain.Ticket `json:"data"` }
+	var ticketData struct {
+		Data domain.Ticket `json:"data"`
+	}
 	_ = json.NewDecoder(ticketResp.Body).Decode(&ticketData)
 	ticketID := ticketData.Data.ID
 
@@ -58,7 +60,11 @@ func TestHTTP_SupportAndAdminLifecycle(t *testing.T) {
 	if err != nil || adminLoginResp.StatusCode != http.StatusOK {
 		t.Fatalf("Admin login failed: %v, status: %d", err, adminLoginResp.StatusCode)
 	}
-	var adminAuthData struct{ Data struct{ Token string `json:"token"` } `json:"data"` }
+	var adminAuthData struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
 	_ = json.NewDecoder(adminLoginResp.Body).Decode(&adminAuthData)
 	adminToken := adminAuthData.Data.Token
 
@@ -89,7 +95,9 @@ func TestHTTP_SupportAndAdminLifecycle(t *testing.T) {
 		t.Fatalf("Get audit logs failed: %v, status: %d", err, auditResp.StatusCode)
 	}
 
-	var auditData struct{ Data []domain.AuditLog `json:"data"` }
+	var auditData struct {
+		Data []domain.AuditLog `json:"data"`
+	}
 	_ = json.NewDecoder(auditResp.Body).Decode(&auditData)
 	if len(auditData.Data) == 0 {
 		t.Error("Expected at least 1 audit log entry")

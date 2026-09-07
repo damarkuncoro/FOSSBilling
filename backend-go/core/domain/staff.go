@@ -54,4 +54,3 @@ type StaffRepository interface {
 	AddAuditLog(ctx context.Context, log *AuditLog) error
 	ListAuditLogs(ctx context.Context, limit, offset int) ([]*AuditLog, int, error)
 }
-

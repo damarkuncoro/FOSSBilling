@@ -20,6 +20,7 @@ export const Invoices: React.FC = () => {
     message,
     fetchInvoices,
     handlePayBalance,
+    handlePayGateway,
   } = useClientInvoices();
   const [depositOpen, setDepositOpen] = useState(false);
 
@@ -76,6 +77,7 @@ export const Invoices: React.FC = () => {
         user={user}
         paying={paying}
         onPayBalance={handlePayBalance}
+        onPayGateway={handlePayGateway}
       />
 
       <DepositModal
