@@ -9,18 +9,21 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 func setupInvoiceService() (*billing.InvoiceService, *memory.MockInvoiceRepository, *memory.MockClientRepository) {
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
+	taxRepo := memory.NewMockTaxRepository()
 
-	rules := []billing.TaxRule{
-		{Name: "PPN", Country: "ID", State: "", Rate: 11.0},
-	}
-	taxCalc := billing.NewTaxCalculator(rules)
+	id := "ID"
+	_ = taxRepo.Create(context.Background(), &domain.TaxRule{
+		Name: "PPN", Country: &id, Rate: 11.0, IsActive: true,
+	})
+	taxCalc := billing.NewTaxCalculator(taxRepo)
 
-	service := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
+	service := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, plugins.NewHookManager())
 	return service, invRepo, clientRepo
 }
 
@@ -137,5 +140,34 @@ func TestInvoiceService_PayWithBalance(t *testing.T) {
 	remainingBalance, _ := clientRepo.GetBalance(ctx, client.ID)
 	if remainingBalance.String() != "50.00" {
 		t.Errorf("Remaining balance = %s; want 50.00", remainingBalance.String())
+	}
+}
+
+func TestInvoiceService_HookPipeline(t *testing.T) {
+	ctx := context.Background()
+	invRepo := memory.NewMockInvoiceRepository()
+	clientRepo := memory.NewMockClientRepository()
+	hookManager := plugins.NewHookManager()
+
+	// Register a filter that appends [PROMO] to titles
+	hookManager.Register("filter_invoice_item_title", func(ctx context.Context, payload interface{}) (interface{}, error) {
+		return payload.(string) + " [PROMO]", nil
+	})
+
+	service := billing.NewInvoiceService(invRepo, clientRepo, nil, hookManager)
+
+	client := &domain.Client{Email: "hook@test.com", Currency: "USD"}
+	_ = clientRepo.Create(ctx, client)
+
+	dto := billing.CreateInvoiceDTO{
+		ClientID: client.ID,
+		Items: []billing.CreateInvoiceItemDTO{
+			{Title: "Cloud Server", Price: decimal.FromFloat(10.00), Quantity: 1},
+		},
+	}
+
+	invoice, _ := service.CreateInvoice(ctx, dto)
+	if invoice.Items[0].Title != "Cloud Server [PROMO]" {
+		t.Errorf("Hook failed to filter title, got: %s", invoice.Items[0].Title)
 	}
 }

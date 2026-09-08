@@ -20,6 +20,7 @@ import { Downloads } from '@/pages/Downloads';
 import { Licenses } from '@/pages/Licenses';
 import { PaymentSuccess } from '@/pages/PaymentSuccess';
 import { PaymentFailed } from '@/pages/PaymentFailed';
+import { NotFound } from '@/pages/NotFound';
 
 import { I18nProvider } from '@/lib/i18n';
 
@@ -55,7 +56,7 @@ export const App: React.FC = () => {
               </Route>
 
               {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </CartProvider>

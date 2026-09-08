@@ -21,6 +21,7 @@ func TestProvisionerFactory_AllServerDrivers(t *testing.T) {
 		{"Plesk", "plesk", domain.ProductTypeHosting},
 		{"HestiaCP", "hestia", domain.ProductTypeHosting},
 		{"CentOS Web Panel", "cwp", domain.ProductTypeHosting},
+		{"CyberPanel", "cyberpanel", domain.ProductTypeHosting},
 		{"Custom Server Webhook", "custom", domain.ProductTypeCustom},
 		{"License Key Generator", "license", domain.ProductTypeLicense},
 	}
@@ -75,6 +76,17 @@ func TestCWPProvisioner_UsernameGeneration(t *testing.T) {
 	username := p.GenerateUsername("mycompany.id")
 	if len(username) == 0 || len(username) > 8 {
 		t.Errorf("Unexpected CWP username length: %s", username)
+	}
+}
+
+func TestCyberPanelProvisioner_UsernameGeneration(t *testing.T) {
+	p := provisioning.NewCyberPanelProvisioner(provisioning.CyberPanelConfig{
+		Host: "localhost",
+	})
+
+	username := p.GenerateUsername("test-website.com")
+	if len(username) == 0 || len(username) > 8 {
+		t.Errorf("Unexpected CyberPanel username length: %s", username)
 	}
 }
 

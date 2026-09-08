@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS clients (
     phone VARCHAR(30),
     currency VARCHAR(3) DEFAULT 'USD',
     tax_exempt BOOLEAN DEFAULT FALSE,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    two_factor_secret VARCHAR(100) NULL,
     status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -45,6 +47,7 @@ CREATE INDEX idx_client_balances_client_id ON client_balances(client_id);
 CREATE TABLE IF NOT EXISTS products (
     id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NULL,
+    form_id BIGINT NULL REFERENCES forms(id) ON DELETE SET NULL,
     type VARCHAR(50) NOT NULL, -- 'hosting', 'domain', 'license', 'downloadable', 'custom'
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
@@ -52,6 +55,10 @@ CREATE TABLE IF NOT EXISTS products (
     status VARCHAR(50) DEFAULT 'enabled',
     setup_type VARCHAR(50) DEFAULT 'recurring',
     config JSONB NULL,
+    price_monthly BIGINT DEFAULT 0,
+    price_annually BIGINT DEFAULT 0,
+    setup_fee BIGINT DEFAULT 0,
+    stock INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -188,6 +195,8 @@ CREATE TABLE IF NOT EXISTS staff (
     name VARCHAR(150) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'admin', -- 'superadmin', 'admin', 'support', 'billing'
     status VARCHAR(50) NOT NULL DEFAULT 'active',
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    two_factor_secret VARCHAR(100) NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -391,17 +400,51 @@ CREATE TABLE IF NOT EXISTS pages (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 24b. Knowledgebase Categories Table
+CREATE TABLE IF NOT EXISTS kb_categories (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    description TEXT,
+    icon VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 24c. Knowledgebase Articles Table
+CREATE TABLE IF NOT EXISTS kb_articles (
+    id BIGSERIAL PRIMARY KEY,
+    category_id BIGINT NOT NULL REFERENCES kb_categories(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    content TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'published', -- 'published', 'draft'
+    views INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kb_articles_category ON kb_articles(category_id);
+CREATE INDEX idx_kb_articles_slug ON kb_articles(slug);
+
 -- 25. Company Settings Table
 CREATE TABLE IF NOT EXISTS company_settings (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(191) NOT NULL,
     phone VARCHAR(50),
-    address VARCHAR(255),
+    address_1 VARCHAR(255),
+    address_2 VARCHAR(255),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    postcode VARCHAR(20),
+    country VARCHAR(2),
+    vat_number VARCHAR(100),
     logo_url VARCHAR(500),
+    logo_dark_url VARCHAR(500),
     favicon_url VARCHAR(500),
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    date_format VARCHAR(50) DEFAULT 'Y-m-d',
+    terms_url VARCHAR(500),
+    email_signature TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -502,7 +545,7 @@ ON CONFLICT (email) DO NOTHING;
 
 -- Default Currencies
 INSERT INTO currencies (code, title, conversion_rate, format, price_format, is_default)
-VALUES 
+VALUES
     ('USD', 'US Dollar', 1.000000, '$ {{price}}', '2', TRUE),
     ('EUR', 'Euro', 0.920000, '{{price}} €', '2', FALSE),
     ('IDR', 'Indonesian Rupiah', 15800.000000, 'Rp {{price}}', '0', FALSE)
@@ -531,14 +574,14 @@ SELECT setval('currencies_id_seq', (SELECT COALESCE(MAX(id), 1) FROM currencies)
 
 -- Default Promos
 INSERT INTO promos (code, description, type, value, max_uses, active)
-VALUES 
+VALUES
     ('MERDEKA20', '20% Discount for Merdeka Promo', 'percentage', 2000, 1000, TRUE),
     ('WELCOME10', '10% Welcome Discount', 'percentage', 1000, 1000, TRUE)
 ON CONFLICT (code) DO NOTHING;
 
 -- Default News
 INSERT INTO news_posts (admin_id, title, slug, content, status)
-VALUES 
+VALUES
     (1, 'Welcome to Next-Gen FOSSBilling', 'welcome-to-next-gen-fossbilling', 'We are excited to launch the high performance Cloud-Native Go & React edition!', 'published')
 ON CONFLICT (slug) DO NOTHING;
 
@@ -564,6 +607,39 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('servers_id_seq', (SELECT COALESCE(MAX(id), 1) FROM servers));
+
+-- 32. Admin Notifications Table
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info', -- 'info', 'warning', 'danger', 'success'
+    module VARCHAR(50) NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_admin_notifications_read ON admin_notifications(is_read);
+
+-- 34. Tax Rules Table
+CREATE TABLE IF NOT EXISTS tax_rules (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    country VARCHAR(2) NULL, -- NULL means all countries
+    state VARCHAR(100) NULL,
+    rate NUMERIC(6, 2) NOT NULL DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    tax_exempt BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_tax_rules_country ON tax_rules(country);
+
+-- Seed Initial Tax Rule
+INSERT INTO tax_rules (name, country, rate, is_active)
+VALUES ('Indonesia PPN', 'ID', 11.00)
+ON CONFLICT DO NOTHING;
 
 
 

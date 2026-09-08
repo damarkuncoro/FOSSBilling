@@ -55,3 +55,52 @@ func (r *NotificationRepository) DeleteOld(ctx context.Context, days int) error 
 	_, err := r.pool.Exec(ctx, `DELETE FROM notifications WHERE created_at < CURRENT_TIMESTAMP - (INTERVAL '1 day' * $1)`, days)
 	return err
 }
+
+// --- Admin Notifications ---
+
+func (r *NotificationRepository) CreateAdmin(ctx context.Context, n *domain.AdminNotification) error {
+	query := `INSERT INTO admin_notifications (title, message, type, module, is_read, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id, created_at`
+	return r.pool.QueryRow(ctx, query, n.Title, n.Message, n.Type, n.Module, n.IsRead).Scan(&n.ID, &n.CreatedAt)
+}
+
+func (r *NotificationRepository) ListAdmin(ctx context.Context, limit, offset int, unreadOnly bool) ([]*domain.AdminNotification, int, error) {
+	where := ""
+	if unreadOnly {
+		where = " WHERE is_read = false"
+	}
+
+	var total int
+	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM admin_notifications`+where).Scan(&total)
+
+	query := `SELECT id, title, message, type, module, is_read, created_at FROM admin_notifications` + where + ` ORDER BY id DESC LIMIT $1 OFFSET $2`
+	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var list []*domain.AdminNotification
+	for rows.Next() {
+		n := &domain.AdminNotification{}
+		if err := rows.Scan(&n.ID, &n.Title, &n.Message, &n.Type, &n.Module, &n.IsRead, &n.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		list = append(list, n)
+	}
+	return list, total, nil
+}
+
+func (r *NotificationRepository) MarkAdminAsRead(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `UPDATE admin_notifications SET is_read = true WHERE id = $1`, id)
+	return err
+}
+
+func (r *NotificationRepository) MarkAdminAllAsRead(ctx context.Context) error {
+	_, err := r.pool.Exec(ctx, `UPDATE admin_notifications SET is_read = true`)
+	return err
+}
+
+func (r *NotificationRepository) DeleteAdminOld(ctx context.Context, days int) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM admin_notifications WHERE created_at < CURRENT_TIMESTAMP - (INTERVAL '1 day' * $1)`, days)
+	return err
+}

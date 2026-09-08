@@ -62,6 +62,17 @@ func GeneratePassword(length int, includeSpecial bool) (string, error) {
 	return string(res), nil
 }
 
+// GenerateRandomString generates a simple alphanumeric random string
+func GenerateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[n.Int64()]
+	}
+	return string(b)
+}
+
 // FormatBytes formats byte counts into human-readable strings (e.g. 1024 -> 1.00 KB, 1073741824 -> 1.00 GB)
 func FormatBytes(bytes int64) string {
 	const unit = 1024

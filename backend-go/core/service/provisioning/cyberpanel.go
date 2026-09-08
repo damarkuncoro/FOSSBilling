@@ -81,6 +81,23 @@ func (p *CyberPanelProvisioner) call(ctx context.Context, action string, payload
 	return res, nil
 }
 
+func (p *CyberPanelProvisioner) GenerateUsername(domainName string) string {
+	clean := strings.ToLower(strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, domainName))
+
+	if len(clean) > 8 {
+		clean = clean[:8]
+	}
+	if len(clean) == 0 {
+		clean = "cpuser"
+	}
+	return clean
+}
+
 func (p *CyberPanelProvisioner) Create(ctx context.Context, order *domain.Order) (*domain.ProvisionResult, error) {
 	var cfg struct {
 		Domain string `json:"domain"`

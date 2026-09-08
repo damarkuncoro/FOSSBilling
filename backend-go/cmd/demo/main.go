@@ -52,11 +52,11 @@ func main() {
 	eventBus := events.NewEventBus()
 
 	taxCalc := billing.NewTaxCalculator([]billing.TaxRule{{Name: "Indonesian PPN", Country: "ID", Rate: 11.0}})
-	authUc := auth.NewAuthUsecase(clientRepo, jwtSecret)
+	authUc := auth.NewAuthUsecase(clientRepo, nil, jwtSecret) // No antispam for demo
 	orderService := order.NewOrderService(orderRepo, eventBus)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, eventBus)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invService)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, nil, taxCalc, invService, eventBus)
 	webhookService := payment.NewWebhookService(txnRepo, invRepo, eventBus)
 	supportService := support.NewSupportService(supportRepo, clientRepo, eventBus)
 	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
@@ -85,7 +85,7 @@ func main() {
 	regRes, _, _ := authUc.Register(ctx, auth.RegisterDTO{
 		Email: "budi.santoso@example.com", Password: "SecurePassword123!",
 		FirstName: "Budi", LastName: "Santoso", Country: "ID", Currency: "IDR",
-	})
+	}, "127.0.0.1")
 	registeredClient, _ := clientRepo.GetByID(ctx, regRes.Client.ID)
 	_ = eventBus.Publish(ctx, events.Event{Type: events.EventClientRegistered, Payload: registeredClient})
 	fmt.Printf("   ✅ Klien Terdaftar: %s %s (ID: %d)\n", regRes.Client.FirstName, regRes.Client.LastName, regRes.Client.ID)

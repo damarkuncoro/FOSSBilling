@@ -12,6 +12,7 @@ export const Cart: React.FC = () => {
     items,
     removeItem,
     clearCart,
+    updateItemConfig,
     promoCode,
     subtotal,
     discount,
@@ -61,6 +62,7 @@ export const Cart: React.FC = () => {
             items={items}
             onRemoveItem={removeItem}
             onClearCart={clearCart}
+            onUpdateConfig={updateItemConfig}
           />
           <PromoCouponCard
             couponInput={couponInput}

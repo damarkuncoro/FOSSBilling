@@ -171,3 +171,8 @@ func (p *CustomServerProvisioner) ChangePassword(ctx context.Context, order *dom
 	})
 	return err
 }
+
+func (p *CustomServerProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, "test", map[string]interface{}{})
+	return err
+}

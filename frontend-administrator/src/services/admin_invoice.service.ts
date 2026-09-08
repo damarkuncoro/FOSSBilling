@@ -28,6 +28,14 @@ export class AdminInvoiceService {
     });
   }
 
+  async refundInvoice(id: number): Promise<any> {
+    return this.repo.refundInvoice(id);
+  }
+
+  async deleteInvoice(id: number): Promise<any> {
+    return this.repo.deleteInvoice(id);
+  }
+
   filterByStatus(invoices: Invoice[], status?: string): Invoice[] {
     if (!status || status === 'all') return invoices;
     return invoices.filter((inv) => inv.status.toLowerCase() === status.toLowerCase());

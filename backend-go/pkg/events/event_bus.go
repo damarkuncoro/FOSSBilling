@@ -16,6 +16,7 @@ const (
 	EventTicketOpened     EventType = "ticket.opened"
 	EventTicketReplied    EventType = "ticket.replied"
 	EventTicketClosed     EventType = "ticket.closed"
+	EventLowStock         EventType = "system.low_stock"
 )
 
 type Event struct {

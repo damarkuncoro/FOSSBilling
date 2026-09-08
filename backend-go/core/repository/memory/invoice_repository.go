@@ -146,3 +146,25 @@ func (r *MockInvoiceRepository) Update(ctx context.Context, inv *domain.Invoice)
 	r.invoices[inv.ID] = &cp
 	return nil
 }
+
+func (r *MockInvoiceRepository) UpdateStatus(ctx context.Context, id int64, status domain.InvoiceStatus) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	inv, ok := r.invoices[id]
+	if !ok {
+		return appErrors.ErrNotFound
+	}
+	inv.Status = status
+	inv.UpdatedAt = time.Now().UTC()
+	return nil
+}
+
+func (r *MockInvoiceRepository) Delete(ctx context.Context, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.invoices, id)
+	delete(r.invoiceItems, id)
+	return nil
+}

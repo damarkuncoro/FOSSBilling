@@ -9,6 +9,8 @@ export interface CartItem {
   price: number;
   period: string; // '1M' | '3M' | '1Y' | 'ONETIME'
   domain_name?: string;
+  form_id?: number;
+  config?: Record<string, any>;
 }
 
 interface CartContextType {
@@ -21,6 +23,7 @@ interface CartContextType {
   addItem: (item: CartItem) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
+  updateItemConfig: (id: string, config: Record<string, any>) => void;
   setPromoCode: (code: string) => void;
   applyPromo: (code: string) => Promise<void>;
   calculateTotals: () => Promise<void>;
@@ -87,6 +90,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
+  const updateItemConfig = (id: string, config: Record<string, any>) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, config } : i)));
+  };
+
   const clearCart = () => {
     setItems([]);
     setPromoCodeState('');
@@ -128,6 +135,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addItem,
         removeItem,
         clearCart,
+        updateItemConfig,
         setPromoCode: setPromoCodeState,
         applyPromo,
         calculateTotals,

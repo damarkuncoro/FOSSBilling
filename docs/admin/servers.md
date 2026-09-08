@@ -1,31 +1,55 @@
-# Server Provisioning & Hosting Managers
+# Server Managers & Provisioning
 
-FOSSBilling integrates with industry-standard control panels to provision web hosting, email accounts, and database quotas automatically upon invoice payment.
-
----
-
-## 🖥️ Supported Control Panels
-
-| Control Panel | Driver ID | Authentication | Supported Actions |
-| :--- | :--- | :--- | :--- |
-| **cPanel / WHM** | `cpanel` | WHM API Token / Access Hash | Create, Suspend, Unsuspend, Terminate, Change Password |
-| **Plesk** | `plesk` | REST API Key / Secret Key | Create Subscription, Suspend, Unsuspend, Delete, Password |
-| **DirectAdmin** | `directadmin` | DirectAdmin Login Key / API | CMD_API_ACCOUNT_USER, Suspend, Unsuspend, Delete |
-| **HestiaCP** | `hestia` | Hestia API Access Key | `v-add-user`, `v-add-web-domain`, `v-suspend-user`, `v-delete-user` |
-| **CentOS Web Panel (CWP)** | `cwp` | CWP API Key | `/v1/account`, `/v1/account/suspend`, `/v1/account/delete` |
-| **Custom Webhooks** | `custom` | HMAC-SHA256 Secret Header | JSON Webhooks for custom Kubernetes / Docker / VPS nodes |
+FOSSBilling automates the lifecycle of hosting accounts by connecting directly to remote server managers.
 
 ---
 
-## ⚙️ Adding a New Server
+## 🖥️ Supported Server Managers
 
-1. Navigate to **Servers** (`/servers`) in the Administrator Portal.
-2. Click **Add New Server**.
-3. Enter Server Details:
-   - **Name:** e.g., `cPanel US-East-1 Cluster`
-   - **Hostname / IP:** e.g., `whm.provider.com` (or IP address)
-   - **Driver:** Choose from dropdown (`cpanel`, `plesk`, `directadmin`, `hestia`, `cwp`, `custom`)
-   - **Port:** (Default: `2087` for WHM, `8443` for Plesk, `2222` for DirectAdmin, `8083` for HestiaCP)
-   - **Access Key / API Token:** Paste your secure API token.
-4. Click **Test Connection** to verify live communication with the server daemon.
-5. Save the server and assign it to your hosting products.
+FOSSBilling includes high-performance drivers for the following platforms:
+
+### WHM / cPanel and FOSSBilling
+cPanel is the industry standard for shared hosting.
+- **Connection:** Uses the WHM JSON API v1.
+- **Requirements:** A valid WHM API Token with `create-acct`, `manage-accounts`, and `modify-accounts` permissions.
+- **Automated Actions:** Account creation, suspension for non-payment, and termination.
+
+### HestiaCP and FOSSBilling
+A popular open-source control panel for VPS and dedicated servers.
+- **Connection:** Uses the Hestia CLI-over-API gateway.
+- **Requirements:** API Access enabled in Hestia settings and an Access Key/Secret pair.
+- **Features:** Supports automated user creation and web domain assignment.
+
+### CWP (CentOS Web Panel) and FOSSBilling
+A powerful free/pro panel for RPM-based distributions.
+- **Connection:** Uses the CWP REST API v1.
+- **Requirements:** API Key generated from the CWP admin dashboard.
+- **Port:** Default communication occurs over port `2304`.
+
+### DirectAdmin and FOSSBilling
+A lightweight and fast control panel alternative.
+- **Connection:** Uses the `CMD_API` interface.
+- **Authentication:** Supports both Login Keys and standard administrator credentials.
+
+---
+
+## 🔧 Other Server Managers
+
+If your control panel is not listed above, FOSSBilling offers two flexible alternatives:
+
+### 1. Plesk REST v2
+Modern driver for Windows and Linux Plesk nodes using the latest JSON REST API for subscription management.
+
+### 2. Custom Webhook Provisioner
+For advanced users with custom infrastructure (Kubernetes, Proxmox, or bespoke scripts).
+- **How it works:** FOSSBilling sends a POST request with a JSON payload containing order details to your endpoint.
+- **Security:** Supports custom headers and HMAC signature verification.
+
+---
+
+## 🧪 Testing Connectivity
+
+Before assigning a server to a product, use the **Test Connection** button in the server management view. This perform a real-time handshake with the remote API to ensure:
+1. The server is reachable over the network.
+2. The API credentials have the correct permissions.
+3. The server manager is responding with the expected protocol version.

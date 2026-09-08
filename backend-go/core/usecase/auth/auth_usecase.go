@@ -6,24 +6,28 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/validator"
 )
 
 type AuthUsecase struct {
-	clientRepo domain.ClientRepository
-	jwtSecret  string
+	clientRepo      domain.ClientRepository
+	antispamService *antispam.AntispamService
+	jwtSecret       string
 }
 
-func NewAuthUsecase(clientRepo domain.ClientRepository, jwtSecret string) *AuthUsecase {
+func NewAuthUsecase(clientRepo domain.ClientRepository, antispamService *antispam.AntispamService, jwtSecret string) *AuthUsecase {
 	return &AuthUsecase{
-		clientRepo: clientRepo,
-		jwtSecret:  jwtSecret,
+		clientRepo:      clientRepo,
+		antispamService: antispamService,
+		jwtSecret:       jwtSecret,
 	}
 }
 
-func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO) (*AuthResponse, validator.ValidationErrors, error) {
+func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO, remoteIP string) (*AuthResponse, validator.ValidationErrors, error) {
 	v := validator.New()
 	v.CheckEmail("email", req.Email)
 	v.CheckRequired("first_name", req.FirstName)
@@ -32,6 +36,14 @@ func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO) (*AuthRespo
 
 	if !v.IsValid() {
 		return nil, v, appErrors.ErrInvalidInput
+	}
+
+	// Anti-spam validation
+	if u.antispamService != nil {
+		if err := u.antispamService.ValidateSignup(ctx, req.Email, remoteIP, req.Honeypot, req.CaptchaToken); err != nil {
+			v.Add("email", err.Error())
+			return nil, v, appErrors.ErrInvalidInput
+		}
 	}
 
 	// Check if email is already taken
@@ -97,6 +109,17 @@ func (u *AuthUsecase) Login(ctx context.Context, req LoginDTO) (*AuthResponse, e
 
 	if client.Status != domain.ClientStatusActive {
 		return nil, errors.New("account is not active")
+	}
+
+	if client.TwoFactorEnabled {
+		return &AuthResponse{
+			TwoFactorRequired: true,
+			Client: ClientBrief{
+				ID:        client.ID,
+				Email:     client.Email,
+				FirstName: client.FirstName,
+			},
+		}, nil
 	}
 
 	token, err := auth.GenerateToken(u.jwtSecret, client.ID, client.Email, "client", 24*time.Hour)
@@ -181,4 +204,81 @@ func (u *AuthUsecase) UpdateProfile(ctx context.Context, clientID int64, req Upd
 	}
 
 	return u.GetProfile(ctx, clientID)
+}
+
+func (u *AuthUsecase) VerifyTwoFactor(ctx context.Context, email, code string) (*AuthResponse, error) {
+	client, err := u.clientRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, appErrors.ErrUnauthorized
+	}
+
+	if client.TwoFactorSecret == nil || !security.VerifyTOTP(*client.TwoFactorSecret, code) {
+		return nil, errors.New("invalid two-factor code")
+	}
+
+	token, err := auth.GenerateToken(u.jwtSecret, client.ID, client.Email, "client", 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{
+		Token: token,
+		Client: ClientBrief{
+			ID:        client.ID,
+			Email:     client.Email,
+			FirstName: client.FirstName,
+			LastName:  client.LastName,
+			Currency:  client.Currency,
+		},
+	}, nil
+}
+
+func (u *AuthUsecase) SetupTwoFactor(ctx context.Context, clientID int64) (*TwoFactorSetupResponse, error) {
+	client, err := u.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := security.GenerateTOTPSecret()
+	qrURL := security.GenerateTOTPURL(client.Email, "FOSSBilling", secret)
+
+	// Save secret temporarily but don't enable yet
+	client.TwoFactorSecret = &secret
+	if err := u.clientRepo.Update(ctx, client); err != nil {
+		return nil, err
+	}
+
+	return &TwoFactorSetupResponse{
+		Secret: secret,
+		QRURL:  qrURL,
+	}, nil
+}
+
+func (u *AuthUsecase) EnableTwoFactor(ctx context.Context, clientID int64, code string) error {
+	client, err := u.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+
+	if client.TwoFactorSecret == nil {
+		return errors.New("2FA secret not generated")
+	}
+
+	if !security.VerifyTOTP(*client.TwoFactorSecret, code) {
+		return errors.New("invalid verification code")
+	}
+
+	client.TwoFactorEnabled = true
+	return u.clientRepo.Update(ctx, client)
+}
+
+func (u *AuthUsecase) DisableTwoFactor(ctx context.Context, clientID int64) error {
+	client, err := u.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return err
+	}
+
+	client.TwoFactorEnabled = false
+	client.TwoFactorSecret = nil
+	return u.clientRepo.Update(ctx, client)
 }

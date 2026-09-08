@@ -113,3 +113,47 @@ func TestStatsService_CalculateDashboard(t *testing.T) {
 		t.Errorf("OpenTickets = %d, ClosedTickets = %d; want 1, 1", d.OpenTickets, d.ClosedTickets)
 	}
 }
+
+func TestStatsService_GetFinancialReports(t *testing.T) {
+	ctx := context.Background()
+
+	clientRepo := memory.NewMockClientRepository()
+	orderRepo := memory.NewMockOrderRepository()
+	invoiceRepo := memory.NewMockInvoiceRepository()
+	supportRepo := memory.NewMockSupportRepository()
+
+	statsService := stats.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
+
+	_ = clientRepo.Create(ctx, &domain.Client{ID: 1, Email: "reporting@example.com", Currency: "USD"})
+
+	// 1 active order for MRR
+	_ = orderRepo.Create(ctx, &domain.Order{
+		ClientID: 1,
+		Status:   domain.OrderStatusActive,
+		Period:   "1M",
+		Price:    100000, // $10.00
+	})
+
+	// Paid invoice for revenue
+	_ = invoiceRepo.Create(ctx, &domain.Invoice{
+		ClientID: 1,
+		Status:   domain.InvoiceStatusPaid,
+		Total:    200000, // $20.00
+		Tax:      22000,  // $2.20
+	}, nil)
+
+	report, err := statsService.GetFinancialReports(ctx)
+	if err != nil {
+		t.Fatalf("GetFinancialReports failed: %v", err)
+	}
+
+	if report.MRR != 10.00 {
+		t.Errorf("Report MRR = %.2f; want 10.00", report.MRR)
+	}
+	if report.ActiveSubscriptions != 1 {
+		t.Errorf("ActiveSubscriptions = %d; want 1", report.ActiveSubscriptions)
+	}
+	if len(report.MonthlyBreakdown) == 0 {
+		t.Error("Expected monthly breakdown to be populated")
+	}
+}

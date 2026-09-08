@@ -11,6 +11,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/cart"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -81,8 +82,8 @@ func TestDatabaseSchema_AllTablesExist(t *testing.T) {
 	for _, tbl := range expectedTables {
 		var exists bool
 		query := `SELECT EXISTS (
-			SELECT FROM information_schema.tables 
-			WHERE table_schema = 'public' 
+			SELECT FROM information_schema.tables
+			WHERE table_schema = 'public'
 			AND table_name = $1
 		)`
 		if err := pool.QueryRow(ctx, query, tbl).Scan(&exists); err != nil {
@@ -106,10 +107,10 @@ func TestDatabaseSchema_ForeignKeyConstraints(t *testing.T) {
 
 	// Check that client_orders.product_id is NULLABLE
 	var isNullable string
-	query := `SELECT is_nullable 
-		FROM information_schema.columns 
-		WHERE table_schema = 'public' 
-		AND table_name = 'client_orders' 
+	query := `SELECT is_nullable
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+		AND table_name = 'client_orders'
 		AND column_name = 'product_id'`
 	if err := pool.QueryRow(ctx, query).Scan(&isNullable); err != nil {
 		t.Fatalf("Failed to check is_nullable for client_orders.product_id: %v", err)
@@ -121,7 +122,7 @@ func TestDatabaseSchema_ForeignKeyConstraints(t *testing.T) {
 
 	// Check that invoice_items cascade deletes on invoice removal
 	var count int
-	fkQuery := `SELECT count(*) 
+	fkQuery := `SELECT count(*)
 		FROM information_schema.referential_constraints rc
 		JOIN information_schema.table_constraints tc ON rc.constraint_name = tc.constraint_name
 		WHERE tc.table_name = 'invoice_items' AND rc.delete_rule = 'CASCADE'`
@@ -329,11 +330,13 @@ func TestDatabase_E2ECheckoutFlow(t *testing.T) {
 	orderRepo := postgres.NewOrderRepository(pool)
 	invRepo := postgres.NewInvoiceRepository(pool)
 	promoRepo := postgres.NewPromoRepository(pool)
+	productRepo := postgres.NewProductRepository(pool)
 
-	taxCalc := billing.NewTaxCalculator([]billing.TaxRule{{Name: "VAT", Country: "US", Rate: 0.0}})
+	taxCalc := billing.NewTaxCalculator(nil)
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invService)
+	formService := formbuilder.NewFormbuilderService(postgres.NewFormbuilderRepository(pool))
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil)
 
 	// Create test client
 	client := &domain.Client{

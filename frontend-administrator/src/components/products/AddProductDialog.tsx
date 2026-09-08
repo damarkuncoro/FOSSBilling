@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { ProductItem } from '@/lib/api';
+import { CustomForm } from '@/types/formBuilder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,6 +19,7 @@ interface AddProductDialogProps {
   onOpenChange: (open: boolean) => void;
   form: Partial<ProductItem>;
   setForm: React.Dispatch<React.SetStateAction<Partial<ProductItem>>>;
+  availableForms: CustomForm[];
   onTitleChange: (val: string) => void;
   onSave: (e: React.FormEvent) => void;
   saving: boolean;
@@ -28,6 +30,7 @@ export const AddProductDialog: React.FC<AddProductDialogProps> = ({
   onOpenChange,
   form,
   setForm,
+  availableForms,
   onTitleChange,
   onSave,
   saving,
@@ -93,6 +96,21 @@ export const AddProductDialog: React.FC<AddProductDialogProps> = ({
                 onChange={(e) => setForm((prev) => ({ ...prev, category_name: e.target.value }))}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold">Custom Order Form (Optional)</label>
+            <select
+              className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={form.form_id || ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, form_id: parseInt(e.target.value) || undefined }))}
+            >
+              <option value="">None (Standard Checkout)</option>
+              {availableForms.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-muted-foreground">Attach additional configuration fields for this product.</p>
           </div>
 
           <div className="space-y-1.5">

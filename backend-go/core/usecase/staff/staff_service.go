@@ -8,6 +8,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
 type StaffService struct {
@@ -28,9 +29,10 @@ type StaffLoginDTO struct {
 }
 
 type StaffAuthResponse struct {
-	Token string             `json:"token"`
-	Staff domain.Staff       `json:"staff"`
-	Group *domain.AdminGroup `json:"group,omitempty"`
+	Token             string             `json:"token,omitempty"`
+	TwoFactorRequired bool               `json:"two_factor_required,omitempty"`
+	Staff             *domain.Staff      `json:"staff,omitempty"`
+	Group             *domain.AdminGroup `json:"group,omitempty"`
 }
 
 func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuthResponse, error) {
@@ -45,6 +47,13 @@ func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuth
 
 	if staff.Status != "active" {
 		return nil, errors.New("staff account is inactive")
+	}
+
+	if staff.TwoFactorEnabled {
+		return &StaffAuthResponse{
+			TwoFactorRequired: true,
+			Staff:             staff,
+		}, nil
 	}
 
 	token, err := auth.GenerateToken(s.jwtSecret, staff.ID, staff.Email, string(staff.Role), 12*time.Hour)
@@ -64,9 +73,72 @@ func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuth
 
 	return &StaffAuthResponse{
 		Token: token,
-		Staff: *staff,
+		Staff: staff,
 		Group: group,
 	}, nil
+}
+
+func (s *StaffService) VerifyTwoFactor(ctx context.Context, email, code string) (*StaffAuthResponse, error) {
+	staff, err := s.staffRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, appErrors.ErrUnauthorized
+	}
+
+	if staff.TwoFactorSecret == nil || !security.VerifyTOTP(*staff.TwoFactorSecret, code) {
+		return nil, errors.New("invalid two-factor code")
+	}
+
+	token, err := auth.GenerateToken(s.jwtSecret, staff.ID, staff.Email, string(staff.Role), 12*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	group, _ := s.staffRepo.GetGroupByID(ctx, staff.GroupID)
+
+	return &StaffAuthResponse{
+		Token: token,
+		Staff: staff,
+		Group: group,
+	}, nil
+}
+
+func (s *StaffService) SetupTwoFactor(ctx context.Context, staffID int64) (string, string, error) {
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil {
+		return "", "", err
+	}
+
+	secret := security.GenerateTOTPSecret()
+	qrURL := security.GenerateTOTPURL(staff.Email, "FOSSBilling-Admin", secret)
+
+	staff.TwoFactorSecret = &secret
+	err = s.staffRepo.Update(ctx, staff) // Need Update in StaffRepository
+	return secret, qrURL, err
+}
+
+func (s *StaffService) EnableTwoFactor(ctx context.Context, staffID int64, code string) error {
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil {
+		return err
+	}
+
+	if staff.TwoFactorSecret == nil || !security.VerifyTOTP(*staff.TwoFactorSecret, code) {
+		return errors.New("invalid verification code")
+	}
+
+	staff.TwoFactorEnabled = true
+	return s.staffRepo.Update(ctx, staff)
+}
+
+func (s *StaffService) DisableTwoFactor(ctx context.Context, staffID int64) error {
+	staff, err := s.staffRepo.GetByID(ctx, staffID)
+	if err != nil {
+		return err
+	}
+
+	staff.TwoFactorEnabled = false
+	staff.TwoFactorSecret = nil
+	return s.staffRepo.Update(ctx, staff)
 }
 
 // HasPermission checks if staff has access to perform an action on a module

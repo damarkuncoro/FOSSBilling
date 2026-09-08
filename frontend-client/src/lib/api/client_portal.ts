@@ -5,6 +5,7 @@ import {
   Invoice,
   SupportTicket,
   ApiKey,
+  Notification,
 } from '@/types/api';
 
 export const clientPortalApi = {
@@ -21,10 +22,30 @@ export const clientPortalApi = {
       method: 'POST',
       body: JSON.stringify(dto),
     }),
+  setupTwoFactor: () =>
+    request<{ secret: string; qr_url: string }>('/client/profile/2fa/setup', {
+      method: 'POST',
+    }),
+  enableTwoFactor: (code: string) =>
+    request<any>('/client/profile/2fa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  disableTwoFactor: () =>
+    request<any>('/client/profile/2fa/disable', {
+      method: 'POST',
+    }),
 
   // Client Orders & Services
   getOrders: () => request<Order[]>('/client/orders'),
   getOrder: (id: number) => request<Order>(`/client/orders/${id}`),
+  syncServiceStatus: (id: number) =>
+    request<any>(`/client/orders/${id}/sync`, { method: 'POST' }),
+  changeServicePassword: (id: number, password: string) =>
+    request<any>(`/client/orders/${id}/change-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 
   // Client Domains
   getDomains: () => request<any[]>('/client/domains'),
@@ -86,4 +107,11 @@ export const clientPortalApi = {
     }),
   revokeApiKey: (id: number) =>
     request<any>(`/client/api-keys/${id}`, { method: 'DELETE' }),
+
+  // Notifications
+  getNotifications: () => request<Notification[]>('/client/notifications'),
+  markNotificationRead: (id: number) =>
+    request<any>(`/client/notifications/${id}/read`, { method: 'PUT' }),
+  markAllNotificationsRead: () =>
+    request<any>('/client/notifications/mark-all-read', { method: 'POST' }),
 };

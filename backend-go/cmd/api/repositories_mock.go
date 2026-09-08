@@ -18,6 +18,7 @@ func NewMockRepositories(ctx context.Context) *Repositories {
 	memNews := memory.NewMockNewsRepository()
 	memCurr := memory.NewMockCurrencyRepository()
 	memInv := memory.NewMockInvoiceRepository()
+	memNotif := memory.NewMockNotificationRepository()
 
 	seed.SeedAll(ctx, seed.MemoryRepositories{
 		ClientRepo:   memClient,
@@ -29,29 +30,32 @@ func NewMockRepositories(ctx context.Context) *Repositories {
 	})
 
 	return &Repositories{
-		Client:       memClient,
-		Order:        memory.NewMockOrderRepository(),
-		Invoice:      memInv,
-		Transaction:  memory.NewMockTransactionRepository(),
-		Promo:        memPromo,
-		Support:      memory.NewMockSupportRepository(),
-		Staff:        memStaff,
-		Currency:     memCurr,
-		News:         memNews,
-		Downloadable: memory.NewMockDownloadableRepository(),
-		APIKey:       memory.NewMockAPIKeyRepository(),
-		MassMail:     memory.NewMockMassMailRepository(),
-		Company:      memory.NewMockCompanyRepository(),
-		Product:      memory.NewMockProductRepository(),
-		Catalog:      memory.NewMockCatalogRepository(),
-		System:       memory.NewMockSystemRepository(),
-		Activity:     memory.NewMockActivityRepository(),
-		Notification: memory.NewMockNotificationRepository(),
-		Page:         memory.NewMockPageRepository(),
-		Antispam:     memory.NewMockAntispamRepository(),
-		Formbuilder:  memory.NewMockFormbuilderRepository(),
-		Extension:    memory.NewMockExtensionRepository(),
-		Redirect:     memory.NewRedirectRepository(),
-		Theme:        memory.NewThemeRepository(),
+		Client:            memClient,
+		Order:             memory.NewMockOrderRepository(),
+		Invoice:           memInv,
+		Transaction:       memory.NewMockTransactionRepository(),
+		Promo:             memPromo,
+		Support:           memory.NewMockSupportRepository(),
+		Staff:             memStaff,
+		Currency:          memCurr,
+		News:              memNews,
+		Downloadable:      memory.NewMockDownloadableRepository(),
+		APIKey:            memory.NewMockAPIKeyRepository(),
+		MassMail:          memory.NewMockMassMailRepository(),
+		Company:           memory.NewMockCompanyRepository(),
+		Product:           memory.NewMockProductRepository(),
+		Catalog:           memory.NewMockCatalogRepository(),
+		System:            memory.NewMockSystemRepository(),
+		Activity:          memory.NewMockActivityRepository(),
+		Notification:      memNotif,
+		AdminNotification: memNotif,
+		Page:              memory.NewMockPageRepository(),
+		KB:                memory.NewMockKBRepository(),
+		Antispam:          memory.NewMockAntispamRepository(),
+		Formbuilder:       memory.NewMockFormbuilderRepository(),
+		Extension:         memory.NewMockExtensionRepository(),
+		Redirect:          memory.NewRedirectRepository(),
+		Theme:             memory.NewThemeRepository(),
+		Tax:               memory.NewMockTaxRepository(),
 	}
 }

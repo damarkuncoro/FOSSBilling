@@ -21,6 +21,7 @@ import (
 	downloadableUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/downloadable"
 	extensionUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/extension"
 	formbuilderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
+	knowledgebase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/knowledgebase"
 	licenseUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/license"
 	massmailUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/massmail"
 	newsUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/news"
@@ -39,6 +40,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
@@ -62,11 +64,14 @@ type Services struct {
 	License       *licenseUsecase.LicenseService
 	APIKey        *apikeyUsecase.APIKeyService
 	MassMail      *massmailUsecase.MassMailService
+	KB            *knowledgebase.Service
 	Product       *catalogUsecase.ProductService
+	Server        *catalogUsecase.ServerService
 	System        *systemUsecase.SystemService
 	Page          *pageUsecase.PageService
 	Activity      *activityUsecase.ActivityService
 	Notification  *notificationUsecase.NotificationService
+	AdminNotif    *notificationUsecase.AdminNotificationService
 	Antispam      *antispamUsecase.AntispamService
 	Formbuilder   *formbuilderUsecase.FormbuilderService
 	Extension     *extensionUsecase.ExtensionService
@@ -75,108 +80,99 @@ type Services struct {
 	Theme         *themeUsecase.ThemeService
 	SEO           *seoUsecase.SEOService
 	Widget        *widgetUsecase.WidgetService
+	Tax           *billingUsecase.TaxCalculator
 	Gateways      *payment.GatewayRegistry
+	Hooks         *plugins.HookManager
 	Cache         cache.Cache
 	EventBus      *events.EventBus
 }
 
 // InitServices instantiates and configures all domain services with their respective repository dependencies
-func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.EventBus, appCache cache.Cache) *Services {
+func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.EventBus, appCache cache.Cache, hookManager *plugins.HookManager) *Services {
 	mockMailer := mailer.NewMockMailer()
 	emailService := notification.NewEmailService(mockMailer, "admin@fossbilling.org", "FOSSBilling")
 
-	taxCalculator := billingUsecase.NewTaxCalculator(nil)
+	taxCalculator := billingUsecase.NewTaxCalculator(repos.Tax)
 	promoCalc := cartUsecase.NewPromoCalculator(repos.Promo)
 
-	authUc := authUsecase.NewAuthUsecase(repos.Client, cfg.JWTSecret)
+	// 1. Antispam & Security
+	turnstileVerifier := security.NewTurnstileVerifier("")
+	emailChecker := security.NewDisposableEmailChecker()
+	sfsChecker := security.NewStopForumSpamChecker()
+	antispamService := antispamUsecase.NewAntispamService(repos.Antispam, turnstileVerifier, emailChecker, sfsChecker)
+
+	// 2. Auth
+	authUc := authUsecase.NewAuthUsecase(repos.Client, antispamService, cfg.JWTSecret)
 	passwordUc := authUsecase.NewPasswordUsecase(repos.Client)
 
-	orderService := orderUsecase.NewOrderService(repos.Order, eventBus)
-	invoiceService := billingUsecase.NewInvoiceService(repos.Invoice, repos.Client, taxCalculator, eventBus)
-	cartService := cartUsecase.NewCartService(promoCalc, repos.Promo, repos.Order, repos.Client, taxCalculator, invoiceService)
-
-	gatewayRegistry := payment.NewGatewayRegistry()
-	gatewayRegistry.Register(gateways.NewStripeGateway("sk_test", "pk_test", "whsec_test"))
-	gatewayRegistry.Register(gateways.NewPayPalGateway("client_id", "secret", false))
-	gatewayRegistry.Register(gateways.NewMidtransGateway("server_key", "client_key", false))
-	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Mandiri", "1234567890", "FOSSBilling Indonesia"))
-	gatewayRegistry.Register(gateways.NewCustomGateway())
-
-	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, eventBus)
-	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
-
-	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
-	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret)
-	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support)
-
-	companyService := companyUsecase.NewCompanyService(repos.Company)
-	currencyService := currencyUsecase.NewCurrencyService(repos.Currency)
-	newsService := newsUsecase.NewNewsService(repos.News)
-	downloadService := downloadableUsecase.NewDownloadableService(repos.Downloadable, repos.Order, cfg.JWTSecret)
-
+	// 3. Provisioning Registries
+	provisionerFactory := provisioning.NewProvisionerFactory()
 	provisionerRegistry := provisioning.NewProvisionerRegistry()
 	provisionerRegistry.Register("cpanel", provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{
-		Host:     "cpanel.fossbilling.org",
-		Username: "root",
-		APIToken: "MOCK_TOKEN_123",
-		Insecure: true,
+		Host: "cpanel.fossbilling.org", Username: "root", APIToken: "MOCK_TOKEN", Insecure: true,
 	}))
 	provisionerRegistry.Register("directadmin", provisioning.NewDirectAdminProvisioner("da.fossbilling.org", 2222, "admin", "pass"))
 	provisionerRegistry.Register("plesk", provisioning.NewPleskProvisioner(provisioning.PleskConfig{
-		Host:     "plesk.fossbilling.org",
-		Port:     8443,
-		APIKey:   "MOCK_KEY_456",
-		Insecure: true,
+		Host: "plesk.fossbilling.org", APIKey: "MOCK_KEY", Insecure: true,
 	}))
 	provisionerRegistry.Register("hestia", provisioning.NewHestiaProvisioner(provisioning.HestiaConfig{
-		Host:      "hestia.fossbilling.org",
-		Port:      8083,
-		AccessKey: "admin",
-		SecretKey: "MOCK_HESTIA_KEY_789",
-		Insecure:  true,
+		Host: "hestia.fossbilling.org", AccessKey: "admin", SecretKey: "PASS", Insecure: true,
 	}))
 	provisionerRegistry.Register("cwp", provisioning.NewCWPProvisioner(provisioning.CWPConfig{
-		Host:     "cwp.fossbilling.org",
-		Port:     2304,
-		APIKey:   "MOCK_CWP_KEY_101",
-		Insecure: true,
+		Host: "cwp.fossbilling.org", APIKey: "KEY", Insecure: true,
+	}))
+	provisionerRegistry.Register("cyberpanel", provisioning.NewCyberPanelProvisioner(provisioning.CyberPanelConfig{
+		Host: "cyberpanel.fossbilling.org", AdminPass: "PASS", Insecure: true,
 	}))
 	provisionerRegistry.Register("custom", provisioning.NewCustomServerProvisioner(provisioning.CustomServerConfig{
-		EndpointURL: "https://webhooks.fossbilling.org/server",
-		AuthToken:   "MOCK_CUSTOM_AUTH_202",
+		EndpointURL: "https://webhooks.fossbilling.org", AuthToken: "SECRET",
 	}))
 
 	registrarRegistry := provisioning.NewRegistrarRegistry()
 	registrarRegistry.Register("rdap", provisioning.NewRDAPRegistrarDriver())
 	registrarRegistry.Register("email", provisioning.NewEmailRegistrarDriver(emailService, "admin@fossbilling.org"))
 	registrarRegistry.Register("custom", provisioning.NewCustomRegistrarDriver())
-
-	// LogicBoxes compatible registrars
-	lbConfig := provisioning.ResellerClubConfig{IsTest: true}
-	registrarRegistry.Register("resellerclub", provisioning.NewResellerClubRegistrarDriver(lbConfig))
-	registrarRegistry.Register("resellerid", provisioning.NewResellerClubRegistrarDriver(lbConfig))
-	registrarRegistry.Register("resellbiz", provisioning.NewResellerClubRegistrarDriver(lbConfig))
-	registrarRegistry.Register("netearthone", provisioning.NewResellerClubRegistrarDriver(lbConfig))
-
 	registrarRegistry.Register("namecheap", provisioning.NewNamecheapRegistrarDriver(provisioning.NamecheapConfig{IsSandbox: true}))
-	registrarRegistry.Register("internetbs", provisioning.NewInternetbsRegistrarDriver(provisioning.InternetbsConfig{IsTest: true}))
 
-	domainService := domainUsecase.NewDomainService(repos.Order, registrarRegistry)
+	dnsRegistry := provisioning.NewDNSProviderRegistry()
+	dnsRegistry.Register("cloudflare", provisioning.NewCloudflareDNSProvider("MOCK_CF_TOKEN"))
+
+	// 4. Core Business Logic
+	orderService := orderUsecase.NewOrderService(repos.Order, repos.Product, provisionerRegistry, registrarRegistry, eventBus)
+	invoiceService := billingUsecase.NewInvoiceService(repos.Invoice, repos.Client, taxCalculator, hookManager, eventBus)
+	formbuilderService := formbuilderUsecase.NewFormbuilderService(repos.Formbuilder)
+	cartService := cartUsecase.NewCartService(promoCalc, repos.Promo, repos.Order, repos.Product, repos.Client, formbuilderService, taxCalculator, invoiceService, eventBus)
+
+	// 5. Gateways
+	gatewayRegistry := payment.NewGatewayRegistry()
+	gatewayRegistry.Register(gateways.NewStripeGateway("sk_test", "pk_test", "whsec_test"))
+	gatewayRegistry.Register(gateways.NewMidtransGateway("server_key", "client_key", false))
+	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Mandiri", "1234567890", "FOSSBilling Indonesia"))
+
+	// 6. Rest of services
+	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, eventBus)
+	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
+	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
+	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret)
+	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support)
+	companyService := companyUsecase.NewCompanyService(repos.Company)
+	currencyService := currencyUsecase.NewCurrencyService(repos.Currency)
+	newsService := newsUsecase.NewNewsService(repos.News)
+	downloadService := downloadableUsecase.NewDownloadableService(repos.Downloadable, repos.Order, cfg.JWTSecret)
+	domainService := domainUsecase.NewDomainService(repos.Order, registrarRegistry, dnsRegistry)
 	licenseService := licenseUsecase.NewLicenseService(repos.Order)
 	apiKeyService := apikeyUsecase.NewAPIKeyService(repos.APIKey)
+	kbService := knowledgebase.NewKBService(repos.KB)
 	productService := catalogUsecase.NewProductService(repos.Product, appCache)
+	serverService := catalogUsecase.NewServerService(repos.Catalog, provisionerFactory)
 	systemService := systemUsecase.NewSystemService(repos.System)
 	pageService := pageUsecase.NewPageService(repos.Page)
 	activityService := activityUsecase.NewActivityService(repos.Activity)
 	notificationService := notificationUsecase.NewNotificationService(repos.Notification)
+	adminNotifService := notificationUsecase.NewAdminNotificationService(repos.AdminNotification)
 	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, mockMailer, "admin@fossbilling.org", "FOSSBilling")
 
-	turnstileVerifier := security.NewTurnstileVerifier("")
-	emailChecker := security.NewDisposableEmailChecker()
-	sfsChecker := security.NewStopForumSpamChecker()
-	antispamService := antispamUsecase.NewAntispamService(repos.Antispam, turnstileVerifier, emailChecker, sfsChecker)
-
-	// Register Event Listeners
+	// 7. Event Listeners
 	orderListener := listener.NewOrderListener(emailService, repos.Order, repos.Product, repos.Client, orderService, registrarRegistry, provisionerRegistry)
 	eventBus.Subscribe(events.EventOrderActivated, orderListener.HandleOrderActivated)
 	eventBus.Subscribe(events.EventInvoicePaid, orderListener.HandleInvoicePaid)
@@ -192,6 +188,13 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	notificationListener := listener.NewNotificationListener(notificationService)
 	eventBus.Subscribe(events.EventInvoicePaid, notificationListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventOrderActivated, notificationListener.HandleOrderActivated)
+
+	adminAlertListener := listener.NewAdminAlertListener(adminNotifService)
+	eventBus.Subscribe(events.EventInvoicePaid, adminAlertListener.HandleInvoicePaid)
+	eventBus.Subscribe(events.EventTicketOpened, adminAlertListener.HandleTicketOpened)
+
+	systemListener := listener.NewSystemListener(emailService, "admin@fossbilling.org")
+	eventBus.Subscribe(events.EventLowStock, systemListener.HandleLowStock)
 
 	return &Services{
 		Auth:          authUc,
@@ -211,13 +214,17 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		Domain:        domainService,
 		License:       licenseService,
 		APIKey:        apiKeyService,
+		KB:            kbService,
 		Product:       productService,
+		Server:        serverService,
 		System:        systemService,
 		Page:          pageService,
 		Activity:      activityService,
 		Notification:  notificationService,
+		AdminNotif:    adminNotifService,
 		Antispam:      antispamService,
-		Formbuilder:   formbuilderUsecase.NewFormbuilderService(repos.Formbuilder),
+		Tax:           taxCalculator,
+		Formbuilder:   formbuilderService,
 		Extension:     extensionUsecase.NewExtensionService(repos.Extension),
 		Redirect:      redirectUsecase.NewRedirectService(repos.Redirect),
 		CookieConsent: cookieconsentUsecase.NewCookieConsentService(repos.Extension),
@@ -225,6 +232,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		SEO:           seoUsecase.NewSEOService(repos.Page, repos.News, repos.Product),
 		Widget:        widgetUsecase.NewWidgetService(),
 		Gateways:      gatewayRegistry,
+		Hooks:         hookManager,
 		Cache:         appCache,
 		MassMail:      massMailService,
 		EventBus:      eventBus,

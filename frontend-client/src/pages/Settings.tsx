@@ -3,6 +3,7 @@ import { useClientSettings } from '@/hooks/useClientSettings';
 import { ProfileSettingsCard } from '@/components/settings/ProfileSettingsCard';
 import { ApiKeysCard } from '@/components/settings/ApiKeysCard';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
+import { TwoFactorSettingsCard } from '@/components/settings/TwoFactorSettingsCard';
 
 export const Settings: React.FC = () => {
   const {
@@ -39,6 +40,7 @@ export const Settings: React.FC = () => {
             saving={savingProfile}
             message={profileMessage}
           />
+          <TwoFactorSettingsCard />
           <ChangePasswordCard />
         </div>
 

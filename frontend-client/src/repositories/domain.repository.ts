@@ -7,6 +7,9 @@ export interface IDomainRepository {
   listDomains(): Promise<DomainRecord[]>;
   updateNameservers(id: number, nameservers: string[]): Promise<any>;
   toggleAutoRenew(id: number): Promise<any>;
+  listDnsRecords(id: number): Promise<any[]>;
+  addDnsRecord(id: number, record: any): Promise<any>;
+  deleteDnsRecord(id: number, recordId: string): Promise<any>;
 }
 
 export class DomainRepository implements IDomainRepository {
@@ -28,6 +31,23 @@ export class DomainRepository implements IDomainRepository {
   async toggleAutoRenew(id: number): Promise<any> {
     return request(`/client/domains/${id}/toggle-autorenew`, {
       method: 'POST',
+    });
+  }
+
+  async listDnsRecords(id: number): Promise<any[]> {
+    return request<any[]>(`/client/domains/${id}/dns`);
+  }
+
+  async addDnsRecord(id: number, record: any): Promise<any> {
+    return request(`/client/domains/${id}/dns`, {
+      method: 'POST',
+      body: JSON.stringify(record),
+    });
+  }
+
+  async deleteDnsRecord(id: number, recordId: string): Promise<any> {
+    return request(`/client/domains/${id}/dns/${recordId}`, {
+      method: 'DELETE',
     });
   }
 }

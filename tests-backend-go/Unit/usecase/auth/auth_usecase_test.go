@@ -14,7 +14,7 @@ import (
 
 func setupAuthUsecase() (*auth.AuthUsecase, *memory.MockClientRepository) {
 	repo := memory.NewMockClientRepository()
-	uc := auth.NewAuthUsecase(repo, "test-jwt-secret-key-32-bytes-long")
+	uc := auth.NewAuthUsecase(repo, nil, "test-jwt-secret-key-32-bytes-long")
 	return uc, repo
 }
 
@@ -33,7 +33,7 @@ func TestAuthUsecase_Register(t *testing.T) {
 	}
 
 	// 1. Successful Registration
-	res, vErrs, err := uc.Register(ctx, req)
+	res, vErrs, err := uc.Register(ctx, req, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestAuthUsecase_Register(t *testing.T) {
 	}
 
 	// 2. Duplicate Registration should fail
-	_, vErrs, err = uc.Register(ctx, req)
+	_, vErrs, err = uc.Register(ctx, req, "127.0.0.1")
 	if err == nil {
 		t.Error("Expected error on duplicate email registration, got nil")
 	}
@@ -64,7 +64,7 @@ func TestAuthUsecase_Register(t *testing.T) {
 		Email:    "not-an-email",
 		Password: "123",
 	}
-	_, vErrs, err = uc.Register(ctx, invalidReq)
+	_, vErrs, err = uc.Register(ctx, invalidReq, "127.0.0.1")
 	if err == nil {
 		t.Error("Expected validation error, got nil")
 	}
@@ -84,7 +84,7 @@ func TestAuthUsecase_Login(t *testing.T) {
 		FirstName: "Jane",
 		LastName:  "Smith",
 	}
-	_, _, err := uc.Register(ctx, regReq)
+	_, _, err := uc.Register(ctx, regReq, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAuthUsecase_Profile(t *testing.T) {
 		Password:  "password123",
 		FirstName: "Alice",
 		LastName:  "Wonder",
-	})
+	}, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}

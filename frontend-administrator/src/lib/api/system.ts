@@ -17,6 +17,11 @@ export const systemApi = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  verifyTwoFactor: (email: string, code: string) =>
+    request<any>('/admin/auth/verify-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    }),
   getDashboardStats: () => request<any>('/admin/stats/dashboard'),
   getSupportTickets: () => request<any[]>('/admin/support/tickets'),
   replySupportTicket: (id: number, content: string) =>
@@ -43,11 +48,31 @@ export const systemApi = {
   getPages: () => request<CustomPageItem[]>('/admin/pages'),
   savePage: (page: Partial<CustomPageItem>) => request<CustomPageItem>('/admin/pages', { method: 'POST', body: JSON.stringify(page) }),
   deletePage: (id: number) => request<any>(`/admin/pages/${id}`, { method: 'DELETE' }),
-  getKnowledgebase: () => request<KnowledgebaseArticle[]>('/admin/knowledgebase'),
+
+  getKnowledgebase: () => request<KnowledgebaseArticle[]>('/admin/knowledgebase/articles'),
   saveKnowledgebase: (article: Partial<KnowledgebaseArticle>) =>
-    request<KnowledgebaseArticle>('/admin/knowledgebase', { method: 'POST', body: JSON.stringify(article) }),
-  deleteKnowledgebase: (id: number) => request<any>(`/admin/knowledgebase/${id}`, { method: 'DELETE' }),
+    request<KnowledgebaseArticle>('/admin/knowledgebase/articles', {
+      method: article.id ? 'PUT' : 'POST',
+      body: JSON.stringify(article),
+    }),
+  deleteKnowledgebase: (id: number) => request<any>(`/admin/knowledgebase/articles/${id}`, { method: 'DELETE' }),
+  getKBCategories: () => request<any[]>('/admin/knowledgebase/categories'),
+
   getExtensions: () => request<ExtensionModuleItem[]>('/admin/extensions'),
   toggleExtension: (id: string, enabled: boolean) =>
     request<any>(`/admin/extensions/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) }),
+
+  // SEO & Sitemaps
+  getSeoInfo: () => request<any>('/admin/seo/info'),
+  pingSearchEngines: () => request<{ success: boolean; results: any }>('/admin/seo/ping', { method: 'POST' }),
+
+  // Redirects
+  getRedirects: () => request<any[]>('/admin/redirects'),
+  createRedirect: (data: any) => request<any>('/admin/redirects', { method: 'POST', body: JSON.stringify(data) }),
+  updateRedirect: (id: number, data: any) => request<any>(`/admin/redirects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRedirect: (id: number) => request<any>(`/admin/redirects/${id}`, { method: 'DELETE' }),
+
+  // Cookie Consent
+  getCookieConsent: () => request<any>('/admin/cookie-consent'),
+  updateCookieConsent: (data: any) => request<any>('/admin/cookie-consent', { method: 'PUT', body: JSON.stringify(data) }),
 };

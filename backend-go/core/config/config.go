@@ -13,6 +13,7 @@ type Config struct {
 	JWTSecret       string
 	AppURL          string
 	DefaultCurrency string
+	WorkerConcurrency int
 }
 
 func Load() *Config {
@@ -24,6 +25,7 @@ func Load() *Config {
 		JWTSecret:       getEnv("JWT_SECRET", "super-secret-default-key-change-me"),
 		AppURL:          getEnv("APP_URL", "http://localhost:8080"),
 		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "USD"),
+		WorkerConcurrency: getEnvInt("WORKER_CONCURRENCY", 20),
 	}
 }
 

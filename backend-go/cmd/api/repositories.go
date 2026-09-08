@@ -26,14 +26,17 @@ type Repositories struct {
 	Product      domain.ProductRepository
 	Catalog      domain.CatalogRepository
 	System       domain.SystemRepository
-	Activity     domain.ActivityRepository
-	Notification domain.NotificationRepository
-	Page         domain.PageRepository
+	Activity          domain.ActivityRepository
+	Notification      domain.NotificationRepository
+	AdminNotification domain.AdminNotificationRepository
+	Page              domain.PageRepository
+	KB           domain.KBRepository
 	Antispam     domain.AntispamRepository
 	Formbuilder  domain.FormbuilderRepository
 	Extension    domain.ExtensionRepository
-	Redirect     domain.RedirectRepository
-	Theme        domain.ThemeRepository
+	Redirect          domain.RedirectRepository
+	Theme             domain.ThemeRepository
+	Tax               domain.TaxRepository
 }
 
 // InitRepositories factory that determines whether to instantiate real PostgreSQL or mock repositories

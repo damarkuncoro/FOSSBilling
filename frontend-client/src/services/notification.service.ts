@@ -3,15 +3,14 @@ import { Notification } from '@/types/api';
 
 export const notificationService = {
   async listNotifications(): Promise<Notification[]> {
-    const res = await api.get<{ data: Notification[] }>('/client/notifications');
-    return res.data.data;
+    return api.getNotifications();
   },
 
   async markAsRead(id: number): Promise<void> {
-    await api.put(`/client/notifications/${id}/read`, {});
+    await api.markNotificationRead(id);
   },
 
   async markAllAsRead(): Promise<void> {
-    await api.post('/client/notifications/mark-all-read', {});
+    await api.markAllNotificationsRead();
   },
 };

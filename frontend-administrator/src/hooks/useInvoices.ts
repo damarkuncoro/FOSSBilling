@@ -68,6 +68,29 @@ export function useInvoices() {
     return adminInvoiceService.createInvoice(arg1, arg2);
   }, []);
 
+  const refundInvoice = useCallback(async (id: number) => {
+    try {
+      await adminInvoiceService.refundInvoice(id);
+      setInvoices((prev) =>
+        prev.map((inv) => (inv.id === id ? { ...inv, status: 'refunded' } : inv))
+      );
+    } catch (err) {
+      console.error('Refund failed:', err);
+      throw err;
+    }
+  }, []);
+
+  const deleteInvoice = useCallback(async (id: number) => {
+    if (!confirm('Are you sure you want to permanently delete this invoice?')) return;
+    try {
+      await adminInvoiceService.deleteInvoice(id);
+      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
@@ -80,5 +103,7 @@ export function useInvoices() {
     fetchInvoices,
     exportInvoicesToCSV,
     createInvoice,
+    refundInvoice,
+    deleteInvoice,
   };
 }

@@ -13,9 +13,14 @@ export const guestApi = {
 
   // Guest Auth
   login: (email: string, password: string) =>
-    request<{ token: string; client: ClientProfile }>('/guest/auth/login', {
+    request<{ token: string; client: ClientProfile; two_factor_required?: boolean }>('/guest/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  verifyTwoFactor: (email: string, code: string) =>
+    request<{ token: string; client: ClientProfile }>('/guest/auth/verify-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
     }),
   register: (dto: {
     email: string;
@@ -51,4 +56,17 @@ export const guestApi = {
 
   // Public Company Info & Branding
   getCompany: () => request<PublicCompanyInfo>('/guest/company'),
+
+  // Knowledgebase
+  getKBCategories: () => request<any[]>('/guest/kb/categories'),
+  getKBArticles: (catID?: number) =>
+    request<any[]>(`/guest/kb/articles${catID ? `?category_id=${catID}` : ''}`),
+  getKBArticle: (slug: string) =>
+    request<any>(`/guest/kb/articles/detail?slug=${slug}`),
+
+  // Forms
+  getForm: (id: number) => request<any>(`/guest/forms/${id}`),
+
+  // Redirects
+  lookupRedirect: (path: string) => request<{ path: string; target: string; status_code: number }>(`/guest/redirects/lookup?path=${encodeURIComponent(path)}`),
 };

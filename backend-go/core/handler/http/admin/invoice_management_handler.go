@@ -57,6 +57,23 @@ func (h *InvoiceManagementHandler) ListInvoices(w http.ResponseWriter, r *http.R
 	})
 }
 
+func (h *InvoiceManagementHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
+		return
+	}
+
+	invoice, err := h.invoiceRepo.GetByID(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Invoice not found", nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, invoice, nil)
+}
+
 type createInvoiceItemReq struct {
 	Title    string  `json:"title"`
 	Price    float64 `json:"price"`
@@ -115,4 +132,22 @@ func (h *InvoiceManagementHandler) CreateInvoice(w http.ResponseWriter, r *http.
 	}
 
 	response.JSON(w, http.StatusCreated, inv, nil)
+}
+
+func (h *InvoiceManagementHandler) RefundInvoice(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err := h.invoiceService.RefundInvoice(r.Context(), id); err != nil {
+		response.Error(w, http.StatusBadRequest, "REFUND_FAILED", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+}
+
+func (h *InvoiceManagementHandler) DeleteInvoice(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err := h.invoiceRepo.Delete(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DELETE_FAILED", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
 }

@@ -18,6 +18,26 @@ func NewPromoRepository(pool *pgxpool.Pool) *PromoRepository {
 	return &PromoRepository{pool: pool}
 }
 
+func (r *PromoRepository) GetByID(ctx context.Context, id int64) (*domain.Promo, error) {
+	query := `
+		SELECT id, code, description, type, value, max_uses, used_count, once_per_client, start_date, end_date, active, created_at, updated_at
+		FROM promos
+		WHERE id = $1
+	`
+	var p domain.Promo
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&p.ID, &p.Code, &p.Description, &p.Type, &p.Value, &p.MaxUses, &p.UsedCount,
+		&p.OncePerClient, &p.StartDate, &p.EndDate, &p.Active, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, appErrors.ErrNotFound
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
 func (r *PromoRepository) GetByCode(ctx context.Context, code string) (*domain.Promo, error) {
 	query := `
 		SELECT id, code, description, type, value, max_uses, used_count, once_per_client, start_date, end_date, active, created_at, updated_at
@@ -70,6 +90,37 @@ func (r *PromoRepository) IncrementUsed(ctx context.Context, promoID int64, clie
 	return tx.Commit(ctx)
 }
 
+func (r *PromoRepository) List(ctx context.Context, limit, offset int) ([]*domain.Promo, int, error) {
+	var total int
+	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM promos`).Scan(&total)
+
+	query := `
+		SELECT id, code, description, type, value, max_uses, used_count, once_per_client, start_date, end_date, active, created_at, updated_at
+		FROM promos
+		ORDER BY id DESC
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var list []*domain.Promo
+	for rows.Next() {
+		var p domain.Promo
+		err := rows.Scan(
+			&p.ID, &p.Code, &p.Description, &p.Type, &p.Value, &p.MaxUses, &p.UsedCount,
+			&p.OncePerClient, &p.StartDate, &p.EndDate, &p.Active, &p.CreatedAt, &p.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		list = append(list, &p)
+	}
+	return list, total, nil
+}
+
 func (r *PromoRepository) Create(ctx context.Context, p *domain.Promo) error {
 	query := `
 		INSERT INTO promos (
@@ -81,4 +132,22 @@ func (r *PromoRepository) Create(ctx context.Context, p *domain.Promo) error {
 		p.Code, p.Description, p.Type, p.Value, p.MaxUses, p.UsedCount,
 		p.OncePerClient, p.StartDate, p.EndDate, p.Active,
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+}
+
+func (r *PromoRepository) Update(ctx context.Context, p *domain.Promo) error {
+	query := `
+		UPDATE promos
+		SET code = $1, description = $2, type = $3, value = $4, max_uses = $5, used_count = $6, once_per_client = $7, start_date = $8, end_date = $9, active = $10, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $11
+	`
+	_, err := r.pool.Exec(ctx, query,
+		p.Code, p.Description, p.Type, p.Value, p.MaxUses, p.UsedCount,
+		p.OncePerClient, p.StartDate, p.EndDate, p.Active, p.ID,
+	)
+	return err
+}
+
+func (r *PromoRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM promos WHERE id = $1`, id)
+	return err
 }

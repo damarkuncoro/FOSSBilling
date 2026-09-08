@@ -215,3 +215,8 @@ func (p *CWPProvisioner) ChangePassword(ctx context.Context, order *domain.Order
 	_, err := p.call(ctx, "account/update_pass", params)
 	return err
 }
+
+func (p *CWPProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, "status", nil)
+	return err
+}

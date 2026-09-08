@@ -100,8 +100,9 @@ export interface HostingPlan {
   price: number;
   period: string;
   type: string;
-  features: string[];
+  features?: string[];
   popular?: boolean;
+  form_id?: number;
 }
 
 export interface DomainSearchResult {
@@ -118,4 +119,14 @@ export interface CartCalculation {
   tax: number;
   total: number;
   items: any[];
+}
+
+export interface Notification {
+  id: number;
+  client_id: number;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  is_read: boolean;
+  created_at: string;
 }

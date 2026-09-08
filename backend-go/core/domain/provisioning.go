@@ -29,4 +29,21 @@ type ServiceProvisioner interface {
 	Terminate(ctx context.Context, order *Order) error
 	Sync(ctx context.Context, order *Order) (*ServiceStatus, error)
 	ChangePassword(ctx context.Context, order *Order, newPassword string) error
+	TestConnection(ctx context.Context) error
+}
+
+type DNSRecord struct {
+	ID       string `json:"id,omitempty"`
+	Type     string `json:"type"` // A, AAAA, CNAME, MX, TXT, etc.
+	Name     string `json:"name"`
+	Content  string `json:"content"`
+	TTL      int    `json:"ttl"`
+	Priority int    `json:"priority,omitempty"`
+}
+
+type DNSProvider interface {
+	ListRecords(ctx context.Context, domainName string) ([]DNSRecord, error)
+	AddRecord(ctx context.Context, domainName string, record DNSRecord) error
+	UpdateRecord(ctx context.Context, domainName string, record DNSRecord) error
+	DeleteRecord(ctx context.Context, domainName string, recordID string) error
 }

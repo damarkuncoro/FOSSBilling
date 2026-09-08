@@ -70,6 +70,31 @@ func (r *CatalogRepository) GetServerByID(ctx context.Context, id int64) (*domai
 	return s, nil
 }
 
+func (r *CatalogRepository) CreateServer(ctx context.Context, s *domain.Server) error {
+	query := `
+		INSERT INTO servers (name, hostname, ip, manager, status, is_default, max_accounts, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		RETURNING id, created_at, updated_at
+	`
+	return r.pool.QueryRow(ctx, query, s.Name, s.Hostname, s.IP, s.Manager, s.Status, s.IsDefault, s.MaxAccounts).
+		Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt)
+}
+
+func (r *CatalogRepository) UpdateServer(ctx context.Context, s *domain.Server) error {
+	query := `
+		UPDATE servers SET
+			name = $1, hostname = $2, ip = $3, manager = $4, status = $5, is_default = $6, max_accounts = $7, updated_at = NOW()
+		WHERE id = $8
+	`
+	_, err := r.pool.Exec(ctx, query, s.Name, s.Hostname, s.IP, s.Manager, s.Status, s.IsDefault, s.MaxAccounts, s.ID)
+	return err
+}
+
+func (r *CatalogRepository) DeleteServer(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM servers WHERE id = $1`, id)
+	return err
+}
+
 func (r *CatalogRepository) ListTlds(ctx context.Context) ([]*domain.TLD, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, tld, registrar_id, price_registration, price_renewal, price_transfer, min_years, is_active FROM tlds ORDER BY tld ASC`)
 	if err != nil {

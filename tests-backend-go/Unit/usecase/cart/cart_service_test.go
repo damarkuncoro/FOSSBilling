@@ -10,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/cart"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
@@ -18,12 +19,15 @@ func setupCartService() (*cart.CartService, *memory.MockPromoRepository, *memory
 	orderRepo := memory.NewMockOrderRepository()
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
+	productRepo := memory.NewMockProductRepository()
+	formRepo := memory.NewMockFormbuilderRepository()
 
 	taxCalc := billing.NewTaxCalculator(nil)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
+	formService := formbuilder.NewFormbuilderService(formRepo)
 
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invService)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil)
 	return cartService, promoRepo, orderRepo, clientRepo
 }
 

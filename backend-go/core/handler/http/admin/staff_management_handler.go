@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
@@ -119,12 +118,8 @@ func (h *StaffManagementHandler) SuspendOrder(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid path", nil)
-		return
-	}
-	orderID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
 		return
@@ -146,12 +141,8 @@ func (h *StaffManagementHandler) SuspendOrder(w http.ResponseWriter, r *http.Req
 }
 
 func (h *StaffManagementHandler) UnsuspendOrder(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid path", nil)
-		return
-	}
-	orderID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
 		return
@@ -167,12 +158,8 @@ func (h *StaffManagementHandler) UnsuspendOrder(w http.ResponseWriter, r *http.R
 }
 
 func (h *StaffManagementHandler) ActivateOrder(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 2 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid path", nil)
-		return
-	}
-	orderID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
 		return
@@ -185,4 +172,57 @@ func (h *StaffManagementHandler) ActivateOrder(w http.ResponseWriter, r *http.Re
 	}
 
 	response.JSON(w, http.StatusOK, res, nil)
+}
+
+func (h *StaffManagementHandler) SyncOrder(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	orderID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
+		return
+	}
+
+	order, err := h.orderRepo.GetByID(r.Context(), orderID)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
+		return
+	}
+
+	status, err := h.orderService.SyncRemote(r.Context(), order)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, status, nil)
+}
+
+func (h *StaffManagementHandler) ChangeOrderPassword(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	orderID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
+		return
+	}
+
+	order, err := h.orderRepo.GetByID(r.Context(), orderID)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_BODY", "Failed to parse JSON body", nil)
+		return
+	}
+
+	if err := h.orderService.ChangePasswordRemote(r.Context(), order, req.Password); err != nil {
+		response.Error(w, http.StatusInternalServerError, "PASSWORD_CHANGE_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Service password changed successfully"}, nil)
 }

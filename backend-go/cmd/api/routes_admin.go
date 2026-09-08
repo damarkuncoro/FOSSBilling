@@ -10,6 +10,10 @@ import (
 func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) http.Handler, rateLimiter *middleware.RateLimiter) {
 	// Admin Auth
 	mux.Handle("POST /api/v1/admin/auth/login", rateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.Login)))
+	mux.Handle("POST /api/v1/admin/auth/verify-2fa", rateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.VerifyTwoFactor)))
+	mux.Handle("POST /api/v1/admin/auth/2fa/setup", aAuth(http.HandlerFunc(h.AdminAuth.SetupTwoFactor)))
+	mux.Handle("POST /api/v1/admin/auth/2fa/enable", aAuth(http.HandlerFunc(h.AdminAuth.EnableTwoFactor)))
+	mux.Handle("POST /api/v1/admin/auth/2fa/disable", aAuth(http.HandlerFunc(h.AdminAuth.DisableTwoFactor)))
 
 	// Core Operations & Clients
 	mux.Handle("GET /api/v1/admin/stats/dashboard", aAuth(http.HandlerFunc(h.AdminStats.GetDashboard)))
@@ -20,10 +24,15 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("DELETE /api/v1/admin/clients/{id}", aAuth(http.HandlerFunc(h.AdminClient.DeleteClient)))
 	mux.Handle("GET /api/v1/admin/invoices", aAuth(http.HandlerFunc(h.AdminInvoice.ListInvoices)))
 	mux.Handle("POST /api/v1/admin/invoices", aAuth(http.HandlerFunc(h.AdminInvoice.CreateInvoice)))
+	mux.Handle("GET /api/v1/admin/invoices/{id}", aAuth(http.HandlerFunc(h.AdminInvoice.GetInvoice)))
+	mux.Handle("POST /api/v1/admin/invoices/{id}/refund", aAuth(http.HandlerFunc(h.AdminInvoice.RefundInvoice)))
+	mux.Handle("DELETE /api/v1/admin/invoices/{id}", aAuth(http.HandlerFunc(h.AdminInvoice.DeleteInvoice)))
 	mux.Handle("GET /api/v1/admin/orders", aAuth(http.HandlerFunc(h.AdminStaff.ListOrders)))
 	mux.Handle("POST /api/v1/admin/orders/{id}/suspend", aAuth(http.HandlerFunc(h.AdminStaff.SuspendOrder)))
 	mux.Handle("POST /api/v1/admin/orders/{id}/unsuspend", aAuth(http.HandlerFunc(h.AdminStaff.UnsuspendOrder)))
 	mux.Handle("POST /api/v1/admin/orders/{id}/activate", aAuth(http.HandlerFunc(h.AdminStaff.ActivateOrder)))
+	mux.Handle("POST /api/v1/admin/orders/{id}/sync", aAuth(http.HandlerFunc(h.AdminStaff.SyncOrder)))
+	mux.Handle("POST /api/v1/admin/orders/{id}/change-password", aAuth(http.HandlerFunc(h.AdminStaff.ChangeOrderPassword)))
 	mux.Handle("GET /api/v1/admin/support/tickets", aAuth(http.HandlerFunc(h.AdminStaff.ListTickets)))
 	mux.Handle("POST /api/v1/admin/support/tickets/{id}/reply", aAuth(http.HandlerFunc(h.AdminStaff.ReplyTicket)))
 	mux.Handle("GET /api/v1/admin/activity", aAuth(http.HandlerFunc(h.AdminActivity.ListLogs)))
@@ -71,14 +80,23 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("GET /api/v1/admin/settings/mail", aAuth(http.HandlerFunc(h.AdminBilling.GetMailConfig)))
 	mux.Handle("POST /api/v1/admin/settings/mail/test", aAuth(http.HandlerFunc(h.AdminBilling.SendTestEmail)))
 	mux.Handle("GET /api/v1/admin/reports/financial", aAuth(http.HandlerFunc(h.AdminBilling.GetFinancialReports)))
+	mux.Handle("GET /api/v1/admin/reports/invoices/csv", aAuth(http.HandlerFunc(h.AdminBilling.ExportInvoicesCSV)))
 
 	// System (Security, Health, Pages, KB)
 	mux.Handle("GET /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.GetSecuritySettings)))
+	mux.Handle("GET /api/v1/admin/notifications", aAuth(http.HandlerFunc(h.AdminNotification.List)))
+	mux.Handle("PUT /api/v1/admin/notifications/{id}/read", aAuth(http.HandlerFunc(h.AdminNotification.MarkRead)))
+	mux.Handle("POST /api/v1/admin/notifications/mark-all-read", aAuth(http.HandlerFunc(h.AdminNotification.MarkAllRead)))
 	mux.Handle("GET /api/v1/admin/system/status", aAuth(http.HandlerFunc(h.AdminSystem.GetSystemStatus)))
 	mux.Handle("POST /api/v1/admin/system/cron/run", aAuth(http.HandlerFunc(h.AdminSystem.TriggerCron)))
 	mux.Handle("POST /api/v1/admin/system/cache/clear", aAuth(http.HandlerFunc(h.AdminSystem.ClearCache)))
 	mux.Handle("GET /api/v1/admin/pages", aAuth(http.HandlerFunc(h.AdminSystem.ListPages)))
-	mux.Handle("GET /api/v1/admin/knowledgebase", aAuth(http.HandlerFunc(h.AdminSystem.ListKnowledgebase)))
+	mux.Handle("GET /api/v1/admin/knowledgebase/articles", aAuth(http.HandlerFunc(h.AdminKB.ListArticles)))
+	mux.Handle("POST /api/v1/admin/knowledgebase/articles", aAuth(http.HandlerFunc(h.AdminKB.CreateArticle)))
+	mux.Handle("PUT /api/v1/admin/knowledgebase/articles/{id}", aAuth(http.HandlerFunc(h.AdminKB.UpdateArticle)))
+	mux.Handle("DELETE /api/v1/admin/knowledgebase/articles/{id}", aAuth(http.HandlerFunc(h.AdminKB.DeleteArticle)))
+	mux.Handle("GET /api/v1/admin/knowledgebase/categories", aAuth(http.HandlerFunc(h.AdminKB.ListCategories)))
+	mux.Handle("POST /api/v1/admin/knowledgebase/categories", aAuth(http.HandlerFunc(h.AdminKB.CreateCategory)))
 
 	// Extensions & Marketplace Hub
 	mux.Handle("GET /api/v1/admin/extensions", aAuth(http.HandlerFunc(h.AdminExtension.ListExtensions)))

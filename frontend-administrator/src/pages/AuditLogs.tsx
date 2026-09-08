@@ -35,9 +35,10 @@ export const AuditLogs: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">ID</TableHead>
-                <TableHead>Staff Member</TableHead>
+                <TableHead>Staff</TableHead>
+                <TableHead>Module</TableHead>
                 <TableHead>Action</TableHead>
-                <TableHead>Target Entity</TableHead>
+                <TableHead>Details</TableHead>
                 <TableHead>IP Address</TableHead>
                 <TableHead>Timestamp</TableHead>
               </TableRow>
@@ -45,13 +46,13 @@ export const AuditLogs: React.FC = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Loading audit trail...
                   </TableCell>
                 </TableRow>
               ) : logs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No security audit logs recorded yet.
                   </TableCell>
                 </TableRow>
@@ -59,14 +60,19 @@ export const AuditLogs: React.FC = () => {
                 logs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="font-mono text-xs font-semibold">#{log.id}</TableCell>
-                    <TableCell className="font-medium text-sm">Staff #{log.staff_id}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-[11px] font-semibold">
-                        {log.action}
-                      </Badge>
+                    <TableCell className="font-medium text-sm">
+                       {log.staff_name || `Staff #${log.staff_id}`}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {log.entity_type} #{log.entity_id}
+                    <TableCell>
+                       <Badge variant="outline" className="text-[10px] uppercase font-bold">
+                          {log.module}
+                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm font-semibold">
+                       {log.action}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                      {log.details}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {log.ip_address || '127.0.0.1'}

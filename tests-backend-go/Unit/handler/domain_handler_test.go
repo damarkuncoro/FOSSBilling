@@ -70,7 +70,8 @@ func TestGuestDomainHandler_CheckAvailability(t *testing.T) {
 	regRegistry.Register("rdap", registrar)
 
 	mockRepo := &mockOrderRepoForDomain{orders: make(map[int64]*domain.Order)}
-	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry)
+	dnsRegistry := provisioning.NewDNSProviderRegistry()
+	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry, dnsRegistry)
 	h := guestHandler.NewDomainHandler(domainService)
 
 	t.Run("Valid available domain", func(t *testing.T) {
@@ -144,7 +145,8 @@ func TestClientDomainHandler_CRUD(t *testing.T) {
 	registrar := provisioning.NewMockRegistrarDriver()
 	regRegistry.Register("rdap", registrar)
 
-	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry)
+	dnsRegistry := provisioning.NewDNSProviderRegistry()
+	domainService := domainUsecase.NewDomainService(mockRepo, regRegistry, dnsRegistry)
 	h := clientHandler.NewDomainHandler(domainService)
 
 	t.Run("List client domains authenticated", func(t *testing.T) {

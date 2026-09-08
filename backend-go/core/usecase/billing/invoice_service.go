@@ -9,12 +9,14 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 type InvoiceService struct {
 	invoiceRepo   domain.InvoiceRepository
 	clientRepo    domain.ClientRepository
 	taxCalculator *TaxCalculator
+	hookManager   *plugins.HookManager
 	eventBus      *events.EventBus
 }
 
@@ -22,6 +24,7 @@ func NewInvoiceService(
 	invoiceRepo domain.InvoiceRepository,
 	clientRepo domain.ClientRepository,
 	taxCalculator *TaxCalculator,
+	hookManager *plugins.HookManager,
 	eventBus ...*events.EventBus,
 ) *InvoiceService {
 	var bus *events.EventBus
@@ -32,6 +35,7 @@ func NewInvoiceService(
 		invoiceRepo:   invoiceRepo,
 		clientRepo:    clientRepo,
 		taxCalculator: taxCalculator,
+		hookManager:   hookManager,
 		eventBus:      bus,
 	}
 }
@@ -74,6 +78,15 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 		if it.Quantity <= 0 {
 			it.Quantity = 1
 		}
+
+		// Apply plugin filter to title
+		title := it.Title
+		if s.hookManager != nil {
+			if filtered, err := s.hookManager.Apply(ctx, "filter_invoice_item_title", title); err == nil {
+				title = filtered.(string)
+			}
+		}
+
 		lineTotal := it.Price * decimal.Money(it.Quantity)
 		subtotal += lineTotal
 		if it.Taxable {
@@ -82,7 +95,7 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 
 		items = append(items, domain.InvoiceItem{
 			OrderID:  it.OrderID,
-			Title:    it.Title,
+			Title:    title,
 			Period:   it.Period,
 			Price:    it.Price,
 			Quantity: it.Quantity,
@@ -97,7 +110,7 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 	var total decimal.Money = subtotal
 
 	if s.taxCalculator != nil {
-		rate, _ := s.taxCalculator.GetTaxRateForClient(client)
+		rate, _ := s.taxCalculator.GetTaxRateForClient(ctx, client)
 		taxRate = rate
 		tax, _ = s.taxCalculator.CalculateInvoiceTotals(taxableSubtotal, taxRate)
 		total = subtotal + tax
@@ -179,4 +192,31 @@ func (s *InvoiceService) PayWithBalance(ctx context.Context, invoiceID int64) (*
 	}
 
 	return s.invoiceRepo.GetByID(ctx, inv.ID)
+}
+
+// RefundInvoice returns the total paid amount to client balance and marks invoice as refunded
+func (s *InvoiceService) RefundInvoice(ctx context.Context, invoiceID int64) error {
+	inv, err := s.invoiceRepo.GetByID(ctx, invoiceID)
+	if err != nil {
+		return err
+	}
+
+	if inv.Status != domain.InvoiceStatusPaid {
+		return fmt.Errorf("only paid invoices can be refunded")
+	}
+
+	// Add to balance
+	refund := &domain.ClientBalance{
+		ClientID:    inv.ClientID,
+		Type:        domain.BalanceTypeCredit,
+		Amount:      inv.Total,
+		Description: fmt.Sprintf("Refund for invoice #%s%s", inv.Serie, inv.Nr),
+		RelID:       &inv.ID,
+	}
+	if err := s.clientRepo.AddBalanceTransaction(ctx, refund); err != nil {
+		return err
+	}
+
+	// Mark invoice as refunded
+	return s.invoiceRepo.UpdateStatus(ctx, inv.ID, domain.InvoiceStatusRefunded)
 }

@@ -12,9 +12,10 @@ export interface ProductItem {
   id: number;
   title: string;
   slug: string;
-  type: 'hosting' | 'domain' | 'license' | 'downloadable' | 'custom';
+  type: 'hosting' | 'domain' | 'license' | 'downloadable' | 'custom' | 'vps';
   category_id?: number;
   category_name?: string;
+  form_id?: number;
   description: string;
   price_monthly: number;
   price_annually?: number;

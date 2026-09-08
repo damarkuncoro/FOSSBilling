@@ -9,10 +9,15 @@ export const CookieConsent: React.FC = () => {
   const {
     settings,
     logs,
+    loading,
     isSaved,
     updateSetting,
     handleSave,
   } = useCookieConsent();
+
+  if (loading && logs.length === 0) {
+    return <div className="py-20 text-center text-gray-400 font-medium">Loading GDPR configuration...</div>;
+  }
 
   return (
     <div className="space-y-6">

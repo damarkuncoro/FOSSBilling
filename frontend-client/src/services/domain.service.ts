@@ -56,6 +56,18 @@ export class DomainService {
   async toggleAutoRenew(id: number): Promise<any> {
     return this.repo.toggleAutoRenew(id);
   }
+
+  async getDnsRecords(id: number): Promise<any[]> {
+    return this.repo.listDnsRecords(id);
+  }
+
+  async addDnsRecord(id: number, record: any): Promise<any> {
+    return this.repo.addDnsRecord(id, record);
+  }
+
+  async deleteDnsRecord(id: number, recordId: string): Promise<any> {
+    return this.repo.deleteDnsRecord(id, recordId);
+  }
 }
 
 export const domainService = new DomainService();

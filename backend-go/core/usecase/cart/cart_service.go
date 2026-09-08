@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 var (
@@ -43,38 +46,68 @@ type CartService struct {
 	promoCalculator *PromoCalculator
 	promoRepo       domain.PromoRepository
 	orderRepo       domain.OrderRepository
+	productRepo     domain.ProductRepository
 	clientRepo      domain.ClientRepository
+	formService     *formbuilder.FormbuilderService
 	taxCalculator   *billing.TaxCalculator
 	invoiceService  *billing.InvoiceService
+	eventBus        *events.EventBus
 }
 
 func NewCartService(
 	promoCalculator *PromoCalculator,
 	promoRepo domain.PromoRepository,
 	orderRepo domain.OrderRepository,
+	productRepo domain.ProductRepository,
 	clientRepo domain.ClientRepository,
+	formService *formbuilder.FormbuilderService,
 	taxCalculator *billing.TaxCalculator,
 	invoiceService *billing.InvoiceService,
+	eventBus *events.EventBus,
 ) *CartService {
 	return &CartService{
 		promoCalculator: promoCalculator,
 		promoRepo:       promoRepo,
 		orderRepo:       orderRepo,
+		productRepo:     productRepo,
 		clientRepo:      clientRepo,
+		formService:     formService,
 		taxCalculator:   taxCalculator,
 		invoiceService:  invoiceService,
+		eventBus:        eventBus,
 	}
 }
 
 // CalculateTotals calculates subtotal, applied promo discount, tax and total
 func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 	var subtotal decimal.Money
-	for _, it := range cart.Items {
+	for i, it := range cart.Items {
+		// Security: Verify price against database if ProductID is provided
+		if it.ProductID > 0 && s.productRepo != nil {
+			dbProd, err := s.productRepo.GetByID(ctx, it.ProductID)
+			if err == nil && dbProd != nil {
+				// Override with DB price for security
+				switch it.Period {
+				case "1Y":
+					if dbProd.PriceAnnually > 0 {
+						cart.Items[i].Price = dbProd.PriceAnnually
+					}
+				default:
+					if dbProd.PriceMonthly > 0 {
+						cart.Items[i].Price = dbProd.PriceMonthly
+					}
+				}
+				if cart.Items[i].Title == "" {
+					cart.Items[i].Title = dbProd.Name
+				}
+			}
+		}
+
 		qty := it.Quantity
 		if qty <= 0 {
 			qty = 1
 		}
-		subtotal += it.Price * decimal.Money(qty)
+		subtotal += cart.Items[i].Price * decimal.Money(qty)
 	}
 
 	cart.Subtotal = subtotal
@@ -96,7 +129,7 @@ func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 
 	if s.taxCalculator != nil && cart.ClientID > 0 {
 		if client, err := s.clientRepo.GetByID(ctx, cart.ClientID); err == nil && client != nil {
-			rate, _ := s.taxCalculator.GetTaxRateForClient(client)
+			rate, _ := s.taxCalculator.GetTaxRateForClient(ctx, client)
 			tax, total := s.taxCalculator.CalculateInvoiceTotals(afterDiscount, rate)
 			cart.Tax = tax
 			cart.Total = total
@@ -117,10 +150,52 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 	var createdOrders []*domain.Order
 	var invoiceItems []billing.CreateInvoiceItemDTO
 
-	for _, item := range cart.Items {
+	for i, item := range cart.Items {
 		qty := item.Quantity
 		if qty <= 0 {
 			qty = 1
+		}
+
+		// Validation: If product has a custom form, validate it
+		if item.ProductID > 0 && s.productRepo != nil && s.formService != nil {
+			prod, err := s.productRepo.GetByID(ctx, item.ProductID)
+			if err == nil && prod != nil && prod.FormID != nil {
+				var submitted map[string]interface{}
+				if len(item.Config) > 0 {
+					_ = json.Unmarshal(item.Config, &submitted)
+				}
+
+				cleaned, err := s.formService.ValidateFormSubmission(ctx, *prod.FormID, submitted)
+				if err != nil {
+					return nil, fmt.Errorf("configuration error for '%s': %w", item.Title, err)
+				}
+
+				// Re-encode cleaned config
+				item.Config, _ = json.Marshal(cleaned)
+				cart.Items[i].Config = item.Config
+			}
+		}
+
+		// Check stock if applicable
+		if item.ProductID > 0 && s.productRepo != nil {
+			prod, err := s.productRepo.GetByID(ctx, item.ProductID)
+			if err == nil && prod != nil && prod.Stock > 0 {
+				// Simple stock decrement (not concurrent safe here, but better than nothing)
+				// In production, use ATOMIC decrement in DB
+				if prod.Stock < qty {
+					return nil, fmt.Errorf("insufficient stock for '%s'", item.Title)
+				}
+				prod.Stock -= qty
+				_ = s.productRepo.Update(ctx, prod)
+
+				// Trigger Low Stock Alert if under threshold (e.g. 5)
+				if prod.Stock <= 5 && s.eventBus != nil {
+					s.eventBus.PublishAsync(ctx, events.Event{
+						Type:    events.EventLowStock,
+						Payload: prod,
+					})
+				}
+			}
 		}
 
 		order := &domain.Order{

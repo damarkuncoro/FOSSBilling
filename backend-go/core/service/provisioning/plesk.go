@@ -214,3 +214,8 @@ func (p *PleskProvisioner) ChangePassword(ctx context.Context, order *domain.Ord
 	_, err := p.call(ctx, http.MethodPut, "/domains/"+domainName, payload)
 	return err
 }
+
+func (p *PleskProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, http.MethodGet, "/server", nil)
+	return err
+}

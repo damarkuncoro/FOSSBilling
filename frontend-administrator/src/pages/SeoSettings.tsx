@@ -11,8 +11,11 @@ export const SeoSettings: React.FC = () => {
     activeTab,
     setActiveTab,
     isSaved,
+    seoInfo,
+    pingLoading,
     updateSettings,
     handleSave,
+    handlePing,
   } = useSeoSettings();
 
   return (
@@ -83,6 +86,9 @@ export const SeoSettings: React.FC = () => {
         <SitemapGeneratorCard
           autoGenerate={settings.sitemap_auto_generate}
           onToggleAuto={(val) => updateSettings('sitemap_auto_generate', val)}
+          seoInfo={seoInfo}
+          onPing={handlePing}
+          pingLoading={pingLoading}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLicenses } from '../useLicenses';
 import { useWebhooks } from '../useWebhooks';
@@ -65,19 +65,48 @@ describe('Admin Interactive Button Actions (TDD)', () => {
     expect(result.current.webhooks.find((w) => w.id === whId)?.is_active).toBe(false);
   });
 
-  it('Form Builder buttons: Create Form, Add Field, Remove Field', () => {
+  it('Form Builder buttons: Create Form, Add Field, Remove Field', async () => {
+    let mockForms: any[] = [];
+    const mockForm = {
+      id: 1,
+      name: 'Minecraft Server Config',
+      style: { type: 'horizontal', show_title: true },
+      fields: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { adminFormBuilderService } = await import('../../services/admin_form_builder.service');
+    vi.spyOn(adminFormBuilderService, 'listForms').mockImplementation(async () => mockForms);
+    vi.spyOn(adminFormBuilderService, 'createForm').mockImplementation(async (name: string, type?: string) => {
+      const created = { ...mockForm, name, fields: [] };
+      mockForms = [created, ...mockForms];
+      return created;
+    });
+    vi.spyOn(adminFormBuilderService, 'addField').mockImplementation(async (formId: number, field: any) => {
+      const f = { id: 101, ...field };
+      mockForms = mockForms.map((item) => (item.id === formId ? { ...item, fields: [...item.fields, f] } : item));
+      return f;
+    });
+    vi.spyOn(adminFormBuilderService, 'deleteField').mockImplementation(async (fieldId: number) => {
+      mockForms = mockForms.map((item) => ({
+        ...item,
+        fields: item.fields.filter((f: any) => f.id !== fieldId),
+      }));
+      return { success: true };
+    });
+
     const { result } = renderHook(() => useFormBuilder());
 
     // Test Create Form Template Button
-    act(() => {
-      result.current.createForm('Minecraft Server Config', 'Custom RAM and Slots');
+    await act(async () => {
+      await result.current.createForm('Minecraft Server Config', 'Custom RAM and Slots');
     });
     expect(result.current.forms.some((f) => f.name === 'Minecraft Server Config')).toBe(true);
 
     // Test Add Custom Field Button
-    act(() => {
-      result.current.saveField({
-        id: 'ram_slot',
+    await act(async () => {
+      await result.current.saveField({
         name: 'ram_slot',
         label: 'Allocated RAM (GB)',
         type: 'number',
@@ -87,8 +116,9 @@ describe('Admin Interactive Button Actions (TDD)', () => {
     expect(result.current.selectedForm?.fields.some((f) => f.name === 'ram_slot')).toBe(true);
 
     // Test Remove Field Button
-    act(() => {
-      result.current.removeField('ram_slot');
+    window.confirm = () => true;
+    await act(async () => {
+      await result.current.removeField(101);
     });
     expect(result.current.selectedForm?.fields.some((f) => f.name === 'ram_slot')).toBe(false);
   });

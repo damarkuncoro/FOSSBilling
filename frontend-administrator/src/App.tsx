@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Login } from '@/pages/Login';
+import { AdminProfile } from '@/pages/AdminProfile';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
 import { Orders } from '@/pages/Orders';
@@ -31,6 +32,7 @@ import { AntiSpam } from '@/pages/AntiSpam';
 import { Webhooks } from '@/pages/Webhooks';
 import { CookieConsent } from '@/pages/CookieConsent';
 import { Redirects } from '@/pages/Redirects';
+import { Themes } from '@/pages/Themes';
 import { SystemHealth } from '@/pages/SystemHealth';
 import { AuditLogs } from '@/pages/AuditLogs';
 import { I18nProvider } from '@/lib/i18n';
@@ -46,6 +48,7 @@ export const App: React.FC = () => {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/profile" element={<AdminProfile />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/invoices" element={<Invoices />} />
@@ -66,6 +69,7 @@ export const App: React.FC = () => {
               <Route path="/seo" element={<SeoSettings />} />
               <Route path="/embed-widgets" element={<EmbedWidgets />} />
               <Route path="/company" element={<Company />} />
+              <Route path="/themes" element={<Themes />} />
               <Route path="/extensions" element={<Extensions />} />
               <Route path="/staff-security" element={<StaffSecurity />} />
               <Route path="/antispam" element={<AntiSpam />} />

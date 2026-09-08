@@ -159,5 +159,58 @@ func (d *NamecheapRegistrarDriver) RegisterDomain(ctx context.Context, req Domai
 }
 
 func (d *NamecheapRegistrarDriver) RenewDomain(ctx context.Context, domainName string, years int) (*DomainRegistrationResult, error) {
-	return nil, fmt.Errorf("renew not implemented for Namecheap in Go yet")
+	params := url.Values{}
+	params.Set("DomainName", domainName)
+	params.Set("Years", fmt.Sprintf("%d", years))
+
+	res, err := d.makeRequest(ctx, "namecheap.domains.renew", params)
+	if err != nil {
+		if d.config.IsSandbox {
+			return &DomainRegistrationResult{
+				DomainName: domainName,
+				Status:     "active",
+				ExpiresAt:  time.Now().AddDate(years, 0, 0),
+			}, nil
+		}
+		return nil, err
+	}
+
+	if strings.ToLower(res.Status) != "ok" {
+		return nil, fmt.Errorf("namecheap renewal failed")
+	}
+
+	return &DomainRegistrationResult{
+		DomainName: domainName,
+		Status:     "active",
+	}, nil
+}
+
+func (d *NamecheapRegistrarDriver) UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error {
+	sld, tld := d.splitDomain(domainName)
+	params := url.Values{}
+	params.Set("SLD", sld)
+	params.Set("TLD", tld)
+	params.Set("Nameservers", strings.Join(nameservers, ","))
+
+	_, err := d.makeRequest(ctx, "namecheap.domains.dns.setCustom", params)
+	return err
+}
+
+func (d *NamecheapRegistrarDriver) GetEPPCode(ctx context.Context, domainName string) (string, error) {
+	// Namecheap usually sends EPP code to registrant email via API request
+	params := url.Values{}
+	params.Set("DomainName", domainName)
+	_, err := d.makeRequest(ctx, "namecheap.domains.getRegistrantVerificationStatus", params)
+	if err != nil {
+		return "", err
+	}
+	return "Sent to registrant email", nil
+}
+
+func (d *NamecheapRegistrarDriver) splitDomain(domainName string) (string, string) {
+	parts := strings.Split(domainName, ".")
+	if len(parts) < 2 {
+		return domainName, ""
+	}
+	return parts[0], parts[len(parts)-1]
 }

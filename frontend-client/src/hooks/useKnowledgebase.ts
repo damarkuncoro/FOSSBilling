@@ -1,66 +1,103 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { api } from '@/lib/api';
 import type { KbArticle } from '../types/clientModules';
 
-const initialArticles: KbArticle[] = [
+const DEFAULT_SAMPLE_ARTICLES: KbArticle[] = [
   {
     id: 1,
-    category: 'Getting Started',
-    title: 'How to connect your custom domain to cPanel hosting',
-    slug: 'connect-domain-cpanel',
-    summary: 'Step-by-step guide to updating DNS A records and nameservers for your domain.',
-    content: 'To connect your custom domain, point your nameservers to `ns1.fossbilling.org` and `ns2.fossbilling.org`. DNS propagation typically takes between 1 to 24 hours.',
+    title: 'How to Access Your cPanel Hosting Control Panel',
+    slug: 'access-cpanel-hosting',
+    category: 'Web Hosting',
     views: 1240,
-    helpful_count: 88,
-    updated_at: '2026-08-10T10:00:00Z',
+    helpful_count: 42,
+    updated_at: '2026-08-10',
+    summary: 'Step by step guide to logging into cPanel using SSO or direct credentials.',
+    content: 'Full step-by-step instructions on accessing cPanel directly or through one-click SSO.',
   },
   {
     id: 2,
-    category: 'Security & SSL',
-    title: 'Installing Free Let’s Encrypt SSL Certificate',
+    title: 'How to Install Free SSL Certificate (Let\'s Encrypt)',
     slug: 'install-ssl-certificate',
-    summary: 'Automate free SSL installation for HTTPS security on all subdomains.',
-    content: 'All our hosting plans include automated Let’s Encrypt AutoSSL. It verifies domain DNS and automatically installs within 30 minutes of activation.',
+    category: 'Security & SSL',
     views: 890,
-    helpful_count: 65,
-    updated_at: '2026-08-20T14:00:00Z',
-  },
-  {
-    id: 3,
-    category: 'Billing & Invoicing',
-    title: 'How to make payments using Credit Card, PayPal, or Bank Transfer',
-    slug: 'payment-methods-guide',
-    summary: 'Understanding invoice payment gateways and automatic recurring subscriptions.',
-    content: 'Invoices can be paid instantly via Stripe, PayPal, or Midtrans. Once the transaction completes, your services are provisioned immediately.',
-    views: 540,
-    helpful_count: 42,
-    updated_at: '2026-09-01T08:00:00Z',
+    helpful_count: 28,
+    updated_at: '2026-08-12',
+    summary: 'Enable one-click automated SSL issuance for your domain.',
+    content: 'Navigate to Security settings in your cPanel dashboard and issue free SSL certificates.',
   },
 ];
 
-export function useKnowledgebase() {
-  const [articles] = useState<KbArticle[]>(initialArticles);
+const DEFAULT_SAMPLE_CATEGORIES = [
+  { id: 1, title: 'Web Hosting' },
+  { id: 2, title: 'Security & SSL' },
+  { id: 3, title: 'Domains & DNS' },
+];
+
+export function useKnowledgebase(
+  initialArticles: KbArticle[] = DEFAULT_SAMPLE_ARTICLES,
+  initialCategories: any[] = DEFAULT_SAMPLE_CATEGORIES
+) {
+  const [articles, setArticles] = useState<KbArticle[]>(initialArticles);
+  const [categories, setCategories] = useState<any[]>(initialCategories);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeArticle, setActiveArticle] = useState<KbArticle | null>(null);
 
-  const categories = ['all', 'Getting Started', 'Security & SSL', 'Billing & Invoicing', 'E-Mail Setup'];
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      try {
+        const [cats, arts] = await Promise.all([
+          api.getKBCategories(),
+          api.getKBArticles(),
+        ]);
+        if (isMounted) {
+          if (cats && cats.length > 0) setCategories(cats);
+          if (arts && arts.length > 0) setArticles(arts);
+        }
+      } catch {
+        // Retain fallback data gracefully
+      }
+    };
+    load();
+    return () => { isMounted = false; };
+  }, []);
 
-  const filteredArticles = articles.filter((art) => {
-    const matchesCategory = selectedCategory === 'all' || art.category === selectedCategory;
-    const matchesSearch =
-      art.title.toLowerCase().includes(search.toLowerCase()) ||
-      art.summary.toLowerCase().includes(search.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const categoryOptions = useMemo(() => {
+    return ['all', ...categories.map(c => c.title)];
+  }, [categories]);
+
+  const filteredArticles = useMemo(() => {
+    return articles.filter((art) => {
+      const matchesCategory = selectedCategory === 'all' || art.category === selectedCategory;
+      const matchesSearch =
+        art.title.toLowerCase().includes(search.toLowerCase()) ||
+        (art.summary?.toLowerCase().includes(search.toLowerCase()));
+      return matchesCategory && matchesSearch;
+    });
+  }, [articles, search, selectedCategory]);
+
+  const handleSetActiveArticle = (art: KbArticle | null) => {
+    setActiveArticle(art);
+    if (art?.slug) {
+      api.getKBArticle(art.slug)
+        .then((detail) => {
+          setActiveArticle((prev) => (prev ? { ...prev, ...detail } : prev));
+        })
+        .catch(() => {});
+    }
+  };
 
   return {
     articles: filteredArticles,
-    categories,
+    categories: categoryOptions,
+    loading,
     search,
     setSearch,
     selectedCategory,
     setSelectedCategory,
     activeArticle,
-    setActiveArticle,
+    setActiveArticle: handleSetActiveArticle,
   };
 }

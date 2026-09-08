@@ -2,23 +2,29 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/catalog"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
-	"github.com/go-chi/chi/v5"
 )
 
 type CatalogHandler struct {
 	productService *catalog.ProductService
+	serverService  *catalog.ServerService
 	catalogRepo    domain.CatalogRepository
 }
 
-func NewCatalogHandler(productService *catalog.ProductService, catalogRepo domain.CatalogRepository) *CatalogHandler {
+func NewCatalogHandler(
+	productService *catalog.ProductService,
+	serverService *catalog.ServerService,
+	catalogRepo domain.CatalogRepository,
+) *CatalogHandler {
 	return &CatalogHandler{
 		productService: productService,
+		serverService:  serverService,
 		catalogRepo:    catalogRepo,
 	}
 }
@@ -58,7 +64,8 @@ func (h *CatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
 		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid product id", nil)
 		return
@@ -80,7 +87,8 @@ func (h *CatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
 		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid product id", nil)
 		return
@@ -133,7 +141,7 @@ func (h *CatalogHandler) ListRegistrars(w http.ResponseWriter, r *http.Request) 
 
 // --- Servers ---
 func (h *CatalogHandler) ListServers(w http.ResponseWriter, r *http.Request) {
-	servers, err := h.catalogRepo.ListServers(r.Context())
+	servers, err := h.serverService.ListServers(r.Context())
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
 		return
@@ -142,10 +150,36 @@ func (h *CatalogHandler) ListServers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) CreateServer(w http.ResponseWriter, r *http.Request) {
-	response.JSON(w, http.StatusCreated, map[string]string{"message": "Server creation not yet fully implemented"}, nil)
+	var s domain.Server
+	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
+		return
+	}
+
+	if err := h.serverService.CreateServer(r.Context(), &s); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, s, nil)
 }
 
 func (h *CatalogHandler) TestServer(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	if id == 0 {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid server id", nil)
+		return
+	}
+
+	if err := h.serverService.TestConnection(r.Context(), id); err != nil {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Connection failed: %v", err),
+		}, nil)
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Connection handshake successful!",
@@ -153,5 +187,17 @@ func (h *CatalogHandler) TestServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) DeleteServer(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+	if id == 0 {
+		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid server id", nil)
+		return
+	}
+
+	if err := h.serverService.DeleteServer(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
 }

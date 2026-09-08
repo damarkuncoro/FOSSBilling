@@ -2,10 +2,12 @@ package order
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
@@ -16,18 +18,30 @@ var (
 )
 
 type OrderService struct {
-	orderRepo domain.OrderRepository
-	eventBus  *events.EventBus
+	orderRepo           domain.OrderRepository
+	productRepo         domain.ProductRepository
+	provisionerRegistry *provisioning.ProvisionerRegistry
+	registrarRegistry   *provisioning.RegistrarRegistry
+	eventBus            *events.EventBus
 }
 
-func NewOrderService(orderRepo domain.OrderRepository, eventBus ...*events.EventBus) *OrderService {
+func NewOrderService(
+	orderRepo domain.OrderRepository,
+	productRepo domain.ProductRepository,
+	provisionerRegistry *provisioning.ProvisionerRegistry,
+	registrarRegistry *provisioning.RegistrarRegistry,
+	eventBus ...*events.EventBus,
+) *OrderService {
 	var bus *events.EventBus
 	if len(eventBus) > 0 {
 		bus = eventBus[0]
 	}
 	return &OrderService{
-		orderRepo: orderRepo,
-		eventBus:  bus,
+		orderRepo:           orderRepo,
+		productRepo:         productRepo,
+		provisionerRegistry: provisionerRegistry,
+		registrarRegistry:   registrarRegistry,
+		eventBus:            bus,
 	}
 }
 
@@ -240,4 +254,82 @@ func (s *OrderService) ActivateOrdersByInvoiceID(ctx context.Context, invoiceID 
 		}
 	}
 	return nil
+}
+
+// SyncServiceStatus fetches the latest status and resource usage from remote provider
+func (s *OrderService) SyncServiceStatus(ctx context.Context, clientID, orderID int64) (*domain.ServiceStatus, error) {
+	order, err := s.GetByIDForClient(ctx, clientID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	return s.SyncRemote(ctx, order)
+}
+
+// SyncRemote performs the actual sync for a given order object
+func (s *OrderService) SyncRemote(ctx context.Context, order *domain.Order) (*domain.ServiceStatus, error) {
+	product, err := s.productRepo.GetByID(ctx, order.ProductID)
+	if err != nil {
+		return nil, err
+	}
+
+	if product.Type == domain.ProductTypeHosting && s.provisionerRegistry != nil {
+		var cfg map[string]interface{}
+		_ = json.Unmarshal(order.Config, &cfg)
+		driverID, _ := cfg["server_type"].(string)
+		if driverID == "" {
+			driverID = "cpanel"
+		}
+
+		prov, err := s.provisionerRegistry.Get(driverID)
+		if err == nil {
+			return prov.Sync(ctx, order)
+		}
+	}
+
+	return &domain.ServiceStatus{
+		IsActive:    order.Status == domain.OrderStatusActive,
+		RemoteState: string(order.Status),
+	}, nil
+}
+
+// ChangeServicePassword updates the service login password on remote provider
+func (s *OrderService) ChangeServicePassword(ctx context.Context, clientID, orderID int64, newPassword string) error {
+	order, err := s.GetByIDForClient(ctx, clientID, orderID)
+	if err != nil {
+		return err
+	}
+	return s.ChangePasswordRemote(ctx, order, newPassword)
+}
+
+// ChangePasswordRemote performs the actual password change for a given order object
+func (s *OrderService) ChangePasswordRemote(ctx context.Context, order *domain.Order, newPassword string) error {
+	product, err := s.productRepo.GetByID(ctx, order.ProductID)
+	if err != nil {
+		return err
+	}
+
+	if product.Type == domain.ProductTypeHosting && s.provisionerRegistry != nil {
+		var cfg map[string]interface{}
+		_ = json.Unmarshal(order.Config, &cfg)
+		driverID, _ := cfg["server_type"].(string)
+		if driverID == "" {
+			driverID = "cpanel"
+		}
+
+		prov, err := s.provisionerRegistry.Get(driverID)
+		if err == nil {
+			err = prov.ChangePassword(ctx, order, newPassword)
+			if err != nil {
+				return err
+			}
+
+			// Update password in local config if successful
+			cfg["password"] = newPassword
+			newCfg, _ := json.Marshal(cfg)
+			order.Config = newCfg
+			return s.orderRepo.Update(ctx, order)
+		}
+	}
+
+	return errors.New("service does not support remote password change")
 }

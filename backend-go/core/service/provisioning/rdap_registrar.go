@@ -217,6 +217,14 @@ func (d *RDAPRegistrarDriver) RenewDomain(ctx context.Context, domainName string
 	}, nil
 }
 
+func (d *RDAPRegistrarDriver) UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error {
+	return fmt.Errorf("rdap driver is read-only for management")
+}
+
+func (d *RDAPRegistrarDriver) GetEPPCode(ctx context.Context, domainName string) (string, error) {
+	return "", fmt.Errorf("rdap driver is read-only for management")
+}
+
 // FetchBootstrap syncs with IANA DNS bootstrap registry
 func (d *RDAPRegistrarDriver) FetchBootstrap(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.bootstrapURL, nil)

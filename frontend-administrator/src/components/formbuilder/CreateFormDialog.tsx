@@ -4,7 +4,7 @@ import { X, Layers } from 'lucide-react';
 interface CreateFormDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string, description: string) => void;
+  onSubmit: (name: string, type: string) => void;
 }
 
 export const CreateFormDialog: React.FC<CreateFormDialogProps> = ({
@@ -13,16 +13,15 @@ export const CreateFormDialog: React.FC<CreateFormDialogProps> = ({
   onSubmit,
 }) => {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [type, setType] = useState('horizontal');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      onSubmit(name.trim(), description.trim());
+      onSubmit(name.trim(), type);
       setName('');
-      setDescription('');
     }
   };
 
@@ -53,14 +52,16 @@ export const CreateFormDialog: React.FC<CreateFormDialogProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description</label>
-            <textarea
-              rows={3}
-              placeholder="Brief summary of what fields are gathered..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-            />
+            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Layout Style</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="w-full px-3.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white"
+            >
+              <option value="horizontal">Horizontal (Grid)</option>
+              <option value="vertical">Vertical (Stack)</option>
+              <option value="default">System Default</option>
+            </select>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">

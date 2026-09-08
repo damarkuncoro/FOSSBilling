@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -18,8 +19,11 @@ type RevenueTrend struct {
 type DashboardStats struct {
 	TotalRevenue     decimal.Money  `json:"total_revenue"`
 	MonthlyRecurring decimal.Money  `json:"mrr"`
+	MonthlyRevenue   decimal.Money  `json:"monthly_revenue"` // Frontend compatibility
 	AnnualRecurring  decimal.Money  `json:"arr"`
 	TotalClients     int            `json:"total_clients"`
+	ActiveClients    int            `json:"active_clients"` // Frontend compatibility
+	TotalOrders      int            `json:"total_orders"`   // Frontend compatibility
 	ActiveOrders     int            `json:"active_orders"`
 	SuspendedOrders  int            `json:"suspended_orders"`
 	PendingOrders    int            `json:"pending_orders"`
@@ -28,6 +32,21 @@ type DashboardStats struct {
 	OpenTickets      int            `json:"open_tickets"`
 	ClosedTickets    int            `json:"closed_tickets"`
 	RevenueTrends    []RevenueTrend `json:"revenue_trends"`
+}
+
+type FinancialReportSummary struct {
+	MRR                 float64 `json:"mrr"`
+	ARR                 float64 `json:"arr"`
+	TotalRevenueMonth   float64 `json:"total_revenue_month"`
+	TotalTaxCollected   float64 `json:"total_tax_collected"`
+	ActiveSubscriptions int     `json:"active_subscriptions"`
+	ChurnRate           float64 `json:"churn_rate"`
+	MonthlyBreakdown    []struct {
+		Month         string  `json:"month"`
+		Revenue       float64 `json:"revenue"`
+		Tax           float64 `json:"tax"`
+		InvoicesCount int     `json:"invoices_count"`
+	} `json:"monthly_breakdown"`
 }
 
 type StatsService struct {
@@ -133,7 +152,131 @@ func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats,
 		})
 	}
 
+	// 6. Compatibility mappings
+	stats.MonthlyRevenue = stats.MonthlyRecurring
+	stats.ActiveClients = stats.TotalClients
+	stats.TotalOrders = stats.ActiveOrders + stats.SuspendedOrders + stats.PendingOrders
+
 	return stats, nil
+}
+
+// GetFinancialReports provides in-depth fiscal analytics for the reporting module
+func (s *StatsService) GetFinancialReports(ctx context.Context) (*FinancialReportSummary, error) {
+	report := &FinancialReportSummary{
+		MonthlyBreakdown: make([]struct {
+			Month         string  `json:"month"`
+			Revenue       float64 `json:"revenue"`
+			Tax           float64 `json:"tax"`
+			InvoicesCount int     `json:"invoices_count"`
+		}, 0),
+	}
+
+	// 1. Calculate MRR/ARR and Active Subs from Orders
+	orders, _, _ := s.orderRepo.List(ctx, 10000, 0)
+	var mrr decimal.Money
+	for _, o := range orders {
+		if o.Status == domain.OrderStatusActive {
+			report.ActiveSubscriptions++
+			mrr += calculateMonthlyEquivalent(o.Price, o.Period)
+		}
+	}
+	report.MRR = mrr.ToFloat()
+	report.ARR = report.MRR * 12
+
+	// 2. Aggregate Invoices by Month
+	invoices, _, _ := s.invoiceRepo.List(ctx, 10000, 0)
+
+	type monthStat struct {
+		revenue  decimal.Money
+		tax      decimal.Money
+		invCount int
+	}
+	statsMap := make(map[string]*monthStat)
+	monthKeys := make([]string, 0)
+
+	now := time.Now().UTC()
+	currentMonthKey := now.Format("Jan 2006")
+
+	for _, inv := range invoices {
+		if inv.Status != domain.InvoiceStatusPaid {
+			continue
+		}
+
+		key := inv.CreatedAt.Format("Jan 2006")
+		if inv.PaidAt != nil {
+			key = inv.PaidAt.Format("Jan 2006")
+		}
+
+		if _, exists := statsMap[key]; !exists {
+			statsMap[key] = &monthStat{}
+			monthKeys = append(monthKeys, key)
+		}
+
+		statsMap[key].revenue += inv.Total
+		statsMap[key].tax += inv.Tax
+		statsMap[key].invCount++
+
+		if key == currentMonthKey {
+			report.TotalRevenueMonth = statsMap[key].revenue.ToFloat()
+			report.TotalTaxCollected = statsMap[key].tax.ToFloat()
+		}
+	}
+
+	// 3. Populate breakdown (last 5 months)
+	for i := 4; i >= 0; i-- {
+		d := now.AddDate(0, -i, 0)
+		key := d.Format("Jan 2006")
+
+		rev, tax, count := 0.0, 0.0, 0
+		if ms, ok := statsMap[key]; ok {
+			rev = ms.revenue.ToFloat()
+			tax = ms.tax.ToFloat()
+			count = ms.invCount
+		}
+
+		report.MonthlyBreakdown = append(report.MonthlyBreakdown, struct {
+			Month         string  `json:"month"`
+			Revenue       float64 `json:"revenue"`
+			Tax           float64 `json:"tax"`
+			InvoicesCount int     `json:"invoices_count"`
+		}{
+			Month:         key,
+			Revenue:       rev,
+			Tax:           tax,
+			InvoicesCount: count,
+		})
+	}
+
+	report.ChurnRate = 1.2 // Mock constant for now
+	return report, nil
+}
+
+// GenerateInvoicesCSV returns a CSV string of all invoices for accounting
+func (s *StatsService) GenerateInvoicesCSV(ctx context.Context) (string, error) {
+	invoices, _, err := s.invoiceRepo.List(ctx, 50000, 0)
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Invoice ID,Number,Client ID,Status,Currency,Subtotal,Tax,Total,Tax Rate %,Due Date,Paid At,Created At\n")
+
+	for _, inv := range invoices {
+		paidAt := ""
+		if inv.PaidAt != nil {
+			paidAt = inv.PaidAt.Format("2006-01-02 15:04:05")
+		}
+
+		line := fmt.Sprintf("%d,%s%s,%d,%s,%s,%s,%s,%s,%.2f,%s,%s,%s\n",
+			inv.ID, inv.Serie, inv.Nr, inv.ClientID, inv.Status, inv.Currency,
+			inv.Subtotal.String(), inv.Tax.String(), inv.Total.String(),
+			inv.TaxRate, inv.DueAt.Format("2006-01-02"),
+			paidAt, inv.CreatedAt.Format("2006-01-02 15:04:05"),
+		)
+		sb.WriteString(line)
+	}
+
+	return sb.String(), nil
 }
 
 // calculateMonthlyEquivalent converts different billing periods to monthly amounts

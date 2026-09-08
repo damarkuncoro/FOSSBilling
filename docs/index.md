@@ -13,6 +13,9 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
+      text: Step-by-Step Guide 📘
+      link: /guide/step-by-step-guide
+    - theme: alt
       text: Administrator Guide
       link: /admin/overview
     - theme: alt

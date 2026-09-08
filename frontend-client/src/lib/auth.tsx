@@ -10,6 +10,7 @@ export interface ClientUser {
   company?: string;
   country?: string;
   status?: string;
+  two_factor_enabled?: boolean;
 }
 
 interface ClientAuthContextType {
@@ -19,6 +20,7 @@ interface ClientAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   register: (dto: {
     email: string;
     password: string;
@@ -130,6 +132,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        refreshUser: refreshProfile,
         register,
         logout,
         refreshProfile,
@@ -142,10 +145,12 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   );
 };
 
-export const useClientAuth = () => {
+export const useAuth = () => {
   const context = useContext(ClientAuthContext);
   if (!context) {
-    throw new Error('useClientAuth must be used within a ClientAuthProvider');
+    throw new Error('useAuth must be used within a ClientAuthProvider');
   }
   return context;
 };
+
+export const useClientAuth = useAuth;

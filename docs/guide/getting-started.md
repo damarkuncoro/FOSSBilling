@@ -59,3 +59,15 @@ Access your portals:
 - **Customer Portal:** [`http://localhost:3001`](http://localhost:3001) (`client@fossbilling.org` / `Password123!`)
 - **Administrator Portal:** [`http://localhost:3000`](http://localhost:3000) (`admin@fossbilling.org` / `admin123`)
 - **Go REST API & Interactive Docs:** [`http://localhost:8080/docs`](http://localhost:8080/docs)
+
+---
+
+## 📖 Operational Guides & Next Steps
+
+Ready to set up your store and start serving clients? Follow our dedicated guides:
+
+- 📘 **[Complete Step-by-Step Usage Guide](/guide/step-by-step-guide):** Comprehensive, phase-by-phase walkthrough covering Admin setup, payment gateways, server provisioning, product creation, customer ordering, automated provisioning, and ticket helpdesk.
+- ⚙️ **[Administrator Guide](/admin/overview):** Deep dive into administrative capabilities, currencies, products, and fraud prevention.
+- 🛍️ **[Customer Portal Guide](/client/overview):** Understand the client storefront, domain search, cart checkout, invoice management, and service control.
+- 💻 **[CLI Management](/guide/cli):** Learn how to run migrations, seeds, and background cron jobs from your terminal.
+

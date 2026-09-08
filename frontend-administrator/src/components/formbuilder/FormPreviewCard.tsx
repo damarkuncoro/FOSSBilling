@@ -5,7 +5,7 @@ import type { FormField } from '../../types/formBuilder';
 interface FormPreviewCardProps {
   fields: FormField[];
   onEditField: (field: FormField) => void;
-  onRemoveField: (id: string) => void;
+  onRemoveField: (id: number) => void;
 }
 
 export const FormPreviewCard: React.FC<FormPreviewCardProps> = ({
@@ -48,14 +48,14 @@ export const FormPreviewCard: React.FC<FormPreviewCardProps> = ({
               {f.description && <p className="text-xs text-gray-500 mb-2">{f.description}</p>}
 
               {f.type === 'text' && (
-                <input type="text" disabled placeholder={f.placeholder || f.label} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs" />
+                <input type="text" disabled placeholder={f.label} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs" />
               )}
               {f.type === 'textarea' && (
-                <textarea disabled placeholder={f.placeholder || f.label} rows={2} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs" />
+                <textarea disabled placeholder={f.label} rows={2} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs" />
               )}
-              {f.type === 'dropdown' && (
+              {f.type === 'select' && (
                 <select disabled className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs">
-                  {f.options?.map((opt, i) => <option key={i}>{opt}</option>)}
+                  {f.options && Object.keys(f.options).map((opt, i) => <option key={i}>{opt}</option>)}
                 </select>
               )}
               {f.type === 'checkbox' && (

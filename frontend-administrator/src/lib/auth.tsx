@@ -8,6 +8,7 @@ export interface StaffUser {
   email: string;
   role: string;
   status: string;
+  two_factor_enabled?: boolean;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
@@ -62,6 +64,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
+  const refreshUser = async () => {
+    // In a real app we'd fetch profile from API
+    // For now we just keep the existing state
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -93,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        refreshUser,
         logout,
         theme,
         toggleTheme,

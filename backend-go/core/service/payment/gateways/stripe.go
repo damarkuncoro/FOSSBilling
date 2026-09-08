@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ type StripeGateway struct {
 	secretKey      string
 	publishableKey string
 	webhookSecret  string
+	client         *http.Client
 }
 
 func NewStripeGateway(secretKey, publishableKey, webhookSecret string) *StripeGateway {
@@ -25,6 +27,7 @@ func NewStripeGateway(secretKey, publishableKey, webhookSecret string) *StripeGa
 		secretKey:      secretKey,
 		publishableKey: publishableKey,
 		webhookSecret:  webhookSecret,
+		client:         &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -33,18 +36,64 @@ func (g *StripeGateway) Name() string { return "Stripe (Credit / Debit Card, App
 func (g *StripeGateway) Type() string { return "cc" }
 
 func (g *StripeGateway) InitiatePayment(ctx context.Context, req payment.PaymentRequest) (*payment.PaymentResponse, error) {
-	sessionID := fmt.Sprintf("cs_test_%d_%d", req.InvoiceID, time.Now().Unix())
-	checkoutURL := fmt.Sprintf("https://checkout.stripe.com/c/pay/%s", sessionID)
+	// Fallback for dev
+	if g.secretKey == "" || g.secretKey == "sk_test" {
+		sessionID := fmt.Sprintf("MOCK-CS-%d", req.InvoiceID)
+		return &payment.PaymentResponse{
+			GatewayID:     g.ID(),
+			TransactionID: fmt.Sprintf("MOCK-STRIPE-%d", req.InvoiceID),
+			RedirectURL:   "https://checkout.stripe.com/c/pay/" + sessionID,
+			Token:         sessionID,
+		}, nil
+	}
+
+	apiURL := "https://api.stripe.com/v1/checkout/sessions"
+
+	// Create form values for Stripe API
+	data := url.Values{}
+	data.Set("success_url", req.ReturnURL)
+	data.Set("cancel_url", req.CancelURL)
+	data.Set("mode", "payment")
+	data.Set("customer_email", req.ClientEmail)
+	data.Set("client_reference_id", fmt.Sprintf("%d", req.InvoiceID))
+	data.Set("line_items[0][price_data][currency]", strings.ToLower(req.Currency))
+	data.Set("line_items[0][price_data][product_data][name]", req.InvoiceNr)
+	data.Set("line_items[0][price_data][unit_amount]", fmt.Sprintf("%d", int64(req.Amount.ToFloat()*100)))
+	data.Set("line_items[0][quantity]", "1")
+	data.Set("metadata[invoice_id]", fmt.Sprintf("%d", req.InvoiceID))
+
+	apiReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+
+	apiReq.Header.Set("Authorization", "Bearer "+g.secretKey)
+	apiReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := g.client.Do(apiReq)
+	if err != nil {
+		return nil, fmt.Errorf("stripe api error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("stripe error (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var stripeResp struct {
+		ID  string `json:"id"`
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(respBody, &stripeResp); err != nil {
+		return nil, err
+	}
 
 	return &payment.PaymentResponse{
 		GatewayID:     g.ID(),
-		TransactionID: fmt.Sprintf("txn_stripe_%d", req.InvoiceID),
-		RedirectURL:   checkoutURL,
-		Token:         sessionID,
-		Metadata: map[string]interface{}{
-			"invoice_nr": req.InvoiceNr,
-			"pub_key":    g.publishableKey,
-		},
+		TransactionID: stripeResp.ID,
+		RedirectURL:   stripeResp.URL,
+		Token:         stripeResp.ID,
 	}, nil
 }
 

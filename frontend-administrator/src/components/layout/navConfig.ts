@@ -28,6 +28,7 @@ import {
   Search,
   Code2,
   ArrowRightLeft,
+  Palette,
 } from 'lucide-react';
 
 export interface NavGroup {
@@ -71,6 +72,7 @@ export const navGroups: NavGroup[] = [
       { name: 'News & Articles', path: '/news', icon: Newspaper },
       { name: 'Mass Mailer', path: '/mass-mail', icon: Send },
       { name: 'Email & SMTP', path: '/email-templates', icon: Mail },
+      { name: 'Themes & UI', path: '/themes', icon: Palette },
       { name: 'SEO & Webmaster', path: '/seo', icon: Search },
       { name: 'Embed Widgets', path: '/embed-widgets', icon: Code2 },
     ],

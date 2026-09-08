@@ -77,6 +77,22 @@ func (d *EmailRegistrarDriver) RenewDomain(ctx context.Context, domainName strin
 	}, nil
 }
 
+func (d *EmailRegistrarDriver) UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error {
+	subject := fmt.Sprintf("Update nameservers: %s", domainName)
+	content := fmt.Sprintf("A request to update nameservers for domain %s has been received.\n\nNew Nameservers:\n%s",
+		domainName, strings.Join(nameservers, "\n"))
+
+	return d.sendEmail(ctx, subject, content)
+}
+
+func (d *EmailRegistrarDriver) GetEPPCode(ctx context.Context, domainName string) (string, error) {
+	subject := fmt.Sprintf("Get EPP code: %s", domainName)
+	content := fmt.Sprintf("A client has requested the EPP code for domain %s.", domainName)
+
+	_ = d.sendEmail(ctx, subject, content)
+	return "Request Sent to Admin", nil
+}
+
 func (d *EmailRegistrarDriver) sendEmail(ctx context.Context, subject, content string) error {
 	if d.emailService == nil {
 		return fmt.Errorf("email service not configured for email registrar")

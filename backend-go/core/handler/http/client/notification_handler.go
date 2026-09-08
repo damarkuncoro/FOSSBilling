@@ -7,7 +7,6 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
-	"github.com/go-chi/chi/v5"
 )
 
 type NotificationHandler struct {
@@ -40,7 +39,8 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
-	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	idStr := r.PathValue("id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
 		response.Error(w, http.StatusBadRequest, "INVALID_ID", "invalid notification id", nil)
 		return

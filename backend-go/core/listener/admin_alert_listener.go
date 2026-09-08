@@ -38,7 +38,7 @@ func (l *AdminAlertListener) HandleInvoicePaid(ctx context.Context, e events.Eve
 func (l *AdminAlertListener) HandleTicketOpened(ctx context.Context, e events.Event) error {
 	payload := e.Payload.(domain.TicketOpenedPayload)
 
-	if payload.Priority == domain.PriorityHigh || payload.Priority == domain.PriorityUrgent {
+	if payload.Priority == string(domain.PriorityHigh) || payload.Priority == string(domain.PriorityUrgent) {
 		title := "🔥 Urgent Support Ticket"
 		msg := fmt.Sprintf("A new high-priority ticket was opened by Client #%d: %s", payload.ClientID, payload.Subject)
 

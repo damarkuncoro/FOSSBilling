@@ -82,3 +82,7 @@ func (p *LicenseProvisioner) Sync(ctx context.Context, order *domain.Order) (*do
 func (p *LicenseProvisioner) ChangePassword(ctx context.Context, order *domain.Order, newPassword string) error {
 	return nil
 }
+
+func (p *LicenseProvisioner) TestConnection(ctx context.Context) error {
+	return nil
+}

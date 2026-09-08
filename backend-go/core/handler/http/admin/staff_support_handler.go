@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
@@ -34,8 +33,8 @@ func (h *StaffManagementHandler) ListTickets(w http.ResponseWriter, r *http.Requ
 
 func (h *StaffManagementHandler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
 	staffID := middleware.GetClientID(r.Context())
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	ticketID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	ticketID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
 		return
@@ -43,13 +42,24 @@ func (h *StaffManagementHandler) ReplyTicket(w http.ResponseWriter, r *http.Requ
 
 	var req struct {
 		Message string `json:"message"`
+		Content string `json:"content"` // Support both for compatibility
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
 		return
 	}
 
-	msg, err := h.supportService.StaffReply(r.Context(), ticketID, staffID, req.Message)
+	replyText := req.Message
+	if replyText == "" {
+		replyText = req.Content
+	}
+
+	if replyText == "" {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Reply content is required", nil)
+		return
+	}
+
+	msg, err := h.supportService.StaffReply(r.Context(), ticketID, staffID, replyText)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "REPLY_FAILED", err.Error(), nil)
 		return

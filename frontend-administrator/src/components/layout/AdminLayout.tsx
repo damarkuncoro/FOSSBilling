@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Moon, Sun, ShieldCheck, Menu, X } from 'lucide-react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { LogOut, Moon, Sun, ShieldCheck, Menu, X, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { SidebarNav } from './SidebarNav';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
+import { AdminNotificationDropdown } from '../notifications/AdminNotificationDropdown';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout, theme, toggleTheme } = useAuth();
@@ -43,26 +44,27 @@ export const AdminLayout: React.FC = () => {
         </nav>
 
         <div className="p-4 border-t bg-muted/20">
-          <div className="flex items-center gap-3">
+          <Link to="/profile" className="flex items-center gap-3 p-1 rounded-lg hover:bg-muted transition-colors group">
             <Avatar className="h-9 w-9 border border-border">
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
                 {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate leading-tight">{user?.name || 'Administrator'}</p>
+              <p className="text-xs font-semibold truncate leading-tight group-hover:text-primary transition-colors">{user?.name || 'Administrator'}</p>
               <p className="text-[10px] text-muted-foreground truncate">{user?.email || 'admin@fossbilling.org'}</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+            <button
+              onClick={(e) => {
+                 e.preventDefault();
+                 handleLogout();
+              }}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive flex items-center justify-center rounded-md"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
+            </button>
+          </Link>
         </div>
       </aside>
 
@@ -109,6 +111,8 @@ export const AdminLayout: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
+
+            <AdminNotificationDropdown />
 
             <Button
               variant="outline"

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw, CheckCircle, Clock, Download, Plus, FileSpreadsheet } from 'lucide-react';
+import { FileText, RefreshCw, CheckCircle, Clock, Download, Plus, FileSpreadsheet, MoreHorizontal, Undo2, Trash2 } from 'lucide-react';
 import { useInvoices } from '@/hooks/useInvoices';
 import { formatMoney, formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CreateInvoiceDialog } from '@/components/invoices/CreateInvoiceDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const Invoices: React.FC = () => {
-  const { stats, invoices, clients, loading, fetchInvoices, exportInvoicesToCSV, createInvoice } = useInvoices();
+  const { stats, invoices, clients, loading, fetchInvoices, exportInvoicesToCSV, createInvoice, refundInvoice, deleteInvoice } = useInvoices();
   const [createOpen, setCreateOpen] = useState(false);
 
   const handleDownloadPDF = async (inv: { id: number; nr?: string; serie_nr?: string }) => {
@@ -140,9 +146,28 @@ export const Invoices: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDate(inv.created_at)}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleDownloadPDF(inv)}>
-                        <Download className="h-3.5 w-3.5" /> PDF
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleDownloadPDF(inv)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {inv.status === 'paid' && (
+                              <DropdownMenuItem className="gap-2 text-amber-600" onClick={() => refundInvoice(inv.id)}>
+                                <Undo2 className="h-4 w-4" /> Refund to Balance
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => deleteInvoice(inv.id)}>
+                              <Trash2 className="h-4 w-4" /> Delete Invoice
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

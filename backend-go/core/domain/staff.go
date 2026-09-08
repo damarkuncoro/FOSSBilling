@@ -20,10 +20,12 @@ type Staff struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	Name         string    `json:"name"`
-	Role         StaffRole `json:"role"`
-	Status       string    `json:"status"` // active, inactive
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	Role             StaffRole `json:"role"`
+	Status           string    `json:"status"` // active, inactive
+	TwoFactorEnabled bool      `json:"two_factor_enabled"`
+	TwoFactorSecret  *string   `json:"-"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type AdminGroup struct {
@@ -37,6 +39,7 @@ type AdminGroup struct {
 type AuditLog struct {
 	ID        int64     `json:"id"`
 	StaffID   *int64    `json:"staff_id,omitempty"`
+	StaffName *string   `json:"staff_name,omitempty"`
 	ClientID  *int64    `json:"client_id,omitempty"`
 	Module    string    `json:"module"`
 	Action    string    `json:"action"`
@@ -49,6 +52,7 @@ type StaffRepository interface {
 	GetByID(ctx context.Context, id int64) (*Staff, error)
 	GetByEmail(ctx context.Context, email string) (*Staff, error)
 	Create(ctx context.Context, staff *Staff) error
+	Update(ctx context.Context, staff *Staff) error
 	GetGroupByID(ctx context.Context, groupID int64) (*AdminGroup, error)
 	CreateGroup(ctx context.Context, group *AdminGroup) error
 	AddAuditLog(ctx context.Context, log *AuditLog) error

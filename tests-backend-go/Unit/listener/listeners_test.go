@@ -27,13 +27,13 @@ func TestListeners_Flows(t *testing.T) {
 	productRepo := memory.NewMockProductRepository()
 
 	eventBus := events.NewEventBus()
-	orderService := orderUsecase.NewOrderService(orderRepo, eventBus)
 
 	regRegistry := provisioning.NewRegistrarRegistry()
 	registrar := provisioning.NewMockRegistrarDriver()
 	regRegistry.Register("rdap", registrar)
-
 	provRegistry := provisioning.NewProvisionerRegistry()
+
+	orderService := orderUsecase.NewOrderService(orderRepo, productRepo, provRegistry, regRegistry, eventBus)
 
 	// Seed client
 	_ = clientRepo.Create(ctx, &domain.Client{

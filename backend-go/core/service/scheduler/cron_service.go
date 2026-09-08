@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
@@ -15,6 +16,7 @@ type CronService struct {
 	orderService   *order.OrderService
 	invoiceService *billing.InvoiceService
 	supportRepo    domain.SupportRepository
+	concurrency    int
 }
 
 func NewCronService(
@@ -32,6 +34,13 @@ func NewCronService(
 		orderService:   orderService,
 		invoiceService: invoiceService,
 		supportRepo:    sRepo,
+		concurrency:    20, // Default worker pool size
+	}
+}
+
+func (s *CronService) SetConcurrency(n int) {
+	if n > 0 {
+		s.concurrency = n
 	}
 }
 
@@ -51,32 +60,66 @@ func (s *CronService) GenerateRenewalInvoicesBatch(ctx context.Context, issueDay
 		ProcessedCount: len(dueOrders),
 	}
 
-	for _, ord := range dueOrders {
-		item := billing.CreateInvoiceItemDTO{
-			OrderID:  &ord.ID,
-			Title:    fmt.Sprintf("Renewal: %s (%s)", ord.Title, ord.Period),
-			Period:   &ord.Period,
-			Price:    ord.Price,
-			Quantity: 1,
-			Taxable:  true,
-		}
-
-		inv, err := s.invoiceService.CreateInvoice(ctx, billing.CreateInvoiceDTO{
-			ClientID: ord.ClientID,
-			Currency: ord.Currency,
-			DueDays:  7,
-			Items:    []billing.CreateInvoiceItemDTO{item},
-		})
-		if err != nil {
-			result.ErrorCount++
-			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d invoice error: %v", ord.ID, err))
-			continue
-		}
-
-		ord.InvoiceID = &inv.ID
-		_ = s.orderRepo.Update(ctx, ord)
-		result.SuccessCount++
+	if len(dueOrders) == 0 {
+		result.Duration = time.Since(start)
+		return result, nil
 	}
+
+	// Use Worker Pool for high-performance concurrent processing
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	jobs := make(chan *domain.Order, len(dueOrders))
+
+	// Start workers
+	workerCount := s.concurrency
+	if workerCount > len(dueOrders) {
+		workerCount = len(dueOrders)
+	}
+
+	for w := 1; w <= workerCount; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ord := range jobs {
+				item := billing.CreateInvoiceItemDTO{
+					OrderID:  &ord.ID,
+					Title:    fmt.Sprintf("Renewal: %s (%s)", ord.Title, ord.Period),
+					Period:   &ord.Period,
+					Price:    ord.Price,
+					Quantity: 1,
+					Taxable:  true,
+				}
+
+				inv, err := s.invoiceService.CreateInvoice(ctx, billing.CreateInvoiceDTO{
+					ClientID: ord.ClientID,
+					Currency: ord.Currency,
+					DueDays:  7,
+					Items:    []billing.CreateInvoiceItemDTO{item},
+				})
+
+				if err == nil {
+					ord.InvoiceID = &inv.ID
+					err = s.orderRepo.Update(ctx, ord)
+				}
+
+				mu.Lock()
+				if err != nil {
+					result.ErrorCount++
+					result.Errors = append(result.Errors, fmt.Sprintf("Order #%d processing error: %v", ord.ID, err))
+				} else {
+					result.SuccessCount++
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	// Send jobs
+	for _, ord := range dueOrders {
+		jobs <- ord
+	}
+	close(jobs)
+	wg.Wait()
 
 	result.Duration = time.Since(start)
 	return result, nil
@@ -95,17 +138,46 @@ func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, gracePe
 		ProcessedCount: len(overdueOrders),
 	}
 
+	if len(overdueOrders) == 0 {
+		result.Duration = time.Since(start)
+		return result, nil
+	}
+
 	reason := fmt.Sprintf("Auto-suspended by system: payment overdue past %d days grace period", gracePeriodDays)
 
-	for _, ord := range overdueOrders {
-		_, err := s.orderService.Suspend(ctx, ord.ID, reason)
-		if err != nil {
-			result.ErrorCount++
-			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d suspend error: %v", ord.ID, err))
-			continue
-		}
-		result.SuccessCount++
+	// Concurrent Processing
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	jobs := make(chan *domain.Order, len(overdueOrders))
+
+	workerCount := s.concurrency
+	if workerCount > len(overdueOrders) {
+		workerCount = len(overdueOrders)
 	}
+
+	for w := 1; w <= workerCount; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ord := range jobs {
+				_, err := s.orderService.Suspend(ctx, ord.ID, reason)
+				mu.Lock()
+				if err != nil {
+					result.ErrorCount++
+					result.Errors = append(result.Errors, fmt.Sprintf("Order #%d suspend error: %v", ord.ID, err))
+				} else {
+					result.SuccessCount++
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	for _, ord := range overdueOrders {
+		jobs <- ord
+	}
+	close(jobs)
+	wg.Wait()
 
 	result.Duration = time.Since(start)
 	return result, nil

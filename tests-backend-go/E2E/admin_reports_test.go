@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 )
 
 func TestE2E_AdminDashboardAndFinancialReports(t *testing.T) {

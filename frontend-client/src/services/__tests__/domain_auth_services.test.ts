@@ -19,6 +19,9 @@ describe('DomainService', () => {
       listDomains: vi.fn(),
       updateNameservers: vi.fn(),
       toggleAutoRenew: vi.fn(),
+      listDnsRecords: vi.fn(),
+      addDnsRecord: vi.fn(),
+      deleteDnsRecord: vi.fn(),
     };
     const service = new DomainService(mockRepo);
 
@@ -39,6 +42,9 @@ describe('DomainService', () => {
       listDomains: vi.fn(),
       updateNameservers: vi.fn(),
       toggleAutoRenew: vi.fn(),
+      listDnsRecords: vi.fn(),
+      addDnsRecord: vi.fn(),
+      deleteDnsRecord: vi.fn(),
     };
     const service = new DomainService(mockRepo);
 
@@ -54,6 +60,9 @@ describe('DomainService', () => {
       listDomains: vi.fn(),
       updateNameservers: vi.fn().mockResolvedValue({ message: 'ok' }),
       toggleAutoRenew: vi.fn(),
+      listDnsRecords: vi.fn(),
+      addDnsRecord: vi.fn(),
+      deleteDnsRecord: vi.fn(),
     };
     const service = new DomainService(mockRepo);
 

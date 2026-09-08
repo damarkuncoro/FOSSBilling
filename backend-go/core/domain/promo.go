@@ -39,8 +39,12 @@ type PromoRedemption struct {
 }
 
 type PromoRepository interface {
+	GetByID(ctx context.Context, id int64) (*Promo, error)
 	GetByCode(ctx context.Context, code string) (*Promo, error)
+	List(ctx context.Context, limit, offset int) ([]*Promo, int, error)
 	GetRedemptionCount(ctx context.Context, promoID int64, clientID int64) (int, error)
 	IncrementUsed(ctx context.Context, promoID int64, clientID int64, orderID *int64) error
 	Create(ctx context.Context, promo *Promo) error
+	Update(ctx context.Context, promo *Promo) error
+	Delete(ctx context.Context, id int64) error
 }

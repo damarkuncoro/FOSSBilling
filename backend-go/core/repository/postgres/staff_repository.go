@@ -20,13 +20,13 @@ func NewStaffRepository(pool *pgxpool.Pool) *StaffRepository {
 
 func (r *StaffRepository) GetByID(ctx context.Context, id int64) (*domain.Staff, error) {
 	query := `
-		SELECT id, group_id, email, password_hash, name, role, status, created_at, updated_at
+		SELECT id, group_id, email, password_hash, name, role, status, two_factor_enabled, two_factor_secret, created_at, updated_at
 		FROM staff
 		WHERE id = $1
 	`
 	var s domain.Staff
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&s.ID, &s.GroupID, &s.Email, &s.PasswordHash, &s.Name, &s.Role, &s.Status, &s.CreatedAt, &s.UpdatedAt,
+		&s.ID, &s.GroupID, &s.Email, &s.PasswordHash, &s.Name, &s.Role, &s.Status, &s.TwoFactorEnabled, &s.TwoFactorSecret, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -39,13 +39,13 @@ func (r *StaffRepository) GetByID(ctx context.Context, id int64) (*domain.Staff,
 
 func (r *StaffRepository) GetByEmail(ctx context.Context, email string) (*domain.Staff, error) {
 	query := `
-		SELECT id, group_id, email, password_hash, name, role, status, created_at, updated_at
+		SELECT id, group_id, email, password_hash, name, role, status, two_factor_enabled, two_factor_secret, created_at, updated_at
 		FROM staff
 		WHERE LOWER(email) = LOWER($1)
 	`
 	var s domain.Staff
 	err := r.pool.QueryRow(ctx, query, email).Scan(
-		&s.ID, &s.GroupID, &s.Email, &s.PasswordHash, &s.Name, &s.Role, &s.Status, &s.CreatedAt, &s.UpdatedAt,
+		&s.ID, &s.GroupID, &s.Email, &s.PasswordHash, &s.Name, &s.Role, &s.Status, &s.TwoFactorEnabled, &s.TwoFactorSecret, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -58,8 +58,8 @@ func (r *StaffRepository) GetByEmail(ctx context.Context, email string) (*domain
 
 func (r *StaffRepository) Create(ctx context.Context, s *domain.Staff) error {
 	query := `
-		INSERT INTO staff (group_id, email, password_hash, name, role, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO staff (group_id, email, password_hash, name, role, status, two_factor_enabled, two_factor_secret, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		RETURNING id, created_at, updated_at
 	`
 	if s.Role == "" {
@@ -70,8 +70,20 @@ func (r *StaffRepository) Create(ctx context.Context, s *domain.Staff) error {
 	}
 
 	return r.pool.QueryRow(ctx, query,
-		s.GroupID, s.Email, s.PasswordHash, s.Name, s.Role, s.Status,
+		s.GroupID, s.Email, s.PasswordHash, s.Name, s.Role, s.Status, s.TwoFactorEnabled, s.TwoFactorSecret,
 	).Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt)
+}
+
+func (r *StaffRepository) Update(ctx context.Context, s *domain.Staff) error {
+	query := `
+		UPDATE staff
+		SET group_id = $1, email = $2, name = $3, role = $4, status = $5, two_factor_enabled = $6, two_factor_secret = $7, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $8
+	`
+	_, err := r.pool.Exec(ctx, query,
+		s.GroupID, s.Email, s.Name, s.Role, s.Status, s.TwoFactorEnabled, s.TwoFactorSecret, s.ID,
+	)
+	return err
 }
 
 func (r *StaffRepository) GetGroupByID(ctx context.Context, groupID int64) (*domain.AdminGroup, error) {
@@ -121,9 +133,10 @@ func (r *StaffRepository) ListAuditLogs(ctx context.Context, limit, offset int) 
 	}
 
 	query := `
-		SELECT id, staff_id, client_id, module, action, details, ip_address, created_at
-		FROM audit_logs
-		ORDER BY id DESC
+		SELECT a.id, a.staff_id, a.client_id, a.module, a.action, a.details, a.ip_address, a.created_at, s.name as staff_name
+		FROM audit_logs a
+		LEFT JOIN staff s ON a.staff_id = s.id
+		ORDER BY a.id DESC
 		LIMIT $1 OFFSET $2
 	`
 	rows, err := r.pool.Query(ctx, query, limit, offset)
@@ -136,7 +149,7 @@ func (r *StaffRepository) ListAuditLogs(ctx context.Context, limit, offset int) 
 	for rows.Next() {
 		var l domain.AuditLog
 		if err := rows.Scan(
-			&l.ID, &l.StaffID, &l.ClientID, &l.Module, &l.Action, &l.Details, &l.IPAddress, &l.CreatedAt,
+			&l.ID, &l.StaffID, &l.ClientID, &l.Module, &l.Action, &l.Details, &l.IPAddress, &l.CreatedAt, &l.StaffName,
 		); err != nil {
 			return nil, 0, err
 		}

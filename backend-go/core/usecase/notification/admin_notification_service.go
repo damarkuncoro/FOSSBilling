@@ -21,20 +21,20 @@ func (s *AdminNotificationService) CreateAlert(ctx context.Context, title, messa
 		Module:  module,
 		IsRead:  false,
 	}
-	return s.repo.Create(ctx, notif)
+	return s.repo.CreateAdmin(ctx, notif)
 }
 
 func (s *AdminNotificationService) ListAlerts(ctx context.Context, limit, offset int, unreadOnly bool) ([]*domain.AdminNotification, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	return s.repo.List(ctx, limit, offset, unreadOnly)
+	return s.repo.ListAdmin(ctx, limit, offset, unreadOnly)
 }
 
 func (s *AdminNotificationService) MarkRead(ctx context.Context, id int64) error {
-	return s.repo.MarkAsRead(ctx, id)
+	return s.repo.MarkAdminAsRead(ctx, id)
 }
 
 func (s *AdminNotificationService) MarkAllRead(ctx context.Context) error {
-	return s.repo.MarkAllAsRead(ctx)
+	return s.repo.MarkAdminAllAsRead(ctx)
 }

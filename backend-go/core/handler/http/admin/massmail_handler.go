@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/massmail"
@@ -94,15 +93,7 @@ func (h *MassMailHandler) Send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	// e.g. api/v1/admin/mass-mail/1/send -> id is parts[len(parts)-2]
-	var idStr string
-	if len(parts) >= 2 && parts[len(parts)-1] == "send" {
-		idStr = parts[len(parts)-2]
-	} else {
-		idStr = parts[len(parts)-1]
-	}
-
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid campaign ID", nil)

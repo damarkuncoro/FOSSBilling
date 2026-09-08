@@ -33,9 +33,11 @@ type Client struct {
 	Phone        string       `json:"phone"`
 	Currency     string       `json:"currency"`
 	TaxExempt    bool         `json:"tax_exempt"`
-	Status       ClientStatus `json:"status"`
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	Status           ClientStatus `json:"status"`
+	TwoFactorEnabled bool         `json:"two_factor_enabled"`
+	TwoFactorSecret  *string      `json:"-"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
 }
 
 type ClientBalanceType string

@@ -160,3 +160,27 @@ func (s *EmailService) SendServiceActivatedEmail(ctx context.Context, client *do
 		HTMLBody: buf.String(),
 	})
 }
+
+func (s *EmailService) SendLowStockWarning(ctx context.Context, adminEmail string, productID int64, name string, currentStock int) error {
+	tmpl, err := template.New("lowStock").Parse(lowStockTemplate)
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]interface{}{
+		"AppName":      s.appName,
+		"ProductID":    productID,
+		"ProductName":  name,
+		"CurrentStock": currentStock,
+	}); err != nil {
+		return err
+	}
+
+	return s.mailer.Send(ctx, mailer.Message{
+		From:     fmt.Sprintf("%s System <%s>", s.appName, s.fromEmail),
+		To:       []string{adminEmail},
+		Subject:  fmt.Sprintf("⚠️ PERINGATAN STOK: %s sisa %d", name, currentStock),
+		HTMLBody: buf.String(),
+	})
+}

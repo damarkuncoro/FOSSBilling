@@ -6,6 +6,7 @@ import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { NavMobileMenu } from './NavMobileMenu';
 import { NavUserMenu } from './NavUserMenu';
+import { NotificationDropdown } from '../notifications/NotificationDropdown';
 
 export const Navbar: React.FC = () => {
   const { user, balance, isAuthenticated, logout, theme, toggleTheme } = useClientAuth();
@@ -142,6 +143,9 @@ export const Navbar: React.FC = () => {
               <Moon className="h-4 w-4 text-slate-700" />
             )}
           </Button>
+
+          {/* Notifications */}
+          {isAuthenticated && <NotificationDropdown />}
 
           {/* Cart Icon */}
           <Link to="/cart">

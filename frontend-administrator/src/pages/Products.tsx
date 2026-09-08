@@ -24,6 +24,7 @@ export const Products: React.FC = () => {
     setSelectedType,
     openModal,
     setOpenModal,
+    availableForms,
     saving,
     form,
     setForm,
@@ -55,6 +56,7 @@ export const Products: React.FC = () => {
             onOpenChange={setOpenModal}
             form={form}
             setForm={setForm}
+            availableForms={availableForms}
             onTitleChange={handleTitleChange}
             onSave={handleSaveProduct}
             saving={saving}

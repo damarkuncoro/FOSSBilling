@@ -219,3 +219,8 @@ func (p *DirectAdminProvisioner) ChangePassword(ctx context.Context, order *doma
 	}
 	return nil
 }
+
+func (p *DirectAdminProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, "CMD_API_ADMIN_STATS", url.Values{})
+	return err
+}

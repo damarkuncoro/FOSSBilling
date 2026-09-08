@@ -7,11 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuHeader,
-  DropdownMenuFooter,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatDistanceToNow } from 'date-fns';
 
 export const AdminNotificationDropdown: React.FC = () => {
   const { notifications, unreadCount, markAsRead, markAllRead } = useAdminNotifications();
@@ -65,7 +62,7 @@ export const AdminNotificationDropdown: React.FC = () => {
               <DropdownMenuItem
                 key={n.id}
                 className={`flex flex-col items-start gap-1 p-4 cursor-default focus:bg-muted/50 border-b border-border/40 last:border-0 ${!n.is_read ? 'bg-indigo-50/20' : ''}`}
-                onSelect={(e) => {
+                onSelect={(e: any) => {
                   e.preventDefault();
                   if (!n.is_read) markAsRead(n.id);
                 }}
@@ -81,7 +78,7 @@ export const AdminNotificationDropdown: React.FC = () => {
                   {n.message}
                 </p>
                 <span className="text-[9px] text-muted-foreground/60 font-medium pl-8 mt-0.5">
-                  {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                  {new Date(n.created_at).toLocaleString()}
                 </span>
               </DropdownMenuItem>
             ))

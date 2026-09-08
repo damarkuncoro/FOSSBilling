@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/lib/cart';
 import { domainService } from '@/services/domain.service';
 import { newsService } from '@/services/news.service';
+import { catalogService } from '@/services/catalog.service';
 import { DomainSearchResult, HostingPlan } from '@/types/api';
 
 export const defaultHostingPlans: HostingPlan[] = [
@@ -55,9 +56,13 @@ export function useStorefront() {
   const [domainResult, setDomainResult] = useState<DomainSearchResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [news, setNews] = useState<any[]>([]);
+  const [plans, setPlans] = useState<HostingPlan[]>([]);
 
   useEffect(() => {
     newsService.listPublishedNews().then((data) => setNews(data || [])).catch(() => {});
+    catalogService.listProducts()
+      .then((data) => setPlans(data.length > 0 ? data : defaultHostingPlans))
+      .catch(() => setPlans(defaultHostingPlans));
   }, []);
 
   const handleDomainCheck = async (e: React.FormEvent) => {
@@ -89,6 +94,7 @@ export function useStorefront() {
       price: plan.price,
       period: plan.period,
       type: plan.type,
+      form_id: plan.form_id,
     });
     navigate('/cart');
   };
@@ -116,6 +122,6 @@ export function useStorefront() {
     handleDomainCheck,
     handleAddToCart,
     handleAddDomainToCart,
-    plans: defaultHostingPlans,
+    plans,
   };
 }

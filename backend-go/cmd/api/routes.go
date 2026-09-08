@@ -9,6 +9,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/client"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/guest"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/i18n"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
@@ -22,6 +23,7 @@ type AppHandlers struct {
 	GuestPage          *guest.PageHandler
 	GuestCompany       *guest.CompanyHandler
 	GuestDomain        *guest.DomainHandler
+	GuestKB            *guest.KBHandler
 	GuestFormbuilder   *guest.FormbuilderHandler
 	GuestRedirect      *guest.RedirectHandler
 	GuestCookieConsent *guest.CookieConsentHandler
@@ -46,6 +48,7 @@ type AppHandlers struct {
 	AdminStats         *admin.StatsHandler
 	AdminCurrency      *admin.CurrencyHandler
 	AdminNews          *admin.NewsHandler
+	AdminKB            *admin.KBHandler
 	AdminMassMail      *admin.MassMailHandler
 	AdminCompany       *admin.CompanyHandler
 	AdminCatalog       *admin.CatalogHandler
@@ -57,6 +60,7 @@ type AppHandlers struct {
 	AdminExtension     *admin.ExtensionHandler
 	AdminRedirect      *admin.RedirectHandler
 	AdminCookieConsent *admin.CookieConsentHandler
+	AdminNotification  *admin.AdminNotificationHandler
 	AdminTheme         *admin.ThemeHandler
 	AdminSEO           *admin.SEOHandler
 	AdminWidget        *admin.WidgetHandler
@@ -125,5 +129,5 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter *middleware.Rat
 	registerClientRoutes(mux, h, clientAuth)
 	registerAdminRoutes(mux, h, adminAuth, rateLimiter)
 
-	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(mux))))
+	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(i18n.LocaleMiddleware(mux)))))
 }

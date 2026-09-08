@@ -10,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/i18n"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
@@ -55,34 +56,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Antispam validation if enabled
-	if h.antispamService != nil {
-		clientIP := getClientIP(r)
-		if err := h.antispamService.ValidateSignup(r.Context(), req.Email, clientIP, req.Honeypot, req.CaptchaToken); err != nil {
-			if errors.Is(err, antispam.ErrIPBlocked) {
-				response.Error(w, http.StatusForbidden, "IP_BLOCKED", err.Error(), nil)
-				return
-			}
-			if errors.Is(err, antispam.ErrHoneypotTriggered) {
-				response.Error(w, http.StatusBadRequest, "BOT_DETECTED", err.Error(), nil)
-				return
-			}
-			if errors.Is(err, antispam.ErrCaptchaFailed) {
-				response.Error(w, http.StatusBadRequest, "CAPTCHA_FAILED", err.Error(), nil)
-				return
-			}
-			if errors.Is(err, antispam.ErrDisposableEmail) {
-				response.Error(w, http.StatusBadRequest, "DISPOSABLE_EMAIL", err.Error(), nil)
-				return
-			}
-			response.Error(w, http.StatusBadRequest, "SPAM_DETECTED", err.Error(), nil)
-			return
-		}
-	}
-
-	res, validationErrs, err := h.authUsecase.Register(r.Context(), req)
+	clientIP := getClientIP(r)
+	res, validationErrs, err := h.authUsecase.Register(r.Context(), req, clientIP)
 	if err != nil {
 		if errors.Is(err, appErrors.ErrInvalidInput) {
+			// Check if it's an antispam error mapped to validationErrs
 			response.Error(w, http.StatusUnprocessableEntity, "VALIDATION_FAILED", "Validation errors occurred", validationErrs)
 			return
 		}
@@ -106,11 +84,32 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.authUsecase.Login(r.Context(), req)
 	if err != nil {
+		locale := i18n.LocaleFromContext(r.Context())
 		if errors.Is(err, appErrors.ErrUnauthorized) || errors.Is(err, appErrors.ErrNotFound) {
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid email or password", nil)
+			msg := i18n.T(locale, "invalid_credentials")
+			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", msg, nil)
 			return
 		}
 		response.Error(w, http.StatusBadRequest, "LOGIN_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res, nil)
+}
+
+func (h *AuthHandler) VerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
+		return
+	}
+
+	res, err := h.authUsecase.VerifyTwoFactor(r.Context(), req.Email, req.Code)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error(), nil)
 		return
 	}
 

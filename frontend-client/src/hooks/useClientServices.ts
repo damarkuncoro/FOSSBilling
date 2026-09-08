@@ -35,6 +35,26 @@ export function useClientServices() {
     }
   };
 
+  const handleSyncStatus = async (id: number) => {
+    try {
+      await orderService.syncServiceStatus(id);
+      alert('Service status synchronized with remote provider.');
+      fetchServices();
+    } catch (err: any) {
+      alert(`Sync failed: ${err.message}`);
+    }
+  };
+
+  const handleChangePassword = async (id: number, password: string) => {
+    try {
+      await orderService.changeServicePassword(id, password);
+      alert('Service password updated successfully.');
+      fetchServices();
+    } catch (err: any) {
+      alert(`Password change failed: ${err.message}`);
+    }
+  };
+
   return {
     orders,
     loading,
@@ -43,5 +63,7 @@ export function useClientServices() {
     setDownloadModal,
     fetchServices,
     handleGetDownload,
+    handleSyncStatus,
+    handleChangePassword,
   };
 }

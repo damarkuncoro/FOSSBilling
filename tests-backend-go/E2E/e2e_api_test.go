@@ -225,6 +225,48 @@ func TestE2E_LiveSupportTicketFlow(t *testing.T) {
 		t.Fatalf("Failed to list tickets: %v", err)
 	}
 	defer listResp.Body.Close()
+
+	var listData struct {
+		Data []struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(listResp.Body).Decode(&listData)
+	if len(listData.Data) == 0 {
+		t.Fatal("Expected at least one ticket in list")
+	}
+	ticketID := listData.Data[0].ID
+
+	// 4. Client Reply to Ticket
+	replyPayload := map[string]string{
+		"message": "Update: The issue is still occurring even after reboot.",
+	}
+	body, _ = json.Marshal(replyPayload)
+	req, _ = http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/client/support/tickets/%d/reply", baseURL, ticketID), bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	replyResp, err := http.DefaultClient.Do(req)
+	if err != nil || replyResp.StatusCode != http.StatusCreated {
+		t.Fatalf("Client failed to reply to ticket: %v", err)
+	}
+	defer replyResp.Body.Close()
+
+	// 5. Verify Ticket Status is now "awaiting_staff"
+	req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v1/client/support/tickets/%d", baseURL, ticketID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	detailResp, _ := http.DefaultClient.Do(req)
+	var detailData struct {
+		Data struct {
+			Ticket struct {
+				Status string `json:"status"`
+			} `json:"ticket"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(detailResp.Body).Decode(&detailData)
+	if detailData.Data.Ticket.Status != "awaiting_staff" {
+		t.Errorf("Expected ticket status awaiting_staff, got %s", detailData.Data.Ticket.Status)
+	}
 }
 
 func TestE2E_FullCheckoutAndPaymentFlow(t *testing.T) {
@@ -239,18 +281,25 @@ func TestE2E_FullCheckoutAndPaymentFlow(t *testing.T) {
 	// 1. Admin Login & Create Product (to avoid FK violation)
 	adminLoginPayload := map[string]string{
 		"email":    "admin@fossbilling.org",
-		"password": "admin123",
+		"password": "SuperSecretAdmin123!",
 	}
 	adminBody, _ := json.Marshal(adminLoginPayload)
 	adminLoginResp, err := http.Post(baseURL+"/api/v1/admin/auth/login", "application/json", bytes.NewBuffer(adminBody))
 	if err != nil {
 		t.Fatalf("Admin login request failed: %v", err)
 	}
-	defer adminLoginResp.Body.Close()
+	if adminLoginResp.StatusCode != http.StatusOK {
+		// Fallback to simpler password if seeder used it
+		adminLoginPayload["password"] = "admin123"
+		adminBody, _ = json.Marshal(adminLoginPayload)
+		adminLoginResp, _ = http.Post(baseURL+"/api/v1/admin/auth/login", "application/json", bytes.NewBuffer(adminBody))
+	}
+
 	if adminLoginResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(adminLoginResp.Body)
 		t.Fatalf("Admin login failed with status %d: %s", adminLoginResp.StatusCode, string(body))
 	}
+	defer adminLoginResp.Body.Close()
 	var adminData struct {
 		Data struct {
 			Token string `json:"token"`
@@ -419,7 +468,33 @@ func TestE2E_LocalesGeoIPAndDocs(t *testing.T) {
 		t.Errorf("Locales status = %d; want 200", locResp.StatusCode)
 	}
 
-	// 2. Check GeoIP lookup
+	// 2. Check i18n switching via header
+	req, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/guest/currencies", nil)
+	req.Header.Set("Accept-Language", "id-ID")
+	idResp, err := http.DefaultClient.Do(req)
+	if err != nil || idResp.StatusCode != http.StatusOK {
+		t.Errorf("Indonesian locale request failed")
+	}
+
+	// 2b. Check translated error message
+	loginPayload := map[string]string{"email": "wrong@email.com", "password": "wrong"}
+	body, _ := json.Marshal(loginPayload)
+	req, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v1/guest/auth/login", bytes.NewBuffer(body))
+	req.Header.Set("Accept-Language", "id-ID")
+	req.Header.Set("Content-Type", "application/json")
+	loginResp, _ := http.DefaultClient.Do(req)
+	var loginErr struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	_ = json.NewDecoder(loginResp.Body).Decode(&loginErr)
+	// From i18n.go: "id_ID" -> "invalid_credentials": "Email atau kata sandi tidak valid"
+	if loginErr.Error.Message != "Email atau kata sandi tidak valid" {
+		t.Errorf("Expected Indonesian error message, got: %s", loginErr.Error.Message)
+	}
+
+	// 3. Check GeoIP lookup
 	geoResp, err := http.Get(baseURL + "/api/v1/guest/system/geoip?ip=8.8.8.8")
 	if err != nil {
 		t.Fatalf("GeoIP request failed: %v", err)
@@ -429,7 +504,7 @@ func TestE2E_LocalesGeoIPAndDocs(t *testing.T) {
 		t.Errorf("GeoIP status = %d; want 200", geoResp.StatusCode)
 	}
 
-	// 3. Check OpenAPI specification endpoint
+	// 4. Check OpenAPI specification endpoint
 	specResp, err := http.Get(baseURL + "/openapi.json")
 	if err != nil {
 		t.Fatalf("OpenAPI spec failed: %v", err)
@@ -439,7 +514,7 @@ func TestE2E_LocalesGeoIPAndDocs(t *testing.T) {
 		t.Errorf("OpenAPI spec status = %d; want 200", specResp.StatusCode)
 	}
 
-	// 4. Check Scalar Docs endpoint
+	// 5. Check Scalar Docs endpoint
 	docsResp, err := http.Get(baseURL + "/docs")
 	if err != nil {
 		t.Fatalf("Scalar docs failed: %v", err)

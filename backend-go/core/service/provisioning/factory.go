@@ -56,6 +56,13 @@ func (f *ProvisionerFactory) CreateProvisioner(cfg ServerConfig) (domain.Service
 			APIKey:   cfg.APIToken,
 			Insecure: !cfg.UseSSL,
 		}), nil
+	case "cyberpanel":
+		return NewCyberPanelProvisioner(CyberPanelConfig{
+			Host:      cfg.Host,
+			Port:      cfg.Port,
+			AdminPass: cfg.Password,
+			Insecure:  !cfg.UseSSL,
+		}), nil
 	case "custom":
 		return NewCustomServerProvisioner(CustomServerConfig{
 			EndpointURL: cfg.Host,

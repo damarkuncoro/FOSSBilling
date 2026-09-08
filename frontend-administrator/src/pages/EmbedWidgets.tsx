@@ -7,6 +7,7 @@ import { WidgetCodePreview } from '../components/embedwidgets/WidgetCodePreview'
 export const EmbedWidgets: React.FC = () => {
   const {
     config,
+    products,
     copied,
     updateConfig,
     generateEmbedCode,
@@ -25,7 +26,7 @@ export const EmbedWidgets: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <WidgetGeneratorCard config={config} onChange={updateConfig} />
+        <WidgetGeneratorCard config={config} products={products} onChange={updateConfig} />
         <WidgetCodePreview
           config={config}
           embedCode={generateEmbedCode()}

@@ -1,10 +1,10 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
@@ -60,15 +60,14 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	orderIDStr := parts[len(parts)-1]
-	orderID, err := strconv.ParseInt(orderIDStr, 10, 64)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
 		return
 	}
 
-	order, err := h.orderService.GetByIDForClient(r.Context(), clientID, orderID)
+	order, err := h.orderService.GetByIDForClient(r.Context(), clientID, id)
 	if err != nil {
 		if errors.Is(err, appErrors.ErrNotFound) {
 			response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
@@ -79,4 +78,57 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, order, nil)
+}
+
+func (h *OrderHandler) SyncStatus(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	if clientID == 0 {
+		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
+		return
+	}
+
+	status, err := h.orderService.SyncServiceStatus(r.Context(), clientID, id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, status, nil)
+}
+
+func (h *OrderHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	if clientID == 0 {
+		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_BODY", "Failed to parse JSON body", nil)
+		return
+	}
+
+	if err := h.orderService.ChangeServicePassword(r.Context(), clientID, id, req.Password); err != nil {
+		response.Error(w, http.StatusInternalServerError, "PASSWORD_CHANGE_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Service password changed successfully"}, nil)
 }

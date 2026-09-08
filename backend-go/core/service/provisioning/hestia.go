@@ -206,3 +206,8 @@ func (p *HestiaProvisioner) ChangePassword(ctx context.Context, order *domain.Or
 	_, err := p.call(ctx, "v-change-user-password", username, newPassword)
 	return err
 }
+
+func (p *HestiaProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, "v-list-sys-services", "json")
+	return err
+}

@@ -8,6 +8,8 @@ export interface IAdminInvoiceRepository {
     client_id: number;
     items: Array<{ title: string; price: number; quantity?: number }>;
   }): Promise<Invoice>;
+  refundInvoice(id: number): Promise<any>;
+  deleteInvoice(id: number): Promise<any>;
 }
 
 export class AdminInvoiceRepository implements IAdminInvoiceRepository {
@@ -26,6 +28,18 @@ export class AdminInvoiceRepository implements IAdminInvoiceRepository {
     return request<Invoice>('/admin/invoices', {
       method: 'POST',
       body: JSON.stringify(dto),
+    });
+  }
+
+  async refundInvoice(id: number): Promise<any> {
+    return request(`/admin/invoices/${id}/refund`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteInvoice(id: number): Promise<any> {
+    return request(`/admin/invoices/${id}`, {
+      method: 'DELETE',
     });
   }
 }

@@ -13,7 +13,8 @@ import (
 
 func setupOrderService() (*order.OrderService, *memory.MockOrderRepository) {
 	repo := memory.NewMockOrderRepository()
-	service := order.NewOrderService(repo)
+	prodRepo := memory.NewMockProductRepository()
+	service := order.NewOrderService(repo, prodRepo, nil, nil)
 	return service, repo
 }
 

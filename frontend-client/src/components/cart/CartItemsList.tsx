@@ -5,17 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatMoney } from '@/lib/utils';
 import { CartItem } from '@/lib/cart';
+import { ProductConfigForm } from './ProductConfigForm';
 
 interface CartItemsListProps {
   items: CartItem[];
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
+  onUpdateConfig?: (id: string, config: Record<string, any>) => void;
 }
 
 export const CartItemsList: React.FC<CartItemsListProps> = ({
   items,
   onRemoveItem,
   onClearCart,
+  onUpdateConfig,
 }) => {
   return (
     <Card className="border-border/60 shadow-sm">
@@ -34,30 +37,37 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
       </CardHeader>
       <CardContent className="divide-y">
         {items.map((item) => (
-          <div
-            key={item.id}
-            className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4"
-          >
-            <div className="space-y-1">
-              <p className="font-semibold text-sm">{item.title}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                  {item.period}
-                </Badge>
-                <span>Type: {item.type}</span>
+          <div key={item.id} className="py-6 first:pt-0 last:pb-0">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="font-semibold text-sm">{item.title}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                    {item.period}
+                  </Badge>
+                  <span>Type: {item.type}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="font-bold text-base">{formatMoney(item.price)}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => onRemoveItem(item.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="font-bold text-base">{formatMoney(item.price)}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => onRemoveItem(item.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+
+            {item.form_id && (
+              <ProductConfigForm
+                formId={item.form_id}
+                initialConfig={item.config}
+                onConfigChange={(config) => onUpdateConfig?.(item.id, config)}
+              />
+            )}
           </div>
         ))}
       </CardContent>

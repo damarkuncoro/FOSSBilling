@@ -165,12 +165,16 @@ func (r *InvoiceRepository) MarkAsPaid(ctx context.Context, id int64, paidAt tim
 
 func (r *InvoiceRepository) Update(ctx context.Context, inv *domain.Invoice) error {
 	query := `UPDATE invoices SET serie = $1, nr = $2, status = $3, currency = $4, currency_rate = $5, subtotal = $6, tax = $7, total = $8, tax_rate = $9, due_at = $10, paid_at = $11, updated_at = CURRENT_TIMESTAMP WHERE id = $12`
-	tag, err := r.pool.Exec(ctx, query, inv.Serie, inv.Nr, inv.Status, inv.Currency, inv.CurrencyRate, inv.Subtotal, inv.Tax, inv.Total, inv.TaxRate, inv.DueAt, inv.PaidAt, inv.ID)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return appErrors.ErrNotFound
-	}
-	return nil
+	_, err := r.pool.Exec(ctx, query, inv.Serie, inv.Nr, inv.Status, inv.Currency, inv.CurrencyRate, inv.Subtotal, inv.Tax, inv.Total, inv.TaxRate, inv.DueAt, inv.PaidAt, inv.ID)
+	return err
+}
+
+func (r *InvoiceRepository) UpdateStatus(ctx context.Context, id int64, status domain.InvoiceStatus) error {
+	_, err := r.pool.Exec(ctx, `UPDATE invoices SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, status, id)
+	return err
+}
+
+func (r *InvoiceRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM invoices WHERE id = $1`, id)
+	return err
 }

@@ -46,8 +46,8 @@ func (h *ClientManagementHandler) ListClients(w http.ResponseWriter, r *http.Req
 }
 
 func (h *ClientManagementHandler) GetClient(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	clientID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	idStr := r.PathValue("id")
+	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid client ID", nil)
 		return
@@ -114,8 +114,8 @@ func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	clientID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	idStr := r.PathValue("id")
+	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid client ID", nil)
 		return
@@ -166,8 +166,8 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClientManagementHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	clientID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	idStr := r.PathValue("id")
+	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid client ID", nil)
 		return

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 import { useLogin } from '@/hooks/useLogin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,14 @@ export const Login: React.FC = () => {
     setEmail,
     password,
     setPassword,
+    twoFactorCode,
+    setTwoFactorCode,
+    step,
+    setStep,
     error,
     loading,
     handleSubmit,
+    handleVerify2FA,
   } = useLogin();
 
   return (
@@ -27,14 +32,20 @@ export const Login: React.FC = () => {
           <h1 className="text-2xl font-bold tracking-tight">FOSSBilling Admin</h1>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
             Powered by Golang High-Performance API
-            <Badge variant="success" className="text-[10px]">v1.0</Badge>
+            <Badge variant="success" className="text-[10px]">v2.0</Badge>
           </p>
         </div>
 
         <Card className="border-border/60 shadow-xl backdrop-blur-xl bg-card/80">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Sign in to control panel</CardTitle>
-            <CardDescription>Enter your administrator email and password</CardDescription>
+            <CardTitle className="text-xl">
+              {step === 'login' ? 'Sign in to control panel' : '2FA Verification'}
+            </CardTitle>
+            <CardDescription>
+              {step === 'login'
+                ? 'Enter your administrator email and password'
+                : 'Please enter your 6-digit security code'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -44,48 +55,82 @@ export const Login: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Staff Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@fossbilling.org"
-                    className="pl-9"
-                  />
+            {step === 'login' ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Staff Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@fossbilling.org"
+                      className="pl-9"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-9"
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="pl-9"
+                    />
+                  </div>
                 </div>
+
+                <Button type="submit" className="w-full gap-2 font-semibold shadow-lg shadow-primary/25" disabled={loading}>
+                  {loading ? 'Authenticating...' : 'Sign In'}
+                  {!loading && <ArrowRight className="h-4 w-4" />}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerify2FA} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground text-center block uppercase tracking-widest">Verification Code</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      required
+                      autoFocus
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      className="pl-9 font-mono text-center tracking-[0.5em] text-lg h-12"
+                    />
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full gap-2 font-semibold shadow-lg shadow-primary/25" disabled={loading || twoFactorCode.length !== 6}>
+                  {loading ? 'Verifying...' : 'Verify & Continue'}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => setStep('login')}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground font-medium"
+                >
+                  ← Back to login
+                </button>
+              </form>
+            )}
+
+            {step === 'login' && (
+              <div className="mt-6 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground">💡 Default Demo Credentials:</p>
+                <p>Email: <code className="text-primary">admin@fossbilling.org</code></p>
+                <p>Password: <code className="text-primary">admin123</code></p>
               </div>
-
-              <Button type="submit" className="w-full gap-2 font-semibold shadow-lg shadow-primary/25" disabled={loading}>
-                {loading ? 'Authenticating...' : 'Sign In'}
-                {!loading && <ArrowRight className="h-4 w-4" />}
-              </Button>
-            </form>
-
-            <div className="mt-6 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground space-y-1">
-              <p className="font-semibold text-foreground">💡 Default Demo Credentials:</p>
-              <p>Email: <code className="text-primary">admin@fossbilling.org</code></p>
-              <p>Password: <code className="text-primary">admin123</code></p>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

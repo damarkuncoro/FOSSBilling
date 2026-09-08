@@ -13,6 +13,8 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 func main() {
@@ -33,15 +35,20 @@ func main() {
 
 	// 2. Repositories & Domain Services
 	orderRepo := postgres.NewOrderRepository(pgPool)
+	productRepo := postgres.NewProductRepository(pgPool)
 	clientRepo := postgres.NewClientRepository(pgPool)
 	invoiceRepo := postgres.NewInvoiceRepository(pgPool)
 	supportRepo := postgres.NewSupportRepository(pgPool)
+	taxRepo := postgres.NewTaxRepository(pgPool)
 
-	taxCalculator := billingUsecase.NewTaxCalculator(nil)
-	orderService := orderUsecase.NewOrderService(orderRepo)
-	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalculator)
+	taxCalculator := billingUsecase.NewTaxCalculator(taxRepo)
+	orderService := orderUsecase.NewOrderService(orderRepo, productRepo, nil, nil, nil)
+	hookManager := plugins.NewHookManager()
+	eventBus := events.NewEventBus()
+	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalculator, hookManager, eventBus)
 
 	cronService := scheduler.NewCronService(orderRepo, orderService, invoiceService, supportRepo)
+	cronService.SetConcurrency(cfg.WorkerConcurrency)
 
 	// 3. Periodic Scheduler Loop
 	ticker := time.NewTicker(1 * time.Minute)

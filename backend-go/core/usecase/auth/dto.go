@@ -38,8 +38,14 @@ type UpdateProfileDTO struct {
 }
 
 type AuthResponse struct {
-	Token  string      `json:"token"`
-	Client ClientBrief `json:"client"`
+	Token             string      `json:"token,omitempty"`
+	TwoFactorRequired bool        `json:"two_factor_required,omitempty"`
+	Client            ClientBrief `json:"client,omitempty"`
+}
+
+type TwoFactorSetupResponse struct {
+	Secret string `json:"secret"`
+	QRURL  string `json:"qr_url"`
 }
 
 type ClientBrief struct {

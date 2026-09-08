@@ -135,6 +135,7 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 					if err == nil && regRes != nil {
 						cfg["remote_id"] = regRes.AuthCode
 						cfg["status"] = "active"
+						cfg["registrar_id"] = registrarID
 						log.Printf("🌐 [Registrar] Domain %s registered via %s", domainName, registrarID)
 					}
 				}

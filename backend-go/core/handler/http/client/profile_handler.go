@@ -106,3 +106,36 @@ func (h *ProfileHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 		"message": "Password changed successfully",
 	}, nil)
 }
+
+func (h *ProfileHandler) SetupTwoFactor(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	res, err := h.authUsecase.SetupTwoFactor(r.Context(), clientID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, res, nil)
+}
+
+func (h *ProfileHandler) EnableTwoFactor(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	var req struct {
+		Code string `json:"code"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	if err := h.authUsecase.EnableTwoFactor(r.Context(), clientID, req.Code); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_CODE", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+}
+
+func (h *ProfileHandler) DisableTwoFactor(w http.ResponseWriter, r *http.Request) {
+	clientID := middleware.GetClientID(r.Context())
+	if err := h.authUsecase.DisableTwoFactor(r.Context(), clientID); err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+}

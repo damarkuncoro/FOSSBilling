@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { adminProductService } from '@/services/admin_product.service';
+import { adminFormBuilderService } from '@/services/admin_form_builder.service';
 import type { ProductItem, ProductCategory } from '@/types/api';
+import type { CustomForm } from '@/types/formBuilder';
 
 export const defaultProducts: ProductItem[] = [
   {
@@ -84,6 +86,7 @@ export const initialProductForm: Partial<ProductItem> = {
 export function useProducts() {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [availableForms, setAvailableForms] = useState<CustomForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -94,10 +97,14 @@ export function useProducts() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const data = await adminProductService.listProducts().catch(() => null);
-      setProducts(data && data.length > 0 ? data : defaultProducts);
-      const catData = await adminProductService.listCategories().catch(() => []);
+      const [pData, catData, formData] = await Promise.all([
+        adminProductService.listProducts().catch(() => null),
+        adminProductService.listCategories().catch(() => []),
+        adminFormBuilderService.listForms().catch(() => []),
+      ]);
+      setProducts(pData && pData.length > 0 ? pData : defaultProducts);
       setCategories(catData || []);
+      setAvailableForms(formData || []);
     } catch {
       setProducts(defaultProducts);
     } finally {
@@ -166,6 +173,7 @@ export function useProducts() {
   return {
     products,
     categories,
+    availableForms,
     loading,
     searchQuery,
     setSearchQuery,

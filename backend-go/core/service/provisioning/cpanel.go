@@ -257,3 +257,8 @@ func (p *CpanelProvisioner) ChangePassword(ctx context.Context, order *domain.Or
 	}
 	return nil
 }
+
+func (p *CpanelProvisioner) TestConnection(ctx context.Context) error {
+	_, err := p.call(ctx, "version", url.Values{})
+	return err
+}

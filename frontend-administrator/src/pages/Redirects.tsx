@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRightLeft, Plus, Search } from 'lucide-react';
+import { ArrowRightLeft, Plus, Search, RefreshCw } from 'lucide-react';
 import { useRedirects } from '../hooks/useRedirects';
 import { RedirectTable } from '../components/redirects/RedirectTable';
 import { AddRedirectDialog } from '../components/redirects/AddRedirectDialog';
@@ -7,6 +7,7 @@ import { AddRedirectDialog } from '../components/redirects/AddRedirectDialog';
 export const Redirects: React.FC = () => {
   const {
     redirects,
+    loading,
     search,
     setSearch,
     isAddOpen,
@@ -14,6 +15,7 @@ export const Redirects: React.FC = () => {
     createRedirect,
     toggleRedirect,
     deleteRedirect,
+    refresh,
   } = useRedirects();
 
   return (
@@ -27,12 +29,20 @@ export const Redirects: React.FC = () => {
             Manage permanent and temporary HTTP redirection rules and track incoming hits.
           </p>
         </div>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4" /> Add Redirect
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={refresh}
+            className="p-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl shadow-sm transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-xl shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> Add Redirect
+          </button>
+        </div>
       </div>
 
       <div className="relative w-full max-w-md">
@@ -46,11 +56,15 @@ export const Redirects: React.FC = () => {
         />
       </div>
 
-      <RedirectTable
-        redirects={redirects}
-        onToggle={toggleRedirect}
-        onDelete={deleteRedirect}
-      />
+      {loading && redirects.length === 0 ? (
+        <div className="py-20 text-center text-gray-400">Loading redirection rules...</div>
+      ) : (
+        <RedirectTable
+          redirects={redirects}
+          onToggle={toggleRedirect}
+          onDelete={deleteRedirect}
+        />
+      )}
 
       <AddRedirectDialog
         isOpen={isAddOpen}

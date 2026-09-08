@@ -55,7 +55,7 @@ export const ProductPlanCard: React.FC<ProductPlanCardProps> = ({ plan, onAddToC
         </div>
 
         <ul className="space-y-2 text-xs text-muted-foreground pt-2 border-t">
-          {plan.features.map((feat, idx) => (
+          {(plan.features || []).map((feat, idx) => (
             <li key={idx} className="flex items-center gap-2">
               <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
               <span>{feat}</span>

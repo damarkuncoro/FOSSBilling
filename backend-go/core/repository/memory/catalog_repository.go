@@ -31,6 +31,18 @@ func (m *MockCatalogRepository) GetServerByID(ctx context.Context, id int64) (*d
 	return &domain.Server{ID: 1, Name: "Mock Server", Hostname: "localhost"}, nil
 }
 
+func (m *MockCatalogRepository) CreateServer(ctx context.Context, server *domain.Server) error {
+	return nil
+}
+
+func (m *MockCatalogRepository) UpdateServer(ctx context.Context, server *domain.Server) error {
+	return nil
+}
+
+func (m *MockCatalogRepository) DeleteServer(ctx context.Context, id int64) error {
+	return nil
+}
+
 func (m *MockCatalogRepository) ListTlds(ctx context.Context) ([]*domain.TLD, error) {
 	return []*domain.TLD{
 		{ID: 1, Tld: ".com", RegistrarID: "mock"},

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Input } from '@/components/ui/button'; // Wait, Input is in separate file
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 

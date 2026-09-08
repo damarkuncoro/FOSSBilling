@@ -10,6 +10,7 @@ export const FormBuilder: React.FC = () => {
     forms,
     selectedForm,
     setSelectedForm,
+    loading,
     isNewFormModal,
     setIsNewFormModal,
     isFieldModal,
@@ -23,7 +24,7 @@ export const FormBuilder: React.FC = () => {
   } = useFormBuilder();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2.5">
@@ -45,39 +46,47 @@ export const FormBuilder: React.FC = () => {
         {/* Left column: List of forms */}
         <div className="space-y-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Form Templates</h3>
-          {forms.map((form) => (
-            <div
-              key={form.id}
-              onClick={() => setSelectedForm(form)}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                selectedForm?.id === form.id
-                  ? 'bg-indigo-50/50 border-indigo-200 ring-2 ring-indigo-500/20 shadow-sm'
-                  : 'bg-white border-gray-200/80 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <FileText className={`w-4 h-4 ${selectedForm?.id === form.id ? 'text-indigo-600' : 'text-gray-400'}`} />
-                  <span className="font-semibold text-sm text-gray-900">{form.name}</span>
+          {loading && forms.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-400">Loading forms...</div>
+          ) : forms.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-400 border border-dashed rounded-xl">No forms created.</div>
+          ) : (
+            forms.map((form) => (
+              <div
+                key={form.id}
+                onClick={() => setSelectedForm(form)}
+                className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                  selectedForm?.id === form.id
+                    ? 'bg-indigo-50/50 border-indigo-200 ring-2 ring-indigo-500/20 shadow-sm'
+                    : 'bg-white border-gray-200/80 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <FileText className={`w-4 h-4 ${selectedForm?.id === form.id ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <span className="font-semibold text-sm text-gray-900">{form.name}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteForm(form.id);
+                    }}
+                    className="p-1 text-gray-400 hover:text-rose-600 rounded"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteForm(form.id);
-                  }}
-                  className="p-1 text-gray-400 hover:text-rose-600 rounded"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 capitalize">
+                    {form.style.type} layout
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-600">
+                    {(form.fields || []).length} Fields
+                  </span>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2 line-clamp-2">{form.description}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600">
-                  {form.fields.length} Custom Fields
-                </span>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Right column: Form Fields Editor and Preview */}
@@ -87,7 +96,7 @@ export const FormBuilder: React.FC = () => {
               <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                 <div>
                   <h2 className="text-base font-bold text-gray-900">{selectedForm.name}</h2>
-                  <p className="text-xs text-gray-500">{selectedForm.description}</p>
+                  <p className="text-xs text-gray-500 capitalize">{selectedForm.style.type} style layout</p>
                 </div>
                 <button
                   onClick={() => {
@@ -101,7 +110,7 @@ export const FormBuilder: React.FC = () => {
               </div>
 
               <FormPreviewCard
-                fields={selectedForm.fields}
+                fields={selectedForm.fields || []}
                 onEditField={(field) => {
                   setEditingField(field);
                   setIsFieldModal(true);

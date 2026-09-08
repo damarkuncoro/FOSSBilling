@@ -73,6 +73,19 @@ func (r *MockStaffRepository) Create(ctx context.Context, staff *domain.Staff) e
 	return nil
 }
 
+func (r *MockStaffRepository) Update(ctx context.Context, staff *domain.Staff) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.staffs[staff.ID]; !ok {
+		return appErrors.ErrNotFound
+	}
+	staff.UpdatedAt = time.Now().UTC()
+	cp := *staff
+	r.staffs[staff.ID] = &cp
+	return nil
+}
+
 func (r *MockStaffRepository) GetGroupByID(ctx context.Context, groupID int64) (*domain.AdminGroup, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -126,7 +139,18 @@ func (r *MockStaffRepository) ListAuditLogs(ctx context.Context, limit, offset i
 	if end > total {
 		end = total
 	}
-	return r.auditLogs[offset:end], total, nil
+
+	// Try to populate staff names from the mock state
+	res := r.auditLogs[offset:end]
+	for _, l := range res {
+		if l.StaffID != nil {
+			if s, ok := r.staffs[*l.StaffID]; ok {
+				l.StaffName = &s.Name
+			}
+		}
+	}
+
+	return res, total, nil
 }
 
 func (r *MockStaffRepository) GetAuditLogs() []*domain.AuditLog {

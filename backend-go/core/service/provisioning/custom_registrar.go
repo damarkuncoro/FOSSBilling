@@ -53,3 +53,11 @@ func (d *CustomRegistrarDriver) RenewDomain(ctx context.Context, domainName stri
 		TransactionID: "CUSTOM-REN-SUCCESS",
 	}, nil
 }
+
+func (d *CustomRegistrarDriver) UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error {
+	return nil
+}
+
+func (d *CustomRegistrarDriver) GetEPPCode(ctx context.Context, domainName string) (string, error) {
+	return "CUSTOM-EPP-CODE", nil
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 func main() {
@@ -29,13 +30,16 @@ func main() {
 	// 3. Cache System
 	appCache := cache.NewMemoryCache()
 
-	// 4. Data Access Layer (Repositories)
+	// 4. Hook/Plugin System
+	hookManager := plugins.NewHookManager()
+
+	// 5. Data Access Layer (Repositories)
 	repos := InitRepositories(ctx, cfg, pgPool)
 
-	// 5. Domain Business Logic Layer (Services & Use Cases)
-	services := InitServices(cfg, repos, eventBus, appCache)
+	// 6. Domain Business Logic Layer (Services & Use Cases)
+	services := InitServices(cfg, repos, eventBus, appCache, hookManager)
 
-	// 6. HTTP Presentation Layer (Handlers & Router)
+	// 7. HTTP Presentation Layer (Handlers & Router)
 	handlers := InitHandlers(services, repos)
 
 	rateLimiter := middleware.NewRateLimiter(60, time.Second)

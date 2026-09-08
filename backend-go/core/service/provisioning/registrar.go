@@ -42,6 +42,8 @@ type RegistrarDriver interface {
 	CheckAvailability(ctx context.Context, domainName string) (*DomainAvailability, error)
 	RegisterDomain(ctx context.Context, req DomainRegistrationRequest) (*DomainRegistrationResult, error)
 	RenewDomain(ctx context.Context, domainName string, years int) (*DomainRegistrationResult, error)
+	UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error
+	GetEPPCode(ctx context.Context, domainName string) (string, error)
 }
 
 // MockRegistrarDriver implements a deterministic registrar driver for testing and default installs
@@ -142,4 +144,12 @@ func (d *MockRegistrarDriver) RenewDomain(ctx context.Context, domainName string
 		Nameservers:   []string{"ns1.fossbilling.org", "ns2.fossbilling.org"},
 		TransactionID: fmt.Sprintf("REN-%d", time.Now().UnixNano()),
 	}, nil
+}
+
+func (d *MockRegistrarDriver) UpdateNameservers(ctx context.Context, domainName string, nameservers []string) error {
+	return nil
+}
+
+func (d *MockRegistrarDriver) GetEPPCode(ctx context.Context, domainName string) (string, error) {
+	return fmt.Sprintf("MOCK-EPP-%d", time.Now().UnixNano()%1000000), nil
 }

@@ -84,3 +84,23 @@ const serviceActivatedTemplate = `
   </div>
 </body>
 </html>`
+
+const lowStockTemplate = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; border-top: 4px solid #d63939;">
+    <h2 style="color: #d63939;">⚠️ Peringatan: Stok Produk Menipis</h2>
+    <p>Halo Administrator,</p>
+    <p>Sistem mendeteksi bahwa produk berikut telah mencapai ambang batas stok rendah:</p>
+    <div style="background: #fdf2f2; padding: 15px; border-radius: 4px; margin: 15px 0;">
+      <p style="margin: 5px 0;"><strong>Produk:</strong> {{.ProductName}} (ID: {{.ProductID}})</p>
+      <p style="margin: 5px 0;"><strong>Sisa Stok:</strong> <span style="color: #d63939; font-weight: bold;">{{.CurrentStock}}</span></p>
+    </div>
+    <p>Mohon segera lakukan penambahan stok atau penyesuaian inventaris di Admin Portal.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}} Automatic System Alert</p>
+  </div>
+</body>
+</html>`

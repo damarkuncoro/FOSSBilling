@@ -46,6 +46,9 @@ type CatalogRepository interface {
 
 	ListServers(ctx context.Context) ([]*Server, error)
 	GetServerByID(ctx context.Context, id int64) (*Server, error)
+	CreateServer(ctx context.Context, server *Server) error
+	UpdateServer(ctx context.Context, server *Server) error
+	DeleteServer(ctx context.Context, id int64) error
 
 	ListTlds(ctx context.Context) ([]*TLD, error)
 }

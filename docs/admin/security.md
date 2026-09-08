@@ -1,26 +1,47 @@
-# Security, Anti-Spam & Fraud Prevention
+# Security & Anti-Spam
 
-FOSSBilling is hardened against abuse, fraudulent orders, brute-force attacks, and cross-site scripting (XSS).
+FOSSBilling includes enterprise-grade security features to protect your platform from automated abuse, fraudulent orders, and unauthorized access.
 
 ---
 
-## 🛡️ Active Security Modules
+## 🛡️ The Anti-Spam Module
 
-### 1. Disposable Email Address Detection
-- Validates client registration against a continuously updated blacklist of 1,000+ temporary/throwaway email domains (`pkg/security/disposable_email.go`).
-- Blocks throwaway accounts while allowing legitimate personal and corporate emails.
+The Anti-Spam module is designed to block malicious bots while providing a smooth experience for real users.
 
-### 2. IP Blocklist & Honeypot Protection
-- **Honeypot Form Fields:** Invisible hidden fields catch automated spam bots attempting registration or contact submissions.
-- **StopForumSpam Integration:** Cross-references client IP and email against global abuse databases.
-- **CIDR Blocklist:** Manual and automatic IP subnet blocking.
+### Core Protections
+- **Disposable Email Blocker:** Automatically blocks registration from known temporary email providers (e.g., Mailinator, 10MinuteMail).
+- **IP Reputation (StopForumSpam):** Cross-references new signups against the global StopForumSpam database.
+- **Honeypot Fields:** Invisible form fields that, when filled out by bots, trigger an immediate rejection of the submission.
+- **Rate Limiting:** Protects every API endpoint from brute-force attacks and DDoS by limiting requests per IP address.
 
-### 3. SHA-256 Client Fingerprinting
-- Generates a deterministic device/session fingerprint based on User-Agent, Accept headers, encoding preferences, and IP address (`pkg/security/fingerprint.go`).
-- Detects credential stuffing and session hijacking attempts.
+### Captcha Integration
+FOSSBilling supports modern, privacy-friendly captchas:
+- **Cloudflare Turnstile:** Our recommended choice for invisible challenge-response.
+- **Google reCAPTCHA v3:** Standard protection against automated interactions.
 
-### 4. Input Sanitization & Anti-XSS
-- All incoming HTML and text inputs are sanitized with anti-XSS stripping rules (`pkg/security/sanitizer.go`).
+---
 
-### 5. Audit Logging & Role-Based Access Control (RBAC)
-- All staff administrative actions (client updates, server reboots, invoice edits, currency changes) are logged immutably in the `audit_logs` table.
+## 🔑 API Keys
+
+For developers and external integrations, FOSSBilling provides a secure API Key system.
+
+### Personal API Keys
+Clients and Staff can generate API keys from their respective profile settings. These keys allow programmatic access to the platform without sharing passwords.
+- **Auto-Rotation:** Keys can be set to expire after a certain period.
+- **IP Restriction:** (Optional) Lock a key to a specific IP address or CIDR range.
+- **Scoped Permissions:** Keys inherit the permissions of the user who created them.
+
+### Managing Keys as an Admin
+Administrators can view and revoke any active API keys from the **System > Security > API Keys** section if suspicious activity is detected.
+
+---
+
+## 📝 Audit Logs
+
+The system maintains a comprehensive audit trail of all staff activities.
+- **Who:** The staff member who performed the action.
+- **What:** The specific change made (e.g., "Updated invoice #123").
+- **When:** Accurate UTC timestamp.
+- **Where:** The IP address and device fingerprint of the staff member.
+
+Audit logs are immutable and provide critical data for compliance and security investigations.

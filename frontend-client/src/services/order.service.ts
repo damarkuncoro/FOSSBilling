@@ -15,6 +15,17 @@ export class OrderService {
     return this.repo.getOrder(id);
   }
 
+  async syncServiceStatus(id: number): Promise<any> {
+    return this.repo.syncStatus(id);
+  }
+
+  async changeServicePassword(id: number, password: string): Promise<any> {
+    if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters long');
+    }
+    return this.repo.changePassword(id, password);
+  }
+
   filterByStatus(orders: Order[], status?: string): Order[] {
     if (!status || status === 'all') return orders;
     return orders.filter((o) => o.status.toLowerCase() === status.toLowerCase());

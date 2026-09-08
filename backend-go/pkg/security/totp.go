@@ -10,13 +10,15 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/tools"
 )
 
 // GenerateTOTPSecret creates a random base32 encoded secret for TOTP (160-bit)
 func GenerateTOTPSecret() string {
 	// For simplicity in this implementation, we use a robust random string generator
 	// and encode it to base32.
-	secret := GenerateRandomString(20)
+	secret := tools.GenerateRandomString(20)
 	return base32.StdEncoding.EncodeToString([]byte(secret))
 }
 

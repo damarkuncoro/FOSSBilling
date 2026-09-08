@@ -12,6 +12,7 @@ import (
 func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rateLimiter *middleware.RateLimiter) {
 	mux.Handle("POST /api/v1/guest/auth/register", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Register)))
 	mux.Handle("POST /api/v1/guest/auth/login", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Login)))
+	mux.Handle("POST /api/v1/guest/auth/verify-2fa", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.VerifyTwoFactor)))
 	mux.Handle("POST /api/v1/guest/cart/calculate", rateLimiter.RateLimit(http.HandlerFunc(h.GuestCart.Calculate)))
 	mux.Handle("POST /api/v1/guest/cart/checkout", http.HandlerFunc(h.GuestCart.Checkout))
 	mux.Handle("POST /api/v1/guest/webhook/custom", http.HandlerFunc(h.GuestWebhook.HandleGatewayWebhook))
@@ -19,6 +20,9 @@ func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rateLimiter *middle
 	mux.Handle("GET /api/v1/guest/currencies", rateLimiter.RateLimit(http.HandlerFunc(h.GuestCurrency.List)))
 	mux.Handle("GET /api/v1/guest/news", rateLimiter.RateLimit(http.HandlerFunc(h.GuestNews.List)))
 	mux.Handle("GET /api/v1/guest/news/{slug}", rateLimiter.RateLimit(http.HandlerFunc(h.GuestNews.Get)))
+	mux.Handle("GET /api/v1/guest/kb/categories", rateLimiter.RateLimit(http.HandlerFunc(h.GuestKB.ListCategories)))
+	mux.Handle("GET /api/v1/guest/kb/articles", rateLimiter.RateLimit(http.HandlerFunc(h.GuestKB.ListArticles)))
+	mux.Handle("GET /api/v1/guest/kb/articles/detail", rateLimiter.RateLimit(http.HandlerFunc(h.GuestKB.GetArticle)))
 	mux.Handle("GET /api/v1/guest/pages/{slug}", rateLimiter.RateLimit(http.HandlerFunc(h.GuestPage.GetPage)))
 	mux.Handle("GET /api/v1/guest/company", rateLimiter.RateLimit(http.HandlerFunc(h.GuestCompany.GetCompany)))
 	mux.Handle("GET /api/v1/guest/domains/check", rateLimiter.RateLimit(http.HandlerFunc(h.GuestDomain.CheckAvailability)))

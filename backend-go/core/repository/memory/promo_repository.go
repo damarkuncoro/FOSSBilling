@@ -24,6 +24,17 @@ func NewMockPromoRepository() *MockPromoRepository {
 	}
 }
 
+func (r *MockPromoRepository) GetByID(ctx context.Context, id int64) (*domain.Promo, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	p, ok := r.promos[id]
+	if !ok {
+		return nil, appErrors.ErrNotFound
+	}
+	cp := *p
+	return &cp, nil
+}
+
 func (r *MockPromoRepository) GetByCode(ctx context.Context, code string) (*domain.Promo, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -73,6 +84,27 @@ func (r *MockPromoRepository) IncrementUsed(ctx context.Context, promoID int64, 
 	return nil
 }
 
+func (r *MockPromoRepository) List(ctx context.Context, limit, offset int) ([]*domain.Promo, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var all []*domain.Promo
+	for _, p := range r.promos {
+		cp := *p
+		all = append(all, &cp)
+	}
+
+	total := len(all)
+	if offset >= total {
+		return []*domain.Promo{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return all[offset:end], total, nil
+}
+
 func (r *MockPromoRepository) Create(ctx context.Context, promo *domain.Promo) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -85,5 +117,25 @@ func (r *MockPromoRepository) Create(ctx context.Context, promo *domain.Promo) e
 
 	cp := *promo
 	r.promos[promo.ID] = &cp
+	return nil
+}
+
+func (r *MockPromoRepository) Update(ctx context.Context, promo *domain.Promo) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.promos[promo.ID]; !ok {
+		return appErrors.ErrNotFound
+	}
+	promo.UpdatedAt = time.Now().UTC()
+	cp := *promo
+	r.promos[promo.ID] = &cp
+	return nil
+}
+
+func (r *MockPromoRepository) Delete(ctx context.Context, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.promos, id)
 	return nil
 }

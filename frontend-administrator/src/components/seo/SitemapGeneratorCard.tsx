@@ -1,14 +1,20 @@
 import React from 'react';
-import { Map, RefreshCw, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Map, RefreshCw, ExternalLink, CheckCircle2, BellRing } from 'lucide-react';
 
 interface SitemapGeneratorCardProps {
   autoGenerate: boolean;
   onToggleAuto: (val: boolean) => void;
+  seoInfo?: any;
+  onPing: () => void;
+  pingLoading?: boolean;
 }
 
 export const SitemapGeneratorCard: React.FC<SitemapGeneratorCardProps> = ({
   autoGenerate,
   onToggleAuto,
+  seoInfo,
+  onPing,
+  pingLoading,
 }) => {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
@@ -17,22 +23,31 @@ export const SitemapGeneratorCard: React.FC<SitemapGeneratorCardProps> = ({
           <Map className="w-4 h-4 text-indigo-600" /> XML Sitemap Generator
         </h3>
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-          <CheckCircle2 className="w-3.5 h-3.5" /> Indexed & Ready
+          <CheckCircle2 className="w-3.5 h-3.5" /> {seoInfo?.last_ping_at ? 'Search Engines Notified' : 'Indexed & Ready'}
         </span>
       </div>
 
       <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="text-xs font-semibold text-gray-800">Public Sitemap Location</div>
-          <div className="font-mono text-xs text-indigo-600 mt-0.5">https://myhosting.com/sitemap.xml</div>
-          <div className="text-[11px] text-gray-400 mt-1">Includes 18 products, 4 custom pages, and 12 announcements.</div>
+          <div className="font-mono text-xs text-indigo-600 mt-0.5">{seoInfo?.sitemap_url || 'https://myhosting.com/sitemap.xml'}</div>
+          <div className="text-[11px] text-gray-400 mt-1">
+            {seoInfo?.last_ping_at
+              ? `Last pinged on: ${new Date(seoInfo.last_ping_at).toLocaleString()}`
+              : 'Includes all published products, custom pages, and announcements.'}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-xs font-medium shadow-sm">
             <ExternalLink className="w-3.5 h-3.5" /> View XML
           </button>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-xs font-medium shadow-sm">
-            <RefreshCw className="w-3.5 h-3.5" /> Rebuild Now
+          <button
+            onClick={onPing}
+            disabled={pingLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 rounded-lg text-xs font-medium shadow-sm"
+          >
+            <BellRing className={`w-3.5 h-3.5 ${pingLoading ? 'animate-bounce' : ''}`} />
+            {pingLoading ? 'Pinging...' : 'Ping Search Engines'}
           </button>
         </div>
       </div>

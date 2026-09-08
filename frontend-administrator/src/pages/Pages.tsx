@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PagesListTab } from '@/components/pages/PagesListTab';
 import { KnowledgebaseListTab } from '@/components/pages/KnowledgebaseListTab';
 import { EditPageDialog } from '@/components/pages/EditPageDialog';
+import { EditKBArticleDialog } from '@/components/pages/EditKBArticleDialog';
 
 export const Pages: React.FC = () => {
   const {
@@ -15,11 +16,17 @@ export const Pages: React.FC = () => {
     loading,
     openPageModal,
     setOpenPageModal,
+    openKBModal,
+    setOpenKBModal,
     pageForm,
     setPageForm,
+    kbForm,
+    setKBForm,
     fetchData,
     handleSavePage,
+    handleSaveKB,
     handleDeletePage,
+    handleDeleteKB,
   } = usePages();
 
   return (
@@ -74,7 +81,19 @@ export const Pages: React.FC = () => {
               <CardDescription>Troubleshooting tutorials and onboarding guides</CardDescription>
             </CardHeader>
             <CardContent>
-              <KnowledgebaseListTab articles={articles} loading={loading} />
+              <KnowledgebaseListTab
+                articles={articles}
+                loading={loading}
+                onEdit={(a) => {
+                  setKBForm(a);
+                  setOpenKBModal(true);
+                }}
+                onDelete={handleDeleteKB}
+                onNew={() => {
+                  setKBForm({ title: '', slug: '', content: '', category: '', published: true });
+                  setOpenKBModal(true);
+                }}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -86,6 +105,14 @@ export const Pages: React.FC = () => {
         form={pageForm}
         onChange={setPageForm}
         onSubmit={handleSavePage}
+      />
+
+      <EditKBArticleDialog
+        open={openKBModal}
+        onOpenChange={setOpenKBModal}
+        form={kbForm}
+        onChange={setKBForm}
+        onSubmit={handleSaveKB}
       />
     </div>
   );

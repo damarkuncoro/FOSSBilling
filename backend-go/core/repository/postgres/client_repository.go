@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const clientCols = `id, group_id, email, password_hash, first_name, last_name, 
-	company, address_1, address_2, city, state, postcode, country, phone_cc, 
-	phone, currency, tax_exempt, status, created_at, updated_at`
+const clientCols = `id, group_id, email, password_hash, first_name, last_name,
+	company, address_1, address_2, city, state, postcode, country, phone_cc,
+	phone, currency, tax_exempt, status, two_factor_enabled, two_factor_secret, created_at, updated_at`
 
 type ClientRepository struct {
 	pool *pgxpool.Pool
@@ -31,7 +31,7 @@ func scanClient(scanner interface{ Scan(...any) error }) (*domain.Client, error)
 		&c.ID, &c.GroupID, &c.Email, &c.PasswordHash, &c.FirstName, &c.LastName,
 		&c.Company, &c.Address1, &c.Address2, &c.City, &c.State, &c.Postcode,
 		&c.Country, &c.PhoneCC, &c.Phone, &c.Currency, &c.TaxExempt, &c.Status,
-		&c.CreatedAt, &c.UpdatedAt,
+		&c.TwoFactorEnabled, &c.TwoFactorSecret, &c.CreatedAt, &c.UpdatedAt,
 	)
 	return &c, err
 }
@@ -61,7 +61,7 @@ func (r *ClientRepository) GetByEmail(ctx context.Context, email string) (*domai
 }
 
 func (r *ClientRepository) Create(ctx context.Context, c *domain.Client) error {
-	query := `INSERT INTO clients (group_id, email, password_hash, first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone_cc, phone, currency, tax_exempt, status, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO clients (group_id, email, password_hash, first_name, last_name, company, address_1, address_2, city, state, postcode, country, phone_cc, phone, currency, tax_exempt, status, two_factor_enabled, two_factor_secret, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING id, created_at, updated_at`
 	now := time.Now().UTC()
 	c.CreatedAt, c.UpdatedAt = now, now
 	if c.Status == "" {
@@ -77,16 +77,16 @@ func (r *ClientRepository) Create(ctx context.Context, c *domain.Client) error {
 	return r.pool.QueryRow(ctx, query,
 		c.GroupID, c.Email, c.PasswordHash, c.FirstName, c.LastName, c.Company,
 		c.Address1, c.Address2, c.City, c.State, c.Postcode, c.Country,
-		c.PhoneCC, c.Phone, c.Currency, c.TaxExempt, c.Status, c.CreatedAt, c.UpdatedAt,
+		c.PhoneCC, c.Phone, c.Currency, c.TaxExempt, c.Status, c.TwoFactorEnabled, c.TwoFactorSecret, c.CreatedAt, c.UpdatedAt,
 	).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 }
 
 func (r *ClientRepository) Update(ctx context.Context, c *domain.Client) error {
-	query := `UPDATE clients SET first_name = $1, last_name = $2, company = $3, address_1 = $4, address_2 = $5, city = $6, state = $7, postcode = $8, country = $9, phone_cc = $10, phone = $11, currency = $12, tax_exempt = $13, status = $14, updated_at = $15 WHERE id = $16`
+	query := `UPDATE clients SET first_name = $1, last_name = $2, company = $3, address_1 = $4, address_2 = $5, city = $6, state = $7, postcode = $8, country = $9, phone_cc = $10, phone = $11, currency = $12, tax_exempt = $13, status = $14, two_factor_enabled = $15, two_factor_secret = $16, updated_at = $17 WHERE id = $18`
 	c.UpdatedAt = time.Now().UTC()
 	_, err := r.pool.Exec(ctx, query,
 		c.FirstName, c.LastName, c.Company, c.Address1, c.Address2, c.City, c.State,
-		c.Postcode, c.Country, c.PhoneCC, c.Phone, c.Currency, c.TaxExempt, c.Status, c.UpdatedAt, c.ID,
+		c.Postcode, c.Country, c.PhoneCC, c.Phone, c.Currency, c.TaxExempt, c.Status, c.TwoFactorEnabled, c.TwoFactorSecret, c.UpdatedAt, c.ID,
 	)
 	return err
 }

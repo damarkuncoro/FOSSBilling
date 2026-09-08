@@ -3,19 +3,29 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"time"
+	"strconv"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type BillingModuleHandler struct {
-	statsService *stats.StatsService
+	statsService  *stats.StatsService
+	taxCalculator *billingUsecase.TaxCalculator
+	promoRepo     domain.PromoRepository
 }
 
-func NewBillingModuleHandler(statsService *stats.StatsService) *BillingModuleHandler {
+func NewBillingModuleHandler(
+	statsService *stats.StatsService,
+	taxCalculator *billingUsecase.TaxCalculator,
+	promoRepo domain.PromoRepository,
+) *BillingModuleHandler {
 	return &BillingModuleHandler{
-		statsService: statsService,
+		statsService:  statsService,
+		taxCalculator: taxCalculator,
+		promoRepo:     promoRepo,
 	}
 }
 
@@ -30,40 +40,68 @@ func (h *BillingModuleHandler) ListGateways(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingModuleHandler) ListTaxRules(w http.ResponseWriter, r *http.Request) {
-	rules := []map[string]interface{}{
-		{"id": 1, "name": "Indonesia PPN 11%", "country": "ID", "rate": 11, "is_active": true, "apply_to_all_clients": true},
+	rules, err := h.taxCalculator.ListRules(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, rules, nil)
 }
 
 func (h *BillingModuleHandler) CreateTaxRule(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	body["id"] = time.Now().Unix()
-	response.JSON(w, http.StatusCreated, body, nil)
+	var rule domain.TaxRule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_BODY", err.Error(), nil)
+		return
+	}
+
+	if err := h.taxCalculator.CreateRule(r.Context(), &rule); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusCreated, rule, nil)
 }
 
 func (h *BillingModuleHandler) DeleteTaxRule(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err := h.taxCalculator.DeleteRule(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
 }
 
 // --- Coupons ---
 func (h *BillingModuleHandler) ListCoupons(w http.ResponseWriter, r *http.Request) {
-	coupons := []map[string]interface{}{
-		{"id": 1, "code": "MERDEKA20", "type": "percentage", "value": 20, "max_uses": 500, "used_count": 84, "is_active": true},
-		{"id": 2, "code": "HOSTING50K", "type": "fixed", "value": 50000, "max_uses": 100, "used_count": 12, "is_active": true},
+	coupons, _, err := h.promoRepo.List(r.Context(), 100, 0)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
 	}
 	response.JSON(w, http.StatusOK, coupons, nil)
 }
 
 func (h *BillingModuleHandler) CreateCoupon(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	body["id"] = time.Now().Unix()
-	response.JSON(w, http.StatusCreated, body, nil)
+	var promo domain.Promo
+	if err := json.NewDecoder(r.Body).Decode(&promo); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_BODY", err.Error(), nil)
+		return
+	}
+
+	if err := h.promoRepo.Create(r.Context(), &promo); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusCreated, promo, nil)
 }
 
 func (h *BillingModuleHandler) DeleteCoupon(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	// Delete promo by ID - assuming promoRepo has Delete method. Let's check domain/promo.go
+	if err := h.promoRepo.Delete(r.Context(), id); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
 }
 
@@ -99,47 +137,23 @@ func (h *BillingModuleHandler) SendTestEmail(w http.ResponseWriter, r *http.Requ
 
 // --- Financial Reports ---
 func (h *BillingModuleHandler) GetFinancialReports(w http.ResponseWriter, r *http.Request) {
-	if h.statsService != nil {
-		statsData, err := h.statsService.CalculateDashboard(r.Context())
-		if err == nil && statsData != nil {
-			breakdowns := make([]map[string]interface{}, 0, len(statsData.RevenueTrends))
-			for _, trend := range statsData.RevenueTrends {
-				breakdowns = append(breakdowns, map[string]interface{}{
-					"month":          trend.Month + " 2026",
-					"revenue":        trend.Revenue,
-					"tax":            trend.Revenue * 0.11, // 11% tax estimation
-					"invoices_count": statsData.PaidInvoices,
-				})
-			}
-
-			reports := map[string]interface{}{
-				"mrr":                  statsData.MonthlyRecurring.ToFloat(),
-				"arr":                  statsData.AnnualRecurring.ToFloat(),
-				"total_revenue_month":  statsData.TotalRevenue.ToFloat(),
-				"total_tax_collected":  statsData.TotalRevenue.ToFloat() * 0.11,
-				"active_subscriptions": statsData.ActiveOrders,
-				"churn_rate":           0.5,
-				"monthly_breakdown":    breakdowns,
-			}
-			response.JSON(w, http.StatusOK, reports, nil)
-			return
-		}
+	report, err := h.statsService.GetFinancialReports(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to generate financial reports", err.Error())
+		return
 	}
 
-	reports := map[string]interface{}{
-		"mrr":                  12450.0,
-		"arr":                  149400.0,
-		"total_revenue_month":  15200.0,
-		"total_tax_collected":  1672.0,
-		"active_subscriptions": 348,
-		"churn_rate":           1.4,
-		"monthly_breakdown": []map[string]interface{}{
-			{"month": "Apr 2026", "revenue": 11200, "tax": 1232, "invoices_count": 142},
-			{"month": "May 2026", "revenue": 12800, "tax": 1408, "invoices_count": 160},
-			{"month": "Jun 2026", "revenue": 13950, "tax": 1534.5, "invoices_count": 178},
-			{"month": "Jul 2026", "revenue": 14200, "tax": 1562, "invoices_count": 185},
-			{"month": "Aug 2026", "revenue": 15200, "tax": 1672, "invoices_count": 198},
-		},
+	response.JSON(w, http.StatusOK, report, nil)
+}
+
+func (h *BillingModuleHandler) ExportInvoicesCSV(w http.ResponseWriter, r *http.Request) {
+	csvData, err := h.statsService.GenerateInvoicesCSV(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to generate CSV", err.Error())
+		return
 	}
-	response.JSON(w, http.StatusOK, reports, nil)
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=invoices_export.csv")
+	w.Write([]byte(csvData))
 }

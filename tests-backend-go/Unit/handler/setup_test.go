@@ -13,15 +13,18 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	cartUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/cart"
+	formbuilderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	staffUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	supportUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
@@ -37,23 +40,23 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	supportRepo := memory.NewMockSupportRepository()
 	staffRepo := memory.NewMockStaffRepository()
 	productRepo := memory.NewMockProductRepository()
+	taxRepo := memory.NewMockTaxRepository()
 
 	mockMailer := mailer.NewMockMailer()
 	emailService := notification.NewEmailService(mockMailer, "admin@fossbilling.org", "FOSSBilling")
 
-	taxCalc := billingUsecase.NewTaxCalculator([]billingUsecase.TaxRule{
-		{Name: "PPN", Country: "ID", Rate: 11.0},
-	})
+	taxCalc := billingUsecase.NewTaxCalculator(taxRepo)
 	promoCalc := cartUsecase.NewPromoCalculator(promoRepo)
+	formService := formbuilderUsecase.NewFormbuilderService(memory.NewMockFormbuilderRepository())
 
 	// Registries
 	regRegistry := provisioning.NewRegistrarRegistry()
 	regRegistry.Register("rdap", provisioning.NewMockRegistrarDriver())
 	provRegistry := provisioning.NewProvisionerRegistry()
 
-	orderService := orderUsecase.NewOrderService(orderRepo, eventBus)
-	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, eventBus)
-	cartService := cartUsecase.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, taxCalc, invoiceService)
+	orderService := orderUsecase.NewOrderService(orderRepo, productRepo, provRegistry, regRegistry, eventBus)
+	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, plugins.NewHookManager(), eventBus)
+	cartService := cartUsecase.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invoiceService, eventBus)
 	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, eventBus)
 
 	gatewayRegistry := payment.NewGatewayRegistry()
@@ -61,7 +64,9 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 
 	supportService := supportUsecase.NewSupportService(supportRepo, clientRepo, eventBus)
 	staffService := staffUsecase.NewStaffService(staffRepo, jwtSecret)
-	authUc := authUsecase.NewAuthUsecase(clientRepo, jwtSecret)
+
+	antispamService := antispam.NewAntispamService(memory.NewMockAntispamRepository(), nil, nil, nil)
+	authUc := authUsecase.NewAuthUsecase(clientRepo, antispamService, jwtSecret)
 	passwordUc := authUsecase.NewPasswordUsecase(clientRepo)
 
 	orderListener := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, regRegistry, provRegistry)

@@ -6,7 +6,7 @@ interface FieldEditorDialogProps {
   isOpen: boolean;
   field: FormField | null;
   onClose: () => void;
-  onSave: (field: FormField) => void;
+  onSave: (field: Partial<FormField>) => void;
 }
 
 export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
@@ -19,10 +19,10 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
   const [label, setLabel] = useState('');
   const [type, setType] = useState<FormFieldType>('text');
   const [required, setRequired] = useState(false);
-  const [placeholder, setPlaceholder] = useState('');
   const [description, setDescription] = useState('');
-  const [options, setOptions] = useState<string[]>([]);
-  const [newOption, setNewOption] = useState('');
+  const [options, setOptions] = useState<Array<{ label: string; value: string }>>([]);
+  const [newOptLabel, setNewOptLabel] = useState('');
+  const [newOptValue, setNewOptValue] = useState('');
 
   useEffect(() => {
     if (field) {
@@ -30,15 +30,20 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
       setLabel(field.label);
       setType(field.type);
       setRequired(field.required);
-      setPlaceholder(field.placeholder || '');
       setDescription(field.description || '');
-      setOptions(field.options || []);
+
+      const optList: Array<{ label: string; value: string }> = [];
+      if (field.options) {
+        Object.entries(field.options).forEach(([k, v]) => {
+          optList.push({ label: k, value: String(v) });
+        });
+      }
+      setOptions(optList);
     } else {
       setName('');
       setLabel('');
       setType('text');
       setRequired(false);
-      setPlaceholder('');
       setDescription('');
       setOptions([]);
     }
@@ -47,9 +52,10 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
   if (!isOpen) return null;
 
   const handleAddOption = () => {
-    if (newOption.trim()) {
-      setOptions([...options, newOption.trim()]);
-      setNewOption('');
+    if (newOptLabel.trim()) {
+      setOptions([...options, { label: newOptLabel.trim(), value: newOptValue.trim() || newOptLabel.trim() }]);
+      setNewOptLabel('');
+      setNewOptValue('');
     }
   };
 
@@ -59,15 +65,19 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const optionsMap: Record<string, string> = {};
+    options.forEach(o => {
+      optionsMap[o.label] = o.value;
+    });
+
     onSave({
-      id: field?.id || `f_${Date.now()}`,
+      id: field?.id,
       name: name.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
       label,
       type,
       required,
-      placeholder,
       description,
-      options: ['dropdown', 'radio', 'checkbox'].includes(type) ? options : undefined,
+      options: ['select', 'radio', 'checkbox'].includes(type) ? optionsMap : undefined,
     });
   };
 
@@ -116,23 +126,31 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
                 <option value="text">Text Input</option>
                 <option value="textarea">Textarea</option>
                 <option value="number">Number</option>
-                <option value="dropdown">Dropdown Select</option>
+                <option value="select">Dropdown Select</option>
                 <option value="radio">Radio Options</option>
                 <option value="checkbox">Checkbox Toggle</option>
+                <option value="url">URL</option>
               </select>
             </div>
           </div>
 
-          {['dropdown', 'radio'].includes(type) && (
+          {['select', 'radio', 'dropdown'].includes(type) && (
             <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
               <label className="block text-xs font-semibold text-gray-700 uppercase">Choice Options</label>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Add option..."
-                  value={newOption}
-                  onChange={(e) => setNewOption(e.target.value)}
+                  placeholder="Label"
+                  value={newOptLabel}
+                  onChange={(e) => setNewOptLabel(e.target.value)}
                   className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white outline-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Value"
+                  value={newOptValue}
+                  onChange={(e) => setNewOptValue(e.target.value)}
+                  className="w-20 px-3 py-1.5 border border-gray-200 rounded-lg text-xs bg-white outline-none"
                 />
                 <button
                   type="button"
@@ -145,7 +163,7 @@ export const FieldEditorDialog: React.FC<FieldEditorDialogProps> = ({
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {options.map((opt, i) => (
                   <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs text-gray-700">
-                    {opt}
+                    {opt.label} ({opt.value})
                     <button type="button" onClick={() => handleRemoveOption(i)} className="text-gray-400 hover:text-rose-600">
                       <Trash2 className="w-3 h-3" />
                     </button>

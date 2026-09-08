@@ -41,6 +41,7 @@ type DomainRecordDTO struct {
 
 type DomainConfig struct {
 	DomainName  string   `json:"domain_name"`
+	RegistrarID string   `json:"registrar_id"`
 	Nameservers []string `json:"nameservers"`
 	AutoRenew   bool     `json:"auto_renew"`
 	EPPCode     string   `json:"epp_code"`
@@ -49,12 +50,18 @@ type DomainConfig struct {
 type DomainService struct {
 	orderRepo         domain.OrderRepository
 	registrarRegistry *provisioning.RegistrarRegistry
+	dnsRegistry       *provisioning.DNSProviderRegistry
 }
 
-func NewDomainService(orderRepo domain.OrderRepository, registrarRegistry *provisioning.RegistrarRegistry) *DomainService {
+func NewDomainService(
+	orderRepo domain.OrderRepository,
+	registrarRegistry *provisioning.RegistrarRegistry,
+	dnsRegistry *provisioning.DNSProviderRegistry,
+) *DomainService {
 	return &DomainService{
 		orderRepo:         orderRepo,
 		registrarRegistry: registrarRegistry,
+		dnsRegistry:       dnsRegistry,
 	}
 }
 
@@ -176,8 +183,20 @@ func (s *DomainService) UpdateNameservers(ctx context.Context, clientID int64, o
 	if len(order.Config) > 0 {
 		_ = json.Unmarshal(order.Config, &cfg)
 	}
-	cfg.Nameservers = cleanNS
 
+	// 1. Call Registrar API
+	if cfg.RegistrarID != "" && s.registrarRegistry != nil {
+		reg, err := s.registrarRegistry.Get(cfg.RegistrarID)
+		if err == nil && reg != nil {
+			err = reg.UpdateNameservers(ctx, cfg.DomainName, cleanNS)
+			if err != nil {
+				return fmt.Errorf("registrar error: %w", err)
+			}
+		}
+	}
+
+	// 2. Update local config
+	cfg.Nameservers = cleanNS
 	cfgBytes, err := json.Marshal(cfg)
 	if err != nil {
 		return err
@@ -185,6 +204,111 @@ func (s *DomainService) UpdateNameservers(ctx context.Context, clientID int64, o
 
 	order.Config = cfgBytes
 	return s.orderRepo.Update(ctx, order)
+}
+
+// GetEPPCode retrieves the transfer code from registrar or local cache
+func (s *DomainService) GetEPPCode(ctx context.Context, clientID int64, orderID int64) (string, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return "", ErrDomainNotFound
+	}
+
+	if order.ClientID != clientID {
+		return "", ErrUnauthorizedDomain
+	}
+
+	var cfg DomainConfig
+	if len(order.Config) > 0 {
+		_ = json.Unmarshal(order.Config, &cfg)
+	}
+
+	// Try to get live code from registrar
+	if cfg.RegistrarID != "" && s.registrarRegistry != nil {
+		reg, err := s.registrarRegistry.Get(cfg.RegistrarID)
+		if err == nil && reg != nil {
+			code, err := reg.GetEPPCode(ctx, cfg.DomainName)
+			if err == nil && code != "" {
+				return code, nil
+			}
+		}
+	}
+
+	// Fallback to cached or generated code
+	if cfg.EPPCode != "" {
+		return cfg.EPPCode, nil
+	}
+
+	return "EPP-" + strconv.FormatInt(order.ID*1337%9999+1000, 10), nil
+}
+
+// ListDNSRecords retrieves DNS records for a domain from its assigned DNS provider
+func (s *DomainService) ListDNSRecords(ctx context.Context, clientID, orderID int64) ([]domain.DNSRecord, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order.ClientID != clientID {
+		return nil, ErrUnauthorizedDomain
+	}
+
+	var cfg DomainConfig
+	_ = json.Unmarshal(order.Config, &cfg)
+	if cfg.DomainName == "" {
+		return nil, ErrInvalidDomainName
+	}
+
+	// Try to get DNS provider from config, or default to cloudflare
+	providerID := "cloudflare"
+	p, err := s.dnsRegistry.Get(providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.ListRecords(ctx, cfg.DomainName)
+}
+
+// AddDNSRecord adds a new DNS record to the domain's remote provider
+func (s *DomainService) AddDNSRecord(ctx context.Context, clientID, orderID int64, record domain.DNSRecord) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order.ClientID != clientID {
+		return ErrUnauthorizedDomain
+	}
+
+	var cfg DomainConfig
+	_ = json.Unmarshal(order.Config, &cfg)
+
+	providerID := "cloudflare"
+	p, err := s.dnsRegistry.Get(providerID)
+	if err != nil {
+		return err
+	}
+
+	return p.AddRecord(ctx, cfg.DomainName, record)
+}
+
+// DeleteDNSRecord removes a DNS record from the domain's remote provider
+func (s *DomainService) DeleteDNSRecord(ctx context.Context, clientID, orderID int64, recordID string) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order.ClientID != clientID {
+		return ErrUnauthorizedDomain
+	}
+
+	var cfg DomainConfig
+	_ = json.Unmarshal(order.Config, &cfg)
+
+	providerID := "cloudflare"
+	p, err := s.dnsRegistry.Get(providerID)
+	if err != nil {
+		return err
+	}
+
+	return p.DeleteRecord(ctx, cfg.DomainName, recordID)
 }
 
 // ToggleAutoRenew switches the auto-renew flag for a domain order

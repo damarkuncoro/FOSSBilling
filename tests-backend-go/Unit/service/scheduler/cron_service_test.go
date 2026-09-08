@@ -11,16 +11,18 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 func setupCronService() (*scheduler.CronService, *memory.MockOrderRepository, *memory.MockInvoiceRepository, *memory.MockClientRepository) {
 	orderRepo := memory.NewMockOrderRepository()
+	productRepo := memory.NewMockProductRepository()
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
 
 	taxCalc := billing.NewTaxCalculator(nil)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc)
-	orderService := order.NewOrderService(orderRepo)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, plugins.NewHookManager())
+	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil)
 
 	cronService := scheduler.NewCronService(orderRepo, orderService, invService)
 	return cronService, orderRepo, invRepo, clientRepo
