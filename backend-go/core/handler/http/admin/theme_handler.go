@@ -6,20 +6,30 @@ import (
 	"net/http"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	themeUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/theme"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type ThemeHandler struct {
-	svc *themeUsecase.ThemeService
+	staffService *staff.StaffService
+	svc          *themeUsecase.ThemeService
 }
 
-func NewThemeHandler(svc *themeUsecase.ThemeService) *ThemeHandler {
-	return &ThemeHandler{svc: svc}
+func NewThemeHandler(staffService *staff.StaffService, svc *themeUsecase.ThemeService) *ThemeHandler {
+	return &ThemeHandler{staffService: staffService, svc: svc}
 }
 
 func (h *ThemeHandler) ListThemes(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	target := domain.ThemeTarget(r.URL.Query().Get("target"))
 	themes, err := h.svc.ListThemes(r.Context(), target)
 	if err != nil {
@@ -30,6 +40,13 @@ func (h *ThemeHandler) ListThemes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ThemeHandler) GetCurrentTheme(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	target := domain.ThemeTarget(r.URL.Query().Get("target"))
 	if target == "" {
 		target = domain.ThemeTargetClient
@@ -43,6 +60,13 @@ func (h *ThemeHandler) GetCurrentTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ThemeHandler) SelectTheme(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	var req struct {
 		Code   string             `json:"code"`
 		Target domain.ThemeTarget `json:"target"`
@@ -71,6 +95,13 @@ func (h *ThemeHandler) SelectTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ThemeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	code := r.PathValue("code")
 	cfg, err := h.svc.GetConfig(r.Context(), code)
 	if err != nil {
@@ -81,6 +112,13 @@ func (h *ThemeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ThemeHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	code := r.PathValue("code")
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -7,22 +7,27 @@ import (
 	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/catalog"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type CatalogHandler struct {
+	staffService   *staff.StaffService
 	productService *catalog.ProductService
 	serverService  *catalog.ServerService
 	catalogRepo    domain.CatalogRepository
 }
 
 func NewCatalogHandler(
+	staffService *staff.StaffService,
 	productService *catalog.ProductService,
 	serverService *catalog.ServerService,
 	catalogRepo domain.CatalogRepository,
 ) *CatalogHandler {
 	return &CatalogHandler{
+		staffService:   staffService,
 		productService: productService,
 		serverService:  serverService,
 		catalogRepo:    catalogRepo,
@@ -31,6 +36,13 @@ func NewCatalogHandler(
 
 // --- Products & Categories ---
 func (h *CatalogHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "products", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: products", nil)
+		return
+	}
+
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
@@ -49,6 +61,13 @@ func (h *CatalogHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "products", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: products", nil)
+		return
+	}
+
 	var p domain.Product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
@@ -64,6 +83,13 @@ func (h *CatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "products", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: products", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
@@ -87,6 +113,13 @@ func (h *CatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "products", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: products", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
@@ -141,6 +174,13 @@ func (h *CatalogHandler) ListRegistrars(w http.ResponseWriter, r *http.Request) 
 
 // --- Servers ---
 func (h *CatalogHandler) ListServers(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "servers", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: servers", nil)
+		return
+	}
+
 	servers, err := h.serverService.ListServers(r.Context())
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
@@ -150,6 +190,13 @@ func (h *CatalogHandler) ListServers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) CreateServer(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "servers", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: servers", nil)
+		return
+	}
+
 	var s domain.Server
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
@@ -165,6 +212,13 @@ func (h *CatalogHandler) CreateServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) TestServer(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "servers", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: servers", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {
@@ -187,6 +241,13 @@ func (h *CatalogHandler) TestServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) DeleteServer(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "servers", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: servers", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 	if id == 0 {

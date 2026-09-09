@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { guestApi } from '@/lib/api/guest';
-import { setStoredClientToken } from '@/lib/api/client';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('client@fossbilling.org');
@@ -15,7 +14,7 @@ export const Login: React.FC = () => {
   const [step, setStep] = useState<'login' | '2fa'>('login');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { login, refreshUser } = useClientAuth();
+  const { completeLogin } = useClientAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,8 +27,7 @@ export const Login: React.FC = () => {
       if (res.two_factor_required) {
         setStep('2fa');
       } else {
-        setStoredClientToken(res.token);
-        await refreshUser();
+        await completeLogin(res.token, res.client);
         navigate('/dashboard');
       }
     } catch (err: any) {
@@ -45,8 +43,7 @@ export const Login: React.FC = () => {
     setLoading(true);
     try {
       const res: any = await guestApi.verifyTwoFactor(email, twoFactorCode);
-      setStoredClientToken(res.token);
-      await refreshUser();
+      await completeLogin(res.token, res.client);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid 2FA code');

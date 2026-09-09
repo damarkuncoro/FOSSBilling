@@ -6,20 +6,30 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	redirectUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/redirect"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type RedirectHandler struct {
-	svc *redirectUsecase.RedirectService
+	staffService *staff.StaffService
+	svc          *redirectUsecase.RedirectService
 }
 
-func NewRedirectHandler(svc *redirectUsecase.RedirectService) *RedirectHandler {
-	return &RedirectHandler{svc: svc}
+func NewRedirectHandler(staffService *staff.StaffService, svc *redirectUsecase.RedirectService) *RedirectHandler {
+	return &RedirectHandler{staffService: staffService, svc: svc}
 }
 
 func (h *RedirectHandler) ListRedirects(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
@@ -36,6 +46,13 @@ func (h *RedirectHandler) ListRedirects(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *RedirectHandler) GetRedirect(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -57,6 +74,13 @@ func (h *RedirectHandler) GetRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RedirectHandler) CreateRedirect(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	var req redirectUsecase.CreateRedirectDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_BODY", "Invalid JSON payload", err.Error())
@@ -73,6 +97,13 @@ func (h *RedirectHandler) CreateRedirect(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *RedirectHandler) UpdateRedirect(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -101,6 +132,13 @@ func (h *RedirectHandler) UpdateRedirect(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *RedirectHandler) DeleteRedirect(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

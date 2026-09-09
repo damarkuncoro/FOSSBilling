@@ -8,6 +8,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
 type Service interface {
@@ -56,8 +57,8 @@ func (s *MassMailService) Create(ctx context.Context, adminID int64, subject, co
 
 	campaign := &domain.MassMailCampaign{
 		AdminID: adminID,
-		Subject: subject,
-		Content: content,
+		Subject: security.SanitizeAlphaNumeric(subject),
+		Content: security.SanitizeHTML(content),
 		Status:  domain.CampaignStatusDraft,
 	}
 

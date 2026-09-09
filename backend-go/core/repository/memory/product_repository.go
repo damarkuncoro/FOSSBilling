@@ -64,6 +64,20 @@ func (m *MockProductRepository) Update(ctx context.Context, p *domain.Product) e
 	return nil
 }
 
+func (m *MockProductRepository) DecrementStock(ctx context.Context, id int64, quantity int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, ok := m.products[id]
+	if !ok {
+		return nil
+	}
+	if p.Stock < quantity {
+		return nil // Simplified for mock
+	}
+	p.Stock -= quantity
+	return nil
+}
+
 func (m *MockProductRepository) Delete(ctx context.Context, id int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

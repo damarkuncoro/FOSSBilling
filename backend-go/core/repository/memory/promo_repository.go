@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -68,6 +69,24 @@ func (r *MockPromoRepository) IncrementUsed(ctx context.Context, promoID int64, 
 	p, ok := r.promos[promoID]
 	if !ok {
 		return appErrors.ErrNotFound
+	}
+
+	// Atomic integrity check
+	if p.MaxUses > 0 && p.UsedCount >= p.MaxUses {
+		return errors.New("maximum promo usage limit reached")
+	}
+
+	// BUG-18 Fix: Check OncePerClient inside the lock
+	if p.OncePerClient {
+		count := 0
+		for _, red := range r.redemptions {
+			if red.PromoID == promoID && red.ClientID == clientID {
+				count++
+			}
+		}
+		if count > 0 {
+			return errors.New("promo code can only be used once per client")
+		}
 	}
 
 	p.UsedCount++

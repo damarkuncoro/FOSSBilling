@@ -56,7 +56,7 @@ export const Invoices: React.FC = () => {
       <Card className="border-border/60 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base font-semibold">
-            Invoice History ({invoices.length})
+            Invoice History ({invoices?.length || 0})
           </CardTitle>
           <CardDescription>Instant receipts and tax compliance documentation</CardDescription>
         </CardHeader>

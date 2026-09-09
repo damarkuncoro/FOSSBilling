@@ -84,6 +84,7 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 
 	// System (Security, Health, Pages, KB)
 	mux.Handle("GET /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.GetSecuritySettings)))
+	mux.Handle("PUT /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.UpdateSecuritySettings)))
 	mux.Handle("GET /api/v1/admin/notifications", aAuth(http.HandlerFunc(h.AdminNotification.List)))
 	mux.Handle("PUT /api/v1/admin/notifications/{id}/read", aAuth(http.HandlerFunc(h.AdminNotification.MarkRead)))
 	mux.Handle("POST /api/v1/admin/notifications/mark-all-read", aAuth(http.HandlerFunc(h.AdminNotification.MarkAllRead)))

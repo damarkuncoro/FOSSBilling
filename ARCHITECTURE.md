@@ -158,15 +158,25 @@ Menggunakan publish-subscribe event bus untuk mengisolasi efek samping (*side-ef
 
 ---
 
-## 🧪 9. Perintah Pengujian & Build
+## 🧪 9. Perintah Pengujian, Build & Simulasi
 
+Sistem menyediakan berbagai mekanisme validasi untuk memastikan stabilitas kode:
+
+### A. Testing
 ```bash
 # Jalankan seluruh unit & integration test suites
 make test
+```
 
+### B. Build
+```bash
 # Kompilasi seluruh binary Go dan frontend React bundles
 make build
-
-# Eksekusi simulasi bisnis E2E secara langsung
-make demo
 ```
+
+### C. Ultra-Deep E2E Business Simulation
+Sistem menyertakan skrip simulasi alur bisnis nyata secara mendalam yang menguji integrasi antar modul (Auth, Billing, Order, Provisioning, CRM, Stats) dalam satu alur kerja terpadu:
+```bash
+go run backend-go/cmd/demo/deep_simulation.go
+```
+Simulasi ini menguji skenario mulai dari deteksi fraud (antispam), aktivasi 2FA, kalkulasi pajak PPN 11%, hingga otomatisasi siklus hidup layanan (Provisioning & Termination).

@@ -21,12 +21,14 @@ export const ClientLayout: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Desktop Fixed Sidebar */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 z-30">
-        <ClientSidebar onOpenDeposit={() => setDepositOpen(true)} />
-      </div>
+      {isAuthenticated && (
+        <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 z-30">
+          <ClientSidebar onOpenDeposit={() => setDepositOpen(true)} />
+        </div>
+      )}
 
       {/* Mobile Drawer Overlay */}
-      {mobileSidebarOpen && (
+      {isAuthenticated && mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
             className="fixed inset-0 bg-background/80 backdrop-blur-sm"
@@ -55,24 +57,36 @@ export const ClientLayout: React.FC = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${isAuthenticated ? 'lg:pl-64' : ''}`}>
         {/* Top Header Bar */}
         <header className="sticky top-0 z-20 h-16 border-b bg-background/80 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden h-9 w-9"
-              onClick={() => setMobileSidebarOpen(true)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <Link to="/" className="flex items-center gap-2 lg:hidden">
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden h-9 w-9"
+                onClick={() => setMobileSidebarOpen(true)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
+            <Link to="/" className={`flex items-center gap-2 ${isAuthenticated ? 'lg:hidden' : ''}`}>
               <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
                 <Shield className="h-4 w-4" />
               </div>
               <span className="font-bold text-sm">FOSSBilling</span>
             </Link>
+
+            {/* Public Navigation (Visible when not logged in) */}
+            {!isAuthenticated && (
+              <nav className="hidden md:flex items-center gap-6 ml-8">
+                <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Store</Link>
+                <Link to="/domains" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Domains</Link>
+                <Link to="/kb" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Help Center</Link>
+                <Link to="/news" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">News</Link>
+              </nav>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -98,7 +112,7 @@ export const ClientLayout: React.FC = () => {
             <Link to="/cart">
               <Button variant="outline" size="icon" className="h-9 w-9 relative shadow-sm">
                 <ShoppingCart className="h-4 w-4" />
-                {items.length > 0 && (
+                {items && items.length > 0 && (
                   <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
                     {items.length}
                   </span>

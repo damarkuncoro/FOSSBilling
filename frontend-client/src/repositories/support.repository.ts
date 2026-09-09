@@ -3,8 +3,13 @@ import type { SupportTicket } from '@/types/api';
 
 export interface ISupportRepository {
   listTickets(): Promise<SupportTicket[]>;
-  getTicket(id: number): Promise<SupportTicket>;
-  openTicket(dto: { subject: string; content: string; priority?: string }): Promise<SupportTicket>;
+  getTicket(id: number): Promise<{ ticket: SupportTicket; messages: any[] }>;
+  openTicket(dto: {
+    subject: string;
+    message: string;
+    helpdesk_id?: number;
+    priority?: string;
+  }): Promise<SupportTicket>;
   replyTicket(id: number, content: string): Promise<any>;
   closeTicket(id: number): Promise<any>;
 }
@@ -14,21 +19,29 @@ export class SupportRepository implements ISupportRepository {
     return request<SupportTicket[]>('/client/support/tickets');
   }
 
-  async getTicket(id: number): Promise<SupportTicket> {
-    return request<SupportTicket>(`/client/support/tickets/${id}`);
+  async getTicket(id: number): Promise<{ ticket: SupportTicket; messages: any[] }> {
+    return request<{ ticket: SupportTicket; messages: any[] }>(`/client/support/tickets/${id}`);
   }
 
-  async openTicket(dto: { subject: string; content: string; priority?: string }): Promise<SupportTicket> {
+  async openTicket(dto: {
+    subject: string;
+    message: string;
+    helpdesk_id?: number;
+    priority?: string;
+  }): Promise<SupportTicket> {
     return request<SupportTicket>('/client/support/tickets', {
       method: 'POST',
-      body: JSON.stringify(dto),
+      body: JSON.stringify({
+        ...dto,
+        helpdesk_id: dto.helpdesk_id || 1,
+      }),
     });
   }
 
-  async replyTicket(id: number, content: string): Promise<any> {
+  async replyTicket(id: number, message: string): Promise<any> {
     return request(`/client/support/tickets/${id}/reply`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ message }),
     });
   }
 

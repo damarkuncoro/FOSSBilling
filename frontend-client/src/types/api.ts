@@ -56,17 +56,21 @@ export interface SupportTicket {
   id: number;
   client_id: number;
   subject: string;
-  content?: string;
   status: 'open' | 'answered' | 'closed' | 'on_hold';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   created_at: string;
   updated_at?: string;
-  replies?: Array<{
-    id: number;
-    author: string;
-    content: string;
-    created_at: string;
-  }>;
+  messages?: TicketMessage[];
+}
+
+export interface TicketMessage {
+  id: number;
+  ticket_id: number;
+  admin_id?: number;
+  client_id?: number;
+  content: string;
+  ip_address?: string;
+  created_at: string;
 }
 
 export interface ApiKey {

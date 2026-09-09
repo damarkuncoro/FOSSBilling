@@ -27,7 +27,7 @@ export const Cart: React.FC = () => {
     handleCheckout,
   } = useClientCartPage();
 
-  if (items.length === 0) {
+  if (!items || items.length === 0) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-center space-y-4 py-16 animate-in fade-in">
         <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground">

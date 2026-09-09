@@ -42,11 +42,32 @@ export const TicketReplyDialog: React.FC<TicketReplyDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 my-2">
-          <div className="p-4 rounded-lg bg-muted/40 border text-sm space-y-2">
-            <p className="font-semibold text-xs text-muted-foreground uppercase">Initial Message:</p>
-            <p className="whitespace-pre-wrap">{selectedTicket.content || selectedTicket.subject}</p>
-          </div>
+        <div className="space-y-4 my-2 max-h-[50vh] overflow-y-auto px-1">
+          {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+            selectedTicket.messages.map((msg: any) => (
+              <div
+                key={msg.id}
+                className={`p-3 rounded-lg border text-sm space-y-1 ${
+                  msg.admin_id ? 'bg-primary/5 border-primary/20 ml-4' : 'bg-muted/40 border-border mr-4'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    {msg.admin_id ? 'Your Response' : 'Client Message'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date(msg.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            ))
+          ) : (
+            <div className="p-4 rounded-lg bg-muted/40 border text-sm space-y-2">
+              <p className="font-semibold text-xs text-muted-foreground uppercase">Initial Message:</p>
+              <p className="whitespace-pre-wrap">{selectedTicket.subject}</p>
+            </div>
+          )}
 
           <form onSubmit={onReply} className="space-y-3">
             <label className="text-xs font-semibold">Staff Response:</label>

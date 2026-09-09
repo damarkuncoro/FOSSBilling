@@ -174,6 +174,14 @@ func (r *InvoiceRepository) UpdateStatus(ctx context.Context, id int64, status d
 	return err
 }
 
+func (r *InvoiceRepository) UpdateStatusAtomic(ctx context.Context, id int64, newStatus, oldStatus domain.InvoiceStatus) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `UPDATE invoices SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND status = $3`, newStatus, id, oldStatus)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 func (r *InvoiceRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM invoices WHERE id = $1`, id)
 	return err

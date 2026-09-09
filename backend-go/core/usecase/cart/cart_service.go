@@ -82,32 +82,42 @@ func NewCartService(
 func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 	var subtotal decimal.Money
 	for i, it := range cart.Items {
-		// Security: Verify price against database if ProductID is provided
-		if it.ProductID > 0 && s.productRepo != nil {
+		if it.ProductID <= 0 {
+			return fmt.Errorf("invalid product ID: %d", it.ProductID)
+		}
+
+		if it.Quantity <= 0 {
+			return fmt.Errorf("invalid quantity for product %d: must be greater than zero", it.ProductID)
+		}
+
+		// Security: Verify price against database
+		if s.productRepo != nil {
 			dbProd, err := s.productRepo.GetByID(ctx, it.ProductID)
-			if err == nil && dbProd != nil {
-				// Override with DB price for security
-				switch it.Period {
-				case "1Y":
-					if dbProd.PriceAnnually > 0 {
-						cart.Items[i].Price = dbProd.PriceAnnually
-					}
-				default:
-					if dbProd.PriceMonthly > 0 {
-						cart.Items[i].Price = dbProd.PriceMonthly
-					}
+			if err != nil || dbProd == nil {
+				return fmt.Errorf("product not found: %d", it.ProductID)
+			}
+
+			// Override with DB price for security
+			switch it.Period {
+			case "1Y":
+				if dbProd.PriceAnnually > 0 {
+					cart.Items[i].Price = dbProd.PriceAnnually
 				}
-				if cart.Items[i].Title == "" {
-					cart.Items[i].Title = dbProd.Name
+			default:
+				if dbProd.PriceMonthly > 0 {
+					cart.Items[i].Price = dbProd.PriceMonthly
 				}
+			}
+			if cart.Items[i].Title == "" {
+				cart.Items[i].Title = dbProd.Name
 			}
 		}
 
-		qty := it.Quantity
-		if qty <= 0 {
-			qty = 1
+		if cart.Items[i].Price < 0 {
+			return errors.New("item price cannot be negative")
 		}
-		subtotal += cart.Items[i].Price * decimal.Money(qty)
+
+		subtotal += cart.Items[i].Price * decimal.Money(it.Quantity)
 	}
 
 	cart.Subtotal = subtotal
@@ -145,17 +155,21 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 		return nil, ErrEmptyCart
 	}
 
-	_ = s.CalculateTotals(ctx, cart)
+	if err := s.CalculateTotals(ctx, cart); err != nil {
+		return nil, err
+	}
 
 	var createdOrders []*domain.Order
 	var invoiceItems []billing.CreateInvoiceItemDTO
 
-	for i, item := range cart.Items {
-		qty := item.Quantity
-		if qty <= 0 {
-			qty = 1
+	currency := "USD"
+	if cart.ClientID > 0 && s.clientRepo != nil {
+		if client, err := s.clientRepo.GetByID(ctx, cart.ClientID); err == nil && client != nil {
+			currency = client.Currency
 		}
+	}
 
+	for i, item := range cart.Items {
 		// Validation: If product has a custom form, validate it
 		if item.ProductID > 0 && s.productRepo != nil && s.formService != nil {
 			prod, err := s.productRepo.GetByID(ctx, item.ProductID)
@@ -176,20 +190,16 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 			}
 		}
 
-		// Check stock if applicable
+		// BUG-24 FIX: Use atomic decrement for stock
 		if item.ProductID > 0 && s.productRepo != nil {
-			prod, err := s.productRepo.GetByID(ctx, item.ProductID)
-			if err == nil && prod != nil && prod.Stock > 0 {
-				// Simple stock decrement (not concurrent safe here, but better than nothing)
-				// In production, use ATOMIC decrement in DB
-				if prod.Stock < qty {
-					return nil, fmt.Errorf("insufficient stock for '%s'", item.Title)
-				}
-				prod.Stock -= qty
-				_ = s.productRepo.Update(ctx, prod)
+			err := s.productRepo.DecrementStock(ctx, item.ProductID, item.Quantity)
+			if err != nil {
+				return nil, fmt.Errorf("could not purchase '%s': %w", item.Title, err)
+			}
 
-				// Trigger Low Stock Alert if under threshold (e.g. 5)
-				if prod.Stock <= 5 && s.eventBus != nil {
+			// Check stock for event triggering (optional check after atomic update)
+			if prod, err := s.productRepo.GetByID(ctx, item.ProductID); err == nil && prod != nil && prod.Stock <= 5 {
+				if s.eventBus != nil {
 					s.eventBus.PublishAsync(ctx, events.Event{
 						Type:    events.EventLowStock,
 						Payload: prod,
@@ -205,7 +215,7 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 			Title:     item.Title,
 			Period:    item.Period,
 			Price:     item.Price,
-			Currency:  "USD",
+			Currency:  currency,
 			Config:    item.Config,
 		}
 
@@ -219,7 +229,7 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 			Title:    item.Title,
 			Period:   &item.Period,
 			Price:    item.Price,
-			Quantity: qty,
+			Quantity: item.Quantity,
 			Taxable:  true,
 		})
 	}
@@ -239,7 +249,7 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 	// Generate Invoice
 	invoice, err := s.invoiceService.CreateInvoice(ctx, billing.CreateInvoiceDTO{
 		ClientID: cart.ClientID,
-		Currency: "USD",
+		Currency: currency,
 		DueDays:  14,
 		Items:    invoiceItems,
 	})
@@ -256,7 +266,9 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 	// Record promo redemption if applicable
 	if cart.PromoCode != "" {
 		if promo, err := s.promoRepo.GetByCode(ctx, cart.PromoCode); err == nil && promo != nil {
-			_ = s.promoRepo.IncrementUsed(ctx, promo.ID, cart.ClientID, &createdOrders[0].ID)
+			if err := s.promoRepo.IncrementUsed(ctx, promo.ID, cart.ClientID, &createdOrders[0].ID); err != nil {
+				return nil, fmt.Errorf("failed to apply promo: %w", err)
+			}
 		}
 	}
 

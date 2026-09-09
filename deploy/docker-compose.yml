@@ -45,6 +45,7 @@ services:
       - DATABASE_URL=postgres://fossbilling:secretpassword123@postgres:5432/fossbilling?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=production-ready-super-secret-jwt-key-32-chars
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,https://admin.fossbilling.org,https://client.fossbilling.org
     depends_on:
       postgres:
         condition: service_healthy

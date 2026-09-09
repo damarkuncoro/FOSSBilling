@@ -1,10 +1,7 @@
 package guest
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -21,53 +18,43 @@ func NewWebhookHandler(webhookService *payment.WebhookService) *WebhookHandler {
 }
 
 func (h *WebhookHandler) HandleGatewayWebhook(w http.ResponseWriter, r *http.Request) {
-	// Extract gateway name from path, e.g., /api/v1/guest/gateways/stripe/webhook or /api/v1/guest/webhook/custom
+	// 1. Determine which gateway this webhook is for
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	gatewayID := "generic"
+	gatewayID := ""
 	for i, part := range pathParts {
-		if part == "gateways" && i+1 < len(pathParts) {
-			gatewayID = pathParts[i+1]
-			break
-		}
-		if part == "webhook" && i+1 < len(pathParts) {
+		if (part == "gateways" || part == "webhook") && i+1 < len(pathParts) {
 			gatewayID = pathParts[i+1]
 			break
 		}
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Failed to read request payload", nil)
+	if gatewayID == "" {
+		response.Error(w, http.StatusBadRequest, "INVALID_GATEWAY", "Gateway ID not specified in path", nil)
 		return
 	}
 
-	var payload payment.WebhookPayload
-	if len(body) > 0 {
-		_ = json.Unmarshal(body, &payload)
+	// 2. Delegate parsing and SIGNATURE VERIFICATION to the specific gateway driver
+	// This is CRITICAL for security (BUG-32 FIX)
+	result, err := h.webhookService.ProcessRawWebhook(r, gatewayID)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "WEBHOOK_VERIFICATION_FAILED", err.Error(), nil)
+		return
 	}
 
-	// Fallback to URL query parameters if not provided in JSON body
-	if payload.InvoiceID == 0 {
-		if invStr := r.URL.Query().Get("invoice_id"); invStr != "" {
-			var id int64
-			_, _ = fmt.Sscanf(invStr, "%d", &id)
-			payload.InvoiceID = id
-		}
-	}
-	if payload.TxnID == "" {
-		payload.TxnID = r.URL.Query().Get("txn_id")
-	}
-	if payload.Currency == "" {
-		payload.Currency = r.URL.Query().Get("currency")
-	}
-	if payload.TxnID == "" {
-		payload.TxnID = "TXN-" + r.URL.Query().Get("invoice_id")
+	if !result.IsPaid {
+		response.JSON(w, http.StatusOK, map[string]string{"status": "ignored", "reason": "event_not_paid"}, nil)
+		return
 	}
 
-	if payload.GatewayID == "" {
-		payload.GatewayID = gatewayID
+	// 3. Process the verified payment in the system
+	payload := payment.WebhookPayload{
+		GatewayID: gatewayID,
+		TxnID:     result.TransactionID,
+		InvoiceID: result.InvoiceID,
+		Amount:    result.Amount,
+		Currency:  result.Currency,
+		Raw:       result.RawPayload,
 	}
-	payload.Raw = body
 
 	txn, err := h.webhookService.HandlePaymentWebhook(r.Context(), payload)
 	if err != nil {
@@ -75,11 +62,11 @@ func (h *WebhookHandler) HandleGatewayWebhook(w http.ResponseWriter, r *http.Req
 			response.JSON(w, http.StatusOK, map[string]interface{}{
 				"status":  "duplicate_ignored",
 				"message": "Transaction already processed",
-				"txn_id":  txn.TxnID,
+				"txn_id":  payload.TxnID,
 			}, nil)
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "WEBHOOK_FAILED", err.Error(), nil)
+		response.Error(w, http.StatusInternalServerError, "PROCESSING_FAILED", err.Error(), nil)
 		return
 	}
 

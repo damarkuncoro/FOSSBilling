@@ -17,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  completeLogin: (token: string, staff?: StaffUser) => void;
   refreshUser: () => Promise<void>;
   logout: () => void;
   theme: 'light' | 'dark';
@@ -27,8 +28,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<StaffUser | null>(() => {
-    const saved = localStorage.getItem('fossbilling_admin_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('fossbilling_admin_user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
   });
   const [token, setToken] = useState<string | null>(getStoredToken);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -69,14 +76,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // For now we just keep the existing state
   };
 
+  const completeLogin = (newToken: string, staffData?: StaffUser) => {
+    setStoredToken(newToken);
+    setToken(newToken);
+    if (staffData) {
+      setUser(staffData);
+      localStorage.setItem('fossbilling_admin_user', JSON.stringify(staffData));
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const res = await adminAuthService.login(email, password);
-      setStoredToken(res.token);
-      setToken(res.token);
-      setUser(res.staff);
-      localStorage.setItem('fossbilling_admin_user', JSON.stringify(res.staff));
+      completeLogin(res.token, res.staff);
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        completeLogin,
         refreshUser,
         logout,
         theme,

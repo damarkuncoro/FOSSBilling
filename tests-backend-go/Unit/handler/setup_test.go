@@ -57,7 +57,8 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	orderService := orderUsecase.NewOrderService(orderRepo, productRepo, provRegistry, regRegistry, eventBus)
 	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, plugins.NewHookManager(), eventBus)
 	cartService := cartUsecase.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invoiceService, eventBus)
-	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, eventBus)
+	gatewayRegistry := paymentService.NewGatewayRegistry()
+	webhookService := paymentUsecase.NewWebhookService(txnRepo, invoiceRepo, gatewayRegistry, eventBus)
 
 	gatewayRegistry := payment.NewGatewayRegistry()
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, invoiceRepo, clientRepo)

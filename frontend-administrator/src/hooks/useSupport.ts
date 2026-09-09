@@ -42,11 +42,27 @@ export function useSupport() {
     }
   };
 
+  const handleSelectTicket = async (ticket: SupportTicket | null) => {
+    if (!ticket) {
+      setSelectedTicket(null);
+      return;
+    }
+
+    // Fetch full ticket details including replies
+    try {
+      const details = await adminSupportService.getTicketDetail(ticket.id);
+      setSelectedTicket(details);
+    } catch (err) {
+      console.error(err);
+      setSelectedTicket(ticket); // Fallback to list object
+    }
+  };
+
   return {
     tickets,
     loading,
     selectedTicket,
-    setSelectedTicket,
+    setSelectedTicket: handleSelectTicket,
     replyText,
     setReplyText,
     replyLoading,

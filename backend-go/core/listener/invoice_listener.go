@@ -47,11 +47,35 @@ func (l *InvoiceListener) HandleInvoicePaid(ctx context.Context, e events.Event)
 		return nil
 	}
 
-	log.Printf("📢 [Event Listener] Invoice #%d marked as paid. Dispatching receipt...", invID)
+	log.Printf("📢 [Event Listener] Invoice #%d marked as paid. Processing side effects...", invID)
 
 	inv, err := l.invoiceRepo.GetByID(ctx, invID)
 	if err != nil || inv == nil {
 		return err
+	}
+
+	// BUG-19 Fix: Check if this is a deposit invoice and add balance
+	isDeposit := false
+	for _, item := range inv.Items {
+		// Pattern matching for deposit items
+		if item.OrderID == nil && (item.Title == "Account Balance Deposit / Top-up" || item.Title == "Topup Saldo") {
+			isDeposit = true
+			break
+		}
+	}
+
+	if isDeposit {
+		log.Printf("   💰 Invoice #%d recognized as Deposit. Adding %s to client #%d balance...", invID, inv.Total.String(), inv.ClientID)
+		err := l.clientRepo.AddBalanceTransaction(ctx, &domain.ClientBalance{
+			ClientID:    inv.ClientID,
+			Type:        domain.BalanceTypeCredit,
+			Amount:      inv.Total,
+			Description: "Deposit via Invoice #" + inv.Serie + inv.Nr,
+			RelID:       &inv.ID,
+		})
+		if err != nil {
+			log.Printf("   ❌ FAILED to add balance for invoice #%d: %v", invID, err)
+		}
 	}
 
 	client, err := l.clientRepo.GetByID(ctx, inv.ClientID)

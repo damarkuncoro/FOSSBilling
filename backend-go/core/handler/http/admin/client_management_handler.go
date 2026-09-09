@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
 type ClientManagementHandler struct {
@@ -25,6 +27,13 @@ func NewClientManagementHandler(staffService *staff.StaffService, clientRepo dom
 }
 
 func (h *ClientManagementHandler) ListClients(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
 	limit, offset := 50, 0
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 {
@@ -46,6 +55,13 @@ func (h *ClientManagementHandler) ListClients(w http.ResponseWriter, r *http.Req
 }
 
 func (h *ClientManagementHandler) GetClient(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -77,6 +93,13 @@ type ClientPayload struct {
 }
 
 func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
 	var req ClientPayload
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid JSON payload", nil)
@@ -100,9 +123,12 @@ func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Re
 
 	client := &domain.Client{
 		Email: req.Email, PasswordHash: passHash,
-		FirstName: req.FirstName, LastName: req.LastName,
-		Company: req.Company, Country: req.Country,
-		Currency: req.Currency, Status: domain.ClientStatus(req.Status),
+		FirstName: security.SanitizeAlphaNumeric(req.FirstName),
+		LastName:  security.SanitizeAlphaNumeric(req.LastName),
+		Company:   security.SanitizeHTML(req.Company),
+		Country:   security.SanitizeAlphaNumeric(req.Country),
+		Currency:  security.SanitizeAlphaNumeric(req.Currency),
+		Status:    domain.ClientStatus(req.Status),
 		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
 	}
 
@@ -114,6 +140,13 @@ func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -134,22 +167,22 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 	}
 
 	if req.FirstName != "" {
-		client.FirstName = req.FirstName
+		client.FirstName = security.SanitizeAlphaNumeric(req.FirstName)
 	}
 	if req.LastName != "" {
-		client.LastName = req.LastName
+		client.LastName = security.SanitizeAlphaNumeric(req.LastName)
 	}
 	if req.Email != "" {
 		client.Email = req.Email
 	}
 	if req.Company != "" {
-		client.Company = req.Company
+		client.Company = security.SanitizeHTML(req.Company)
 	}
 	if req.Country != "" {
-		client.Country = req.Country
+		client.Country = security.SanitizeAlphaNumeric(req.Country)
 	}
 	if req.Currency != "" {
-		client.Currency = req.Currency
+		client.Currency = security.SanitizeAlphaNumeric(req.Currency)
 	}
 	if req.Status != "" {
 		client.Status = domain.ClientStatus(req.Status)
@@ -166,6 +199,13 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ClientManagementHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	clientID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

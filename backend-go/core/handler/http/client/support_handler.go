@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
@@ -91,8 +90,8 @@ func (h *SupportHandler) GetTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	ticketID, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+	idStr := r.PathValue("id")
+	ticketID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
 		return
@@ -117,8 +116,8 @@ func (h *SupportHandler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	ticketID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	ticketID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
 		return
@@ -147,8 +146,8 @@ func (h *SupportHandler) CloseTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	ticketID, err := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+	idStr := r.PathValue("id")
+	ticketID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
 		return

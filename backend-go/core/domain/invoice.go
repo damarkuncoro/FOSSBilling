@@ -56,5 +56,6 @@ type InvoiceRepository interface {
 	MarkAsPaid(ctx context.Context, id int64, paidAt time.Time) error
 	Update(ctx context.Context, invoice *Invoice) error
 	UpdateStatus(ctx context.Context, id int64, status InvoiceStatus) error
+	UpdateStatusAtomic(ctx context.Context, id int64, newStatus, oldStatus InvoiceStatus) (bool, error)
 	Delete(ctx context.Context, id int64) error
 }

@@ -21,7 +21,12 @@ export function useAntiSpam() {
     setLoading(true);
     try {
       const data = await api.getSecuritySettings().catch(() => null);
-      if (data) setSettings(data);
+      if (data) {
+        setSettings({
+          ...data,
+          ip_blacklist: Array.isArray(data.ip_blacklist) ? data.ip_blacklist : [],
+        });
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -41,7 +46,10 @@ export function useAntiSpam() {
       await api.updateSecuritySettings(settings);
       setSaveMessage('Anti-Spam & Security policies successfully updated!');
     } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
+      console.error(err);
+      setSaveMessage(null);
+      // Fallback if no alert/toast system
+      alert(`Save failed: ${err.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -49,18 +57,20 @@ export function useAntiSpam() {
 
   const handleAddIp = () => {
     if (!newIp.trim()) return;
-    if (settings.ip_blacklist.includes(newIp.trim())) return;
+    const blacklist = Array.isArray(settings.ip_blacklist) ? settings.ip_blacklist : [];
+    if (blacklist.includes(newIp.trim())) return;
     setSettings((prev) => ({
       ...prev,
-      ip_blacklist: [...prev.ip_blacklist, newIp.trim()],
+      ip_blacklist: [...blacklist, newIp.trim()],
     }));
     setNewIp('');
   };
 
   const handleRemoveIp = (ip: string) => {
+    const blacklist = Array.isArray(settings.ip_blacklist) ? settings.ip_blacklist : [];
     setSettings((prev) => ({
       ...prev,
-      ip_blacklist: prev.ip_blacklist.filter((item) => item !== ip),
+      ip_blacklist: blacklist.filter((item) => item !== ip),
     }));
   };
 

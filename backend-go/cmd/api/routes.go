@@ -129,5 +129,5 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter *middleware.Rat
 	registerClientRoutes(mux, h, clientAuth)
 	registerAdminRoutes(mux, h, adminAuth, rateLimiter)
 
-	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(i18n.LocaleMiddleware(mux)))))
+	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux)))))
 }

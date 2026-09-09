@@ -9,6 +9,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
 var (
@@ -70,7 +71,7 @@ func (s *SupportService) OpenTicket(ctx context.Context, dto CreateTicketDTO) (*
 	ticket := &domain.Ticket{
 		ClientID:   dto.ClientID,
 		HelpdeskID: dto.HelpdeskID,
-		Subject:    dto.Subject,
+		Subject:    security.SanitizeHTML(dto.Subject),
 		Status:     domain.TicketStatusOpen,
 		Priority:   dto.Priority,
 		RelType:    dto.RelType,
@@ -79,7 +80,7 @@ func (s *SupportService) OpenTicket(ctx context.Context, dto CreateTicketDTO) (*
 
 	initialMsg := &domain.TicketMessage{
 		ClientID:  &dto.ClientID,
-		Content:   dto.Message,
+		Content:   security.SanitizeHTML(dto.Message),
 		IPAddress: dto.IPAddress,
 	}
 
@@ -126,7 +127,7 @@ func (s *SupportService) ClientReply(ctx context.Context, ticketID, clientID int
 	msg := &domain.TicketMessage{
 		TicketID:  ticketID,
 		ClientID:  &clientID,
-		Content:   message,
+		Content:   security.SanitizeHTML(message),
 		IPAddress: ipAddress,
 	}
 
@@ -169,7 +170,7 @@ func (s *SupportService) StaffReply(ctx context.Context, ticketID, adminID int64
 	msg := &domain.TicketMessage{
 		TicketID: ticketID,
 		AdminID:  &adminID,
-		Content:  message,
+		Content:  security.SanitizeHTML(message),
 	}
 
 	if err := s.supportRepo.AddMessage(ctx, msg); err != nil {

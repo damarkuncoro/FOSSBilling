@@ -20,6 +20,7 @@ interface ClientAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  completeLogin: (token: string, user?: ClientUser) => Promise<void>;
   refreshUser: () => Promise<void>;
   register: (dto: {
     email: string;
@@ -38,8 +39,14 @@ const ClientAuthContext = createContext<ClientAuthContextType | undefined>(undef
 
 export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<ClientUser | null>(() => {
-    const saved = localStorage.getItem('fossbilling_client_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('fossbilling_client_user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
   });
   const [token, setToken] = useState<string | null>(getStoredClientToken);
   const [balance, setBalance] = useState<number>(0);
@@ -78,15 +85,29 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [token]);
 
+  const completeLogin = async (newToken: string, userData?: ClientUser) => {
+    setStoredClientToken(newToken);
+    setToken(newToken);
+    if (userData) {
+      setUser(userData);
+      localStorage.setItem('fossbilling_client_user', JSON.stringify(userData));
+    }
+    // Fetch latest profile and balance
+    try {
+      const data = await api.getProfile();
+      setUser(data.client);
+      setBalance(data.balance || 0);
+      localStorage.setItem('fossbilling_client_user', JSON.stringify(data.client));
+    } catch (err) {
+      console.error('Failed to fetch profile after login', err);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const res = await api.login(email, password);
-      setStoredClientToken(res.token);
-      setToken(res.token);
-      setUser(res.client);
-      localStorage.setItem('fossbilling_client_user', JSON.stringify(res.client));
-      await refreshProfile();
+      await completeLogin(res.token, res.client);
     } finally {
       setIsLoading(false);
     }
@@ -102,11 +123,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsLoading(true);
     try {
       const res = await api.register(dto);
-      setStoredClientToken(res.token);
-      setToken(res.token);
-      setUser(res.client);
-      localStorage.setItem('fossbilling_client_user', JSON.stringify(res.client));
-      await refreshProfile();
+      await completeLogin(res.token, res.client);
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +149,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        completeLogin,
         refreshUser: refreshProfile,
         register,
         logout,

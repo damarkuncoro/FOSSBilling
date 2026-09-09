@@ -38,11 +38,32 @@ export const TicketThreadDialog: React.FC<TicketThreadDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 my-2">
-          <div className="p-4 rounded-xl bg-muted/40 border text-sm space-y-1">
-            <p className="text-xs font-bold text-muted-foreground uppercase">Initial Request:</p>
-            <p className="whitespace-pre-wrap">{ticket.content || ticket.subject}</p>
-          </div>
+        <div className="space-y-4 my-2 max-h-[50vh] overflow-y-auto px-1">
+          {ticket.messages && ticket.messages.length > 0 ? (
+            ticket.messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`p-3 rounded-xl border text-sm space-y-1 ${
+                  msg.admin_id ? 'bg-primary/5 border-primary/20 ml-4' : 'bg-muted/40 border-border mr-4'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                    {msg.admin_id ? 'Staff Response' : 'Your Message'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {new Date(msg.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            ))
+          ) : (
+            <div className="p-4 rounded-xl bg-muted/40 border text-sm space-y-1">
+              <p className="text-xs font-bold text-muted-foreground uppercase">Initial Request:</p>
+              <p className="whitespace-pre-wrap">{ticket.subject}</p>
+            </div>
+          )}
 
           {ticket.status !== 'closed' ? (
             <form onSubmit={onSendReply} className="space-y-3">

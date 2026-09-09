@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
@@ -14,19 +15,20 @@ import (
 type DepositHandler struct {
 	invoiceService *billing.InvoiceService
 	paymentService *paymentUsecase.PaymentService
+	clientRepo     domain.ClientRepository
 }
 
-func NewDepositHandler(invoiceService *billing.InvoiceService, paymentService *paymentUsecase.PaymentService) *DepositHandler {
+func NewDepositHandler(invoiceService *billing.InvoiceService, paymentService *paymentUsecase.PaymentService, clientRepo domain.ClientRepository) *DepositHandler {
 	return &DepositHandler{
 		invoiceService: invoiceService,
 		paymentService: paymentService,
+		clientRepo:     clientRepo,
 	}
 }
 
 type depositRequest struct {
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-	Gateway  string  `json:"gateway"`
+	Amount  float64 `json:"amount"`
+	Gateway string  `json:"gateway"`
 }
 
 func (h *DepositHandler) DepositFunds(w http.ResponseWriter, r *http.Request) {
@@ -42,14 +44,16 @@ func (h *DepositHandler) DepositFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	curr := req.Currency
-	if curr == "" {
-		curr = "USD"
+	// BUG-30 FIX: Use client's primary currency to prevent currency mismatch manipulation
+	client, err := h.clientRepo.GetByID(r.Context(), clientID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve client profile", nil)
+		return
 	}
 
 	inv, err := h.invoiceService.CreateInvoice(r.Context(), billing.CreateInvoiceDTO{
 		ClientID: clientID,
-		Currency: curr,
+		Currency: client.Currency,
 		DueDays:  7,
 		Items: []billing.CreateInvoiceItemDTO{
 			{

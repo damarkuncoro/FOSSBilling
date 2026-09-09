@@ -12,19 +12,23 @@ export class SupportService {
     if (!id || id <= 0) {
       throw new Error('Valid ticket ID is required');
     }
-    return this.repo.getTicket(id);
+    const { ticket, messages } = await this.repo.getTicket(id);
+    return {
+      ...ticket,
+      messages,
+    };
   }
 
-  async openTicket(subject: string, content: string, priority = 'medium'): Promise<SupportTicket> {
+  async openTicket(subject: string, message: string, priority = 'medium'): Promise<SupportTicket> {
     if (!subject.trim()) {
       throw new Error('Subject is required');
     }
-    if (!content.trim()) {
+    if (!message.trim()) {
       throw new Error('Message content is required');
     }
     return this.repo.openTicket({
       subject: subject.trim(),
-      content: content.trim(),
+      message: message.trim(),
       priority,
     });
   }

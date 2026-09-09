@@ -121,7 +121,7 @@ func (h *InvoiceHandler) PayWithBalance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	updated, err := h.invoiceService.PayWithBalance(r.Context(), invoiceID)
+	updated, err := h.invoiceService.PayWithBalance(r.Context(), clientID, invoiceID)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "PAYMENT_FAILED", err.Error(), nil)
 		return
@@ -145,6 +145,17 @@ func (h *InvoiceHandler) PayWithGateway(w http.ResponseWriter, r *http.Request) 
 	invoiceID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid invoice ID", nil)
+		return
+	}
+
+	// BUG-28 FIX: Verify invoice ownership BEFORE initiating payment
+	invoice, err := h.invoiceRepo.GetByID(r.Context(), invoiceID)
+	if err != nil {
+		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Invoice not found", nil)
+		return
+	}
+	if invoice.ClientID != clientID {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "You do not have access to this invoice", nil)
 		return
 	}
 

@@ -141,6 +141,13 @@ func (h *StaffManagementHandler) SuspendOrder(w http.ResponseWriter, r *http.Req
 }
 
 func (h *StaffManagementHandler) UnsuspendOrder(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -158,6 +165,13 @@ func (h *StaffManagementHandler) UnsuspendOrder(w http.ResponseWriter, r *http.R
 }
 
 func (h *StaffManagementHandler) ActivateOrder(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -175,6 +189,13 @@ func (h *StaffManagementHandler) ActivateOrder(w http.ResponseWriter, r *http.Re
 }
 
 func (h *StaffManagementHandler) SyncOrder(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -198,6 +219,13 @@ func (h *StaffManagementHandler) SyncOrder(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *StaffManagementHandler) ChangeOrderPassword(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

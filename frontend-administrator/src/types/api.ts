@@ -196,12 +196,21 @@ export interface SupportTicket {
   id: number;
   client_id: number;
   subject: string;
-  content?: string;
   status: string;
   priority: string;
   created_at: string;
   updated_at?: string;
-  replies?: any[];
+  messages?: TicketMessage[];
+}
+
+export interface TicketMessage {
+  id: number;
+  ticket_id: number;
+  admin_id?: number;
+  client_id?: number;
+  content: string;
+  ip_address?: string;
+  created_at: string;
 }
 
 export interface DashboardStats {

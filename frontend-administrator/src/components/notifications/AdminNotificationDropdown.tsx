@@ -52,7 +52,7 @@ export const AdminNotificationDropdown: React.FC = () => {
         </div>
 
         <ScrollArea className="h-[350px]">
-          {notifications.length === 0 ? (
+          {!notifications || notifications.length === 0 ? (
             <div className="py-20 text-center space-y-2">
                <Bell className="h-8 w-8 text-muted-foreground/20 mx-auto" />
                <p className="text-xs text-muted-foreground font-medium">No recent alerts.</p>

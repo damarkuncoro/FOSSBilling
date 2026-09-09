@@ -10,6 +10,13 @@ import (
 )
 
 func (h *StaffManagementHandler) ListTickets(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "support", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: support", nil)
+		return
+	}
+
 	limit, offset := 20, 0
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 {
@@ -33,6 +40,12 @@ func (h *StaffManagementHandler) ListTickets(w http.ResponseWriter, r *http.Requ
 
 func (h *StaffManagementHandler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
 	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "support", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: support", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	ticketID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

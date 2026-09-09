@@ -73,15 +73,25 @@ export const clientPortalApi = {
   // Client Support
   getTickets: () => request<SupportTicket[]>('/client/support/tickets'),
   getTicket: (id: number) => request<SupportTicket>(`/client/support/tickets/${id}`),
-  openTicket: (ticket: { subject: string; message: string; priority?: string }) =>
+  openTicket: (ticket: {
+    subject: string;
+    message: string;
+    helpdesk_id?: number;
+    priority?: string;
+    rel_type?: string;
+    rel_id?: number;
+  }) =>
     request<SupportTicket>('/client/support/tickets', {
       method: 'POST',
-      body: JSON.stringify(ticket),
+      body: JSON.stringify({
+        ...ticket,
+        helpdesk_id: ticket.helpdesk_id || 1, // Default to general helpdesk
+      }),
     }),
-  replyTicket: (id: number, content: string) =>
+  replyTicket: (id: number, message: string) =>
     request<any>(`/client/support/tickets/${id}/reply`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ message }),
     }),
   closeTicket: (id: number) =>
     request<any>(`/client/support/tickets/${id}/close`, { method: 'POST' }),

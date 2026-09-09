@@ -45,7 +45,7 @@ export const BlacklistIpCard: React.FC<BlacklistIpCardProps> = ({
         </div>
 
         <div className="border rounded-lg divide-y max-h-60 overflow-y-auto">
-          {blacklist.length === 0 ? (
+          {!blacklist || blacklist.length === 0 ? (
             <p className="p-4 text-center text-xs text-muted-foreground">No IP addresses blacklisted.</p>
           ) : (
             blacklist.map((ip) => (

@@ -10,7 +10,7 @@ FOSSBilling is a modern, high-performance, open-source billing, subscription, an
   * **Architecture:** Clean Architecture (Domain, Usecase, Repository, Handler).
   * **Frameworks:** Gin/Echo (check `backend-go/cmd/api`), GORM or SQLX for persistence.
   * **Database:** PostgreSQL 16 (Primary), Redis 7 (Caching/Queue).
-  * **Testing:** Go `testing` package with table-driven tests.
+  * **Testing:** Go `testing` package with table-driven tests + **Ultra-Deep E2E Simulation** in `cmd/demo`.
   * **CLI:** Cobra-based management utility in `backend-go/cmd/cli`.
   * **API Documentation:** OpenAPI 3.0 (Scalar) served at `/docs`.
 

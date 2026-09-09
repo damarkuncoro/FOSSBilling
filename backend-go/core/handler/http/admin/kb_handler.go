@@ -7,20 +7,30 @@ import (
 	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/knowledgebase"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type KBHandler struct {
-	svc *knowledgebase.Service
+	staffService *staff.StaffService
+	svc          *knowledgebase.Service
 }
 
-func NewKBHandler(svc *knowledgebase.Service) *KBHandler {
-	return &KBHandler{svc: svc}
+func NewKBHandler(staffService *staff.StaffService, svc *knowledgebase.Service) *KBHandler {
+	return &KBHandler{staffService: staffService, svc: svc}
 }
 
 func (h *KBHandler) ListArticles(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "knowledgebase", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: knowledgebase", nil)
+		return
+	}
+
 	catID, _ := strconv.ParseInt(r.URL.Query().Get("category_id"), 10, 64)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
@@ -35,6 +45,13 @@ func (h *KBHandler) ListArticles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *KBHandler) CreateArticle(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "knowledgebase", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: knowledgebase", nil)
+		return
+	}
+
 	var art domain.KBArticle
 	if err := json.NewDecoder(r.Body).Decode(&art); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
@@ -50,6 +67,13 @@ func (h *KBHandler) CreateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *KBHandler) UpdateArticle(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "knowledgebase", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: knowledgebase", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 
@@ -73,6 +97,13 @@ func (h *KBHandler) UpdateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *KBHandler) DeleteArticle(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "knowledgebase", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: knowledgebase", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 

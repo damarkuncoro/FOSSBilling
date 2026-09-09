@@ -3,19 +3,29 @@ package admin
 import (
 	"net/http"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	seoUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/seo"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type SEOHandler struct {
-	svc *seoUsecase.SEOService
+	staffService *staff.StaffService
+	svc          *seoUsecase.SEOService
 }
 
-func NewSEOHandler(svc *seoUsecase.SEOService) *SEOHandler {
-	return &SEOHandler{svc: svc}
+func NewSEOHandler(staffService *staff.StaffService, svc *seoUsecase.SEOService) *SEOHandler {
+	return &SEOHandler{staffService: staffService, svc: svc}
 }
 
 func (h *SEOHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	baseURL := r.Header.Get("X-Forwarded-Host")
 	if baseURL == "" {
 		baseURL = r.Host
@@ -31,6 +41,13 @@ func (h *SEOHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SEOHandler) PingSearchEngines(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
 	baseURL := r.Header.Get("X-Forwarded-Host")
 	if baseURL == "" {
 		baseURL = r.Host

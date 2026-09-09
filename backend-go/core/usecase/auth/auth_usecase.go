@@ -32,7 +32,7 @@ func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO, remoteIP st
 	v.CheckEmail("email", req.Email)
 	v.CheckRequired("first_name", req.FirstName)
 	v.CheckRequired("last_name", req.LastName)
-	v.CheckMinLength("password", req.Password, 6)
+	v.CheckPasswordStrength("password", req.Password, 8)
 
 	if !v.IsValid() {
 		return nil, v, appErrors.ErrInvalidInput
@@ -179,24 +179,24 @@ func (u *AuthUsecase) UpdateProfile(ctx context.Context, clientID int64, req Upd
 	}
 
 	if req.FirstName != "" {
-		client.FirstName = req.FirstName
+		client.FirstName = security.SanitizeAlphaNumeric(req.FirstName)
 	}
 	if req.LastName != "" {
-		client.LastName = req.LastName
+		client.LastName = security.SanitizeAlphaNumeric(req.LastName)
 	}
-	client.Company = req.Company
-	client.Address1 = req.Address1
-	client.Address2 = req.Address2
-	client.City = req.City
-	client.State = req.State
-	client.Postcode = req.Postcode
+	client.Company = security.SanitizeHTML(req.Company)
+	client.Address1 = security.SanitizeHTML(req.Address1)
+	client.Address2 = security.SanitizeHTML(req.Address2)
+	client.City = security.SanitizeAlphaNumeric(req.City)
+	client.State = security.SanitizeAlphaNumeric(req.State)
+	client.Postcode = security.SanitizeAlphaNumeric(req.Postcode)
 	if req.Country != "" {
-		client.Country = req.Country
+		client.Country = security.SanitizeAlphaNumeric(req.Country)
 	}
-	client.PhoneCC = req.PhoneCC
-	client.Phone = req.Phone
+	client.PhoneCC = security.SanitizeAlphaNumeric(req.PhoneCC)
+	client.Phone = security.SanitizeAlphaNumeric(req.Phone)
 	if req.Currency != "" {
-		client.Currency = req.Currency
+		client.Currency = security.SanitizeAlphaNumeric(req.Currency)
 	}
 
 	if err := u.clientRepo.Update(ctx, client); err != nil {

@@ -91,6 +91,7 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 	}
 
 	// 1. Provisioning based on Product Type
+	provisioningSuccess := true
 	switch product.Type {
 	case domain.ProductTypeDomain:
 		if l.registrarRegistry != nil {
@@ -137,6 +138,9 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 						cfg["status"] = "active"
 						cfg["registrar_id"] = registrarID
 						log.Printf("🌐 [Registrar] Domain %s registered via %s", domainName, registrarID)
+					} else {
+						provisioningSuccess = false
+						log.Printf("❌ [Registrar] Registration failed for %s: %v", domainName, err)
 					}
 				}
 			}
@@ -156,11 +160,20 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 					cfg["remote_id"] = res.RemoteID
 					cfg["account_details"] = res.AccountDetails
 					log.Printf("🖥️ [Hosting] Account provisioned: %s via %s", res.RemoteID, driverID)
-				} else if err != nil {
-					log.Printf("❌ [Hosting] Provisioning failed: %v", err)
+				} else {
+					provisioningSuccess = false
+					log.Printf("❌ [Hosting] Provisioning failed for Order #%d: %v", order.ID, err)
 				}
+			} else {
+				provisioningSuccess = false
 			}
 		}
+	}
+
+	if !provisioningSuccess {
+		// Rollback status to pending_setup so it can be retried later
+		_ = l.orderRepo.UpdateStatus(ctx, order.ID, domain.OrderStatusPendingSetup, nil)
+		return nil
 	}
 
 	// Update order config with provisioning results

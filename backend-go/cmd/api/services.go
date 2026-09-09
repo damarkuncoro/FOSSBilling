@@ -150,7 +150,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Mandiri", "1234567890", "FOSSBilling Indonesia"))
 
 	// 6. Rest of services
-	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, eventBus)
+	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, gatewayRegistry, eventBus)
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
 	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
 	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret)

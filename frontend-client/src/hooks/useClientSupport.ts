@@ -71,6 +71,21 @@ export function useClientSupport() {
     }
   };
 
+  const handleSelectTicket = async (ticket: SupportTicket | null) => {
+    if (!ticket) {
+      setSelectedTicket(null);
+      return;
+    }
+
+    try {
+      const details = await supportService.getTicketDetail(ticket.id);
+      setSelectedTicket(details);
+    } catch (err) {
+      console.error(err);
+      setSelectedTicket(ticket);
+    }
+  };
+
   return {
     tickets,
     loading,
@@ -79,7 +94,7 @@ export function useClientSupport() {
     newTicketForm,
     setNewTicketForm,
     selectedTicket,
-    setSelectedTicket,
+    setSelectedTicket: handleSelectTicket,
     replyContent,
     setReplyContent,
     replying,

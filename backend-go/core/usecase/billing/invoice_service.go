@@ -56,6 +56,10 @@ type CreateInvoiceItemDTO struct {
 	Taxable  bool
 }
 
+func (s *InvoiceService) GetInvoice(ctx context.Context, id int64) (*domain.Invoice, error) {
+	return s.invoiceRepo.GetByID(ctx, id)
+}
+
 // CreateInvoice generates a new invoice with subtotal, tax calculation, and line items
 func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO) (*domain.Invoice, error) {
 	client, err := s.clientRepo.GetByID(ctx, dto.ClientID)
@@ -140,10 +144,14 @@ func (s *InvoiceService) CreateInvoice(ctx context.Context, dto CreateInvoiceDTO
 }
 
 // PayWithBalance deducts from client balance to mark an invoice as paid
-func (s *InvoiceService) PayWithBalance(ctx context.Context, invoiceID int64) (*domain.Invoice, error) {
+func (s *InvoiceService) PayWithBalance(ctx context.Context, clientID int64, invoiceID int64) (*domain.Invoice, error) {
 	inv, err := s.invoiceRepo.GetByID(ctx, invoiceID)
 	if err != nil {
 		return nil, err
+	}
+
+	if inv.ClientID != clientID {
+		return nil, appErrors.ErrNotFound
 	}
 
 	if inv.Status == domain.InvoiceStatusPaid {
@@ -205,6 +213,16 @@ func (s *InvoiceService) RefundInvoice(ctx context.Context, invoiceID int64) err
 		return fmt.Errorf("only paid invoices can be refunded")
 	}
 
+	// BUG-21 FIX: Atomic status transition to prevent double refund
+	// We mark as refunded FIRST. If this fails, someone else already refunded it.
+	success, err := s.invoiceRepo.UpdateStatusAtomic(ctx, inv.ID, domain.InvoiceStatusRefunded, domain.InvoiceStatusPaid)
+	if err != nil {
+		return err
+	}
+	if !success {
+		return fmt.Errorf("invoice already refunded or no longer in paid status")
+	}
+
 	// Add to balance
 	refund := &domain.ClientBalance{
 		ClientID:    inv.ClientID,
@@ -214,9 +232,10 @@ func (s *InvoiceService) RefundInvoice(ctx context.Context, invoiceID int64) err
 		RelID:       &inv.ID,
 	}
 	if err := s.clientRepo.AddBalanceTransaction(ctx, refund); err != nil {
-		return err
+		// Manual recovery might be needed if this fails after status change,
+		// but it's safer than double refund.
+		return fmt.Errorf("invoice marked as refunded but failed to add balance: %w", err)
 	}
 
-	// Mark invoice as refunded
-	return s.invoiceRepo.UpdateStatus(ctx, inv.ID, domain.InvoiceStatusRefunded)
+	return nil
 }

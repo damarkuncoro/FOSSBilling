@@ -5,12 +5,14 @@ export const API_BASE = '/api/v1';
 export class ApiError extends Error {
   code: string;
   details?: any;
+  status?: number;
 
-  constructor(message: string, code = 'API_ERROR', details?: any) {
+  constructor(message: string, code = 'API_ERROR', details?: any, status?: number) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.details = details;
+    this.status = status;
   }
 }
 
@@ -41,20 +43,35 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-  const json: ApiResponse<T> = await response.json().catch(() => {
-    throw new ApiError(`HTTP Error: ${response.status} ${response.statusText}`, 'HTTP_ERROR');
-  });
+    // Handle 401 Unauthorized globally
+    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+      removeStoredClientToken();
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+      throw new ApiError('Unauthorized', 'UNAUTHORIZED', null, 401);
+    }
 
-  if (!response.ok || !json.success) {
-    const errorMsg = json.error?.message || `Request failed with status ${response.status}`;
-    const errorCode = json.error?.code || 'UNKNOWN_ERROR';
-    throw new ApiError(errorMsg, errorCode, json.error?.details);
+    const json: ApiResponse<T> = await response.json().catch(() => {
+      throw new ApiError(`HTTP Error: ${response.status} ${response.statusText}`, 'HTTP_ERROR', null, response.status);
+    });
+
+    if (!response.ok || !json.success) {
+      const errorMsg = json.error?.message || `Request failed with status ${response.status}`;
+      const errorCode = json.error?.code || 'UNKNOWN_ERROR';
+
+      throw new ApiError(errorMsg, errorCode, json.error?.details, response.status);
+    }
+
+    return json.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(err.message || 'Network error', 'NETWORK_ERROR');
   }
-
-  return json.data;
 }

@@ -16,7 +16,7 @@ func setupWebhookService() (*payment.WebhookService, *memory.MockTransactionRepo
 	invRepo := memory.NewMockInvoiceRepository()
 	eventBus := events.NewEventBus()
 
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, eventBus)
+	webhookService := payment.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
 
 	return webhookService, txnRepo, invRepo, eventBus
 }

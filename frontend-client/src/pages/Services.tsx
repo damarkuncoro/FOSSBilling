@@ -51,7 +51,7 @@ export const Services: React.FC = () => {
 
       {loading ? (
         <div className="py-16 text-center text-muted-foreground">Loading your cloud services...</div>
-      ) : orders.length === 0 ? (
+      ) : !orders || orders.length === 0 ? (
         <Card className="p-8 text-center border-dashed">
           <p className="text-sm text-muted-foreground">You don't have any active subscriptions yet.</p>
         </Card>
@@ -107,6 +107,7 @@ export const Services: React.FC = () => {
                                   size="icon"
                                   className="h-4 w-4"
                                   onClick={() => setPasswordModal({ open: true, orderId: order.id })}
+                                  title="Change Password"
                                 >
                                   <Key className="h-2.5 w-2.5" />
                                 </Button>

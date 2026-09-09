@@ -43,7 +43,39 @@ CREATE TABLE IF NOT EXISTS client_balances (
 
 CREATE INDEX idx_client_balances_client_id ON client_balances(client_id);
 
--- 3. Products Table
+-- 3. Custom Forms Table (Formbuilder) - MOVED UP for Dependency
+CREATE TABLE IF NOT EXISTS forms (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    style JSONB NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Custom Form Fields Table (Formbuilder) - MOVED UP
+CREATE TABLE IF NOT EXISTS form_fields (
+    id BIGSERIAL PRIMARY KEY,
+    form_id BIGINT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    hide_label BOOLEAN DEFAULT FALSE,
+    description TEXT,
+    type VARCHAR(50) NOT NULL, -- 'text', 'url', 'select', 'radio', 'checkbox', 'textarea'
+    default_value TEXT,
+    required BOOLEAN DEFAULT FALSE,
+    hidden BOOLEAN DEFAULT FALSE,
+    readonly BOOLEAN DEFAULT FALSE,
+    options JSONB NULL,
+    prefix VARCHAR(50),
+    suffix VARCHAR(50),
+    text_size INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(form_id, name)
+);
+CREATE INDEX idx_form_fields_form_id ON form_fields(form_id);
+
+-- 5. Products Table
 CREATE TABLE IF NOT EXISTS products (
     id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NULL,
@@ -66,7 +98,7 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX idx_products_slug ON products(slug);
 CREATE INDEX idx_products_type ON products(type);
 
--- 4. Invoices Table
+-- 6. Invoices Table
 CREATE TABLE IF NOT EXISTS invoices (
     id BIGSERIAL PRIMARY KEY,
     serie VARCHAR(50) NOT NULL,
@@ -89,7 +121,7 @@ CREATE INDEX idx_invoices_client_id ON invoices(client_id);
 CREATE INDEX idx_invoices_status ON invoices(status);
 CREATE INDEX idx_invoices_due_at ON invoices(due_at);
 
--- 5. Invoice Items Table
+-- 7. Invoice Items Table
 CREATE TABLE IF NOT EXISTS invoice_items (
     id BIGSERIAL PRIMARY KEY,
     invoice_id BIGINT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
@@ -105,7 +137,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
 
 CREATE INDEX idx_invoice_items_invoice_id ON invoice_items(invoice_id);
 
--- 6. Orders Table
+-- 8. Orders Table
 CREATE TABLE IF NOT EXISTS client_orders (
     id BIGSERIAL PRIMARY KEY,
     client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
@@ -130,7 +162,7 @@ CREATE INDEX idx_orders_client_id ON client_orders(client_id);
 CREATE INDEX idx_orders_status ON client_orders(status);
 CREATE INDEX idx_orders_next_due_date ON client_orders(next_due_date);
 
--- 7. Transactions Table
+-- 9. Transactions Table
 CREATE TABLE IF NOT EXISTS transactions (
     id BIGSERIAL PRIMARY KEY,
     invoice_id BIGINT NULL REFERENCES invoices(id) ON DELETE SET NULL,
@@ -147,7 +179,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX idx_transactions_invoice_id ON transactions(invoice_id);
 CREATE INDEX idx_transactions_txn_id ON transactions(txn_id);
 
--- 8. Support Tickets Table
+-- 10. Support Tickets Table
 CREATE TABLE IF NOT EXISTS support_tickets (
     id BIGSERIAL PRIMARY KEY,
     client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -164,7 +196,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 CREATE INDEX idx_tickets_client_id ON support_tickets(client_id);
 CREATE INDEX idx_tickets_status ON support_tickets(status);
 
--- 9. Ticket Messages Table
+-- 11. Ticket Messages Table
 CREATE TABLE IF NOT EXISTS support_ticket_messages (
     id BIGSERIAL PRIMARY KEY,
     ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
@@ -177,7 +209,7 @@ CREATE TABLE IF NOT EXISTS support_ticket_messages (
 
 CREATE INDEX idx_ticket_messages_ticket_id ON support_ticket_messages(ticket_id);
 
--- 10. Admin Groups Table
+-- 12. Admin Groups Table
 CREATE TABLE IF NOT EXISTS admin_groups (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -186,7 +218,7 @@ CREATE TABLE IF NOT EXISTS admin_groups (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 11. Staff Table
+-- 13. Staff Table
 CREATE TABLE IF NOT EXISTS staff (
     id BIGSERIAL PRIMARY KEY,
     group_id BIGINT NOT NULL REFERENCES admin_groups(id) ON DELETE RESTRICT,
@@ -203,7 +235,7 @@ CREATE TABLE IF NOT EXISTS staff (
 
 CREATE INDEX idx_staff_email ON staff(email);
 
--- 12. Audit Logs Table
+-- 14. Audit Logs Table
 CREATE TABLE IF NOT EXISTS audit_logs (
     id BIGSERIAL PRIMARY KEY,
     staff_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
@@ -218,7 +250,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX idx_audit_logs_staff_id ON audit_logs(staff_id);
 CREATE INDEX idx_audit_logs_module ON audit_logs(module);
 
--- 12b. Activity Logs Table
+-- 15. Activity Logs Table
 CREATE TABLE IF NOT EXISTS activity_logs (
     id BIGSERIAL PRIMARY KEY,
     client_id BIGINT NULL REFERENCES clients(id) ON DELETE SET NULL,
@@ -233,7 +265,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 CREATE INDEX idx_activity_logs_client_id ON activity_logs(client_id);
 CREATE INDEX idx_activity_logs_type ON activity_logs(type);
 
--- 13. Promos Table
+-- 16. Promos Table
 CREATE TABLE IF NOT EXISTS promos (
     id BIGSERIAL PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -252,7 +284,7 @@ CREATE TABLE IF NOT EXISTS promos (
 
 CREATE INDEX idx_promos_code ON promos(code);
 
--- 14. Promo Redemptions Table
+-- 17. Promo Redemptions Table
 CREATE TABLE IF NOT EXISTS promo_redemptions (
     id BIGSERIAL PRIMARY KEY,
     promo_id BIGINT NOT NULL REFERENCES promos(id) ON DELETE CASCADE,
@@ -261,7 +293,7 @@ CREATE TABLE IF NOT EXISTS promo_redemptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 15. Currencies Table
+-- 18. Currencies Table
 CREATE TABLE IF NOT EXISTS currencies (
     id BIGSERIAL PRIMARY KEY,
     code VARCHAR(3) NOT NULL UNIQUE,
@@ -277,7 +309,7 @@ CREATE TABLE IF NOT EXISTS currencies (
 CREATE INDEX idx_currencies_default ON currencies(is_default);
 CREATE INDEX idx_currencies_code ON currencies(code);
 
--- 16. News Posts Table
+-- 19. News Posts Table
 CREATE TABLE IF NOT EXISTS news_posts (
     id BIGSERIAL PRIMARY KEY,
     admin_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
@@ -293,7 +325,7 @@ CREATE TABLE IF NOT EXISTS news_posts (
 CREATE INDEX idx_news_slug ON news_posts(slug);
 CREATE INDEX idx_news_status ON news_posts(status);
 
--- 17. Downloadable Files Table
+-- 20. Downloadable Files Table
 CREATE TABLE IF NOT EXISTS downloadable_files (
     id BIGSERIAL PRIMARY KEY,
     product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -309,7 +341,7 @@ CREATE TABLE IF NOT EXISTS downloadable_files (
 
 CREATE INDEX idx_downloadable_product_id ON downloadable_files(product_id);
 
--- 18. API Keys Table
+-- 21. API Keys Table
 CREATE TABLE IF NOT EXISTS api_keys (
     id BIGSERIAL PRIMARY KEY,
     client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -324,7 +356,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
 CREATE INDEX idx_api_keys_client_id ON api_keys(client_id);
 CREATE INDEX idx_api_keys_key ON api_keys(key);
 
--- 19. Mass Mail Campaigns Table
+-- 22. Mass Mail Campaigns Table
 CREATE TABLE IF NOT EXISTS mass_mail_campaigns (
     id BIGSERIAL PRIMARY KEY,
     admin_id BIGINT NULL REFERENCES staff(id) ON DELETE SET NULL,
@@ -338,7 +370,7 @@ CREATE TABLE IF NOT EXISTS mass_mail_campaigns (
 
 CREATE INDEX idx_mass_mail_status ON mass_mail_campaigns(status);
 
--- 20. Notifications Table
+-- 23. Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
     id BIGSERIAL PRIMARY KEY,
     client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -351,7 +383,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX idx_notifications_client_id ON notifications(client_id);
 
--- 21. Product Categories Table
+-- 24. Product Categories Table
 CREATE TABLE IF NOT EXISTS product_categories (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -361,7 +393,7 @@ CREATE TABLE IF NOT EXISTS product_categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 22. Servers Table
+-- 25. Servers Table
 CREATE TABLE IF NOT EXISTS servers (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -375,7 +407,7 @@ CREATE TABLE IF NOT EXISTS servers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 23. TLDs Table
+-- 26. TLDs Table
 CREATE TABLE IF NOT EXISTS tlds (
     id BIGSERIAL PRIMARY KEY,
     tld VARCHAR(50) NOT NULL UNIQUE,
@@ -389,7 +421,7 @@ CREATE TABLE IF NOT EXISTS tlds (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 24. Pages Table
+-- 27. Pages Table
 CREATE TABLE IF NOT EXISTS pages (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -400,7 +432,7 @@ CREATE TABLE IF NOT EXISTS pages (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 24b. Knowledgebase Categories Table
+-- 28. Knowledgebase Categories Table
 CREATE TABLE IF NOT EXISTS kb_categories (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -411,7 +443,7 @@ CREATE TABLE IF NOT EXISTS kb_categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 24c. Knowledgebase Articles Table
+-- 29. Knowledgebase Articles Table
 CREATE TABLE IF NOT EXISTS kb_articles (
     id BIGSERIAL PRIMARY KEY,
     category_id BIGINT NOT NULL REFERENCES kb_categories(id) ON DELETE CASCADE,
@@ -427,7 +459,7 @@ CREATE TABLE IF NOT EXISTS kb_articles (
 CREATE INDEX idx_kb_articles_category ON kb_articles(category_id);
 CREATE INDEX idx_kb_articles_slug ON kb_articles(slug);
 
--- 25. Company Settings Table
+-- 30. Company Settings Table
 CREATE TABLE IF NOT EXISTS company_settings (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -449,7 +481,7 @@ CREATE TABLE IF NOT EXISTS company_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 26. System Settings Table
+-- 31. System Settings Table
 CREATE TABLE IF NOT EXISTS system_settings (
     id BIGSERIAL PRIMARY KEY,
     section VARCHAR(50) NOT NULL,
@@ -459,7 +491,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
     UNIQUE(section, key)
 );
 
--- 27. Blocked IPs Table (Antispam)
+-- 32. Blocked IPs Table (Antispam)
 CREATE TABLE IF NOT EXISTS blocked_ips (
     id BIGSERIAL PRIMARY KEY,
     ip VARCHAR(45) NOT NULL UNIQUE,
@@ -468,39 +500,7 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
 );
 CREATE INDEX idx_blocked_ips_ip ON blocked_ips(ip);
 
--- 28. Custom Forms Table (Formbuilder)
-CREATE TABLE IF NOT EXISTS forms (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    style JSONB NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 29. Custom Form Fields Table (Formbuilder)
-CREATE TABLE IF NOT EXISTS form_fields (
-    id BIGSERIAL PRIMARY KEY,
-    form_id BIGINT NOT NULL REFERENCES forms(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    label VARCHAR(255) NOT NULL,
-    hide_label BOOLEAN DEFAULT FALSE,
-    description TEXT,
-    type VARCHAR(50) NOT NULL, -- 'text', 'url', 'select', 'radio', 'checkbox', 'textarea'
-    default_value TEXT,
-    required BOOLEAN DEFAULT FALSE,
-    hidden BOOLEAN DEFAULT FALSE,
-    readonly BOOLEAN DEFAULT FALSE,
-    options JSONB NULL,
-    prefix VARCHAR(50),
-    suffix VARCHAR(50),
-    text_size INT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(form_id, name)
-);
-CREATE INDEX idx_form_fields_form_id ON form_fields(form_id);
-
--- 30. Extensions Table
+-- 33. Extensions Table
 CREATE TABLE IF NOT EXISTS extensions (
     id VARCHAR(100) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -520,7 +520,7 @@ CREATE TABLE IF NOT EXISTS extensions (
 CREATE INDEX idx_extensions_type ON extensions(type);
 CREATE INDEX idx_extensions_status ON extensions(status);
 
--- 31. Redirects Table
+-- 34. Redirects Table
 CREATE TABLE IF NOT EXISTS redirects (
     id BIGSERIAL PRIMARY KEY,
     path VARCHAR(500) NOT NULL UNIQUE,
@@ -533,7 +533,35 @@ CREATE TABLE IF NOT EXISTS redirects (
 );
 CREATE INDEX idx_redirects_path ON redirects(path);
 
--- 20. Seed Data
+-- 35. Admin Notifications Table
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'info', -- 'info', 'warning', 'danger', 'success'
+    module VARCHAR(50) NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_admin_notifications_read ON admin_notifications(is_read);
+
+-- 36. Tax Rules Table
+CREATE TABLE IF NOT EXISTS tax_rules (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    country VARCHAR(2) NULL, -- NULL means all countries
+    state VARCHAR(100) NULL,
+    rate NUMERIC(6, 2) NOT NULL DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    tax_exempt BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_tax_rules_country ON tax_rules(country);
+
+-- Seed Data
 -- Super Admin Group & Staff
 INSERT INTO admin_groups (id, name, permissions)
 VALUES (1, 'Super Administrator', '{"all": true}'::jsonb)
@@ -608,39 +636,7 @@ ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('servers_id_seq', (SELECT COALESCE(MAX(id), 1) FROM servers));
 
--- 32. Admin Notifications Table
-CREATE TABLE IF NOT EXISTS admin_notifications (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    type VARCHAR(50) NOT NULL DEFAULT 'info', -- 'info', 'warning', 'danger', 'success'
-    module VARCHAR(50) NULL,
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_admin_notifications_read ON admin_notifications(is_read);
-
--- 34. Tax Rules Table
-CREATE TABLE IF NOT EXISTS tax_rules (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    country VARCHAR(2) NULL, -- NULL means all countries
-    state VARCHAR(100) NULL,
-    rate NUMERIC(6, 2) NOT NULL DEFAULT 0.00,
-    is_active BOOLEAN DEFAULT TRUE,
-    tax_exempt BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_tax_rules_country ON tax_rules(country);
-
 -- Seed Initial Tax Rule
 INSERT INTO tax_rules (name, country, rate, is_active)
-VALUES ('Indonesia PPN', 'ID', 11.00)
+VALUES ('Indonesia PPN', 'ID', 11.00, TRUE)
 ON CONFLICT DO NOTHING;
-
-
-
-

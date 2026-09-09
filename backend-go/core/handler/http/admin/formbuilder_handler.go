@@ -6,20 +6,30 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	formbuilderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type FormbuilderHandler struct {
-	svc *formbuilderUsecase.FormbuilderService
+	staffService *staff.StaffService
+	svc          *formbuilderUsecase.FormbuilderService
 }
 
-func NewFormbuilderHandler(svc *formbuilderUsecase.FormbuilderService) *FormbuilderHandler {
-	return &FormbuilderHandler{svc: svc}
+func NewFormbuilderHandler(staffService *staff.StaffService, svc *formbuilderUsecase.FormbuilderService) *FormbuilderHandler {
+	return &FormbuilderHandler{staffService: staffService, svc: svc}
 }
 
 func (h *FormbuilderHandler) ListForms(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
@@ -36,6 +46,13 @@ func (h *FormbuilderHandler) ListForms(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FormbuilderHandler) GetForm(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -57,6 +74,13 @@ func (h *FormbuilderHandler) GetForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FormbuilderHandler) CreateForm(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	var req formbuilderUsecase.CreateFormDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
@@ -77,6 +101,13 @@ func (h *FormbuilderHandler) CreateForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FormbuilderHandler) UpdateForm(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -104,6 +135,13 @@ func (h *FormbuilderHandler) UpdateForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FormbuilderHandler) DeleteForm(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -124,6 +162,13 @@ func (h *FormbuilderHandler) DeleteForm(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *FormbuilderHandler) AddField(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	formIDStr := r.PathValue("id")
 	formID, err := strconv.ParseInt(formIDStr, 10, 64)
 	if err != nil {
@@ -158,6 +203,13 @@ func (h *FormbuilderHandler) AddField(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FormbuilderHandler) UpdateField(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	fieldIDStr := r.PathValue("field_id")
 	fieldID, err := strconv.ParseInt(fieldIDStr, 10, 64)
 	if err != nil {
@@ -192,6 +244,13 @@ func (h *FormbuilderHandler) UpdateField(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *FormbuilderHandler) DeleteField(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "formbuilder", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: formbuilder", nil)
+		return
+	}
+
 	fieldIDStr := r.PathValue("field_id")
 	fieldID, err := strconv.ParseInt(fieldIDStr, 10, 64)
 	if err != nil {

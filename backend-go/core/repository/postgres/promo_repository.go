@@ -74,6 +74,35 @@ func (r *PromoRepository) IncrementUsed(ctx context.Context, promoID int64, clie
 	}
 	defer tx.Rollback(ctx)
 
+	// BUG-22 FIX: Re-verify limits INSIDE transaction with row-level locking
+	var p domain.Promo
+	err = tx.QueryRow(ctx, `
+		SELECT id, max_uses, used_count, once_per_client, active
+		FROM promos WHERE id = $1 FOR UPDATE`, promoID).Scan(
+		&p.ID, &p.MaxUses, &p.UsedCount, &p.OncePerClient, &p.Active,
+	)
+	if err != nil {
+		return err
+	}
+
+	if !p.Active {
+		return errors.New("promo is no longer active")
+	}
+	if p.MaxUses > 0 && p.UsedCount >= p.MaxUses {
+		return errors.New("promo maximum usage limit reached")
+	}
+
+	if p.OncePerClient {
+		var count int
+		err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM promo_redemptions WHERE promo_id = $1 AND client_id = $2`, promoID, clientID).Scan(&count)
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("promo code already used by this client")
+		}
+	}
+
 	updateQuery := `UPDATE promos SET used_count = used_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1`
 	if _, err := tx.Exec(ctx, updateQuery, promoID); err != nil {
 		return err

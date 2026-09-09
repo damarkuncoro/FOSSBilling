@@ -160,6 +160,19 @@ func (r *MockInvoiceRepository) UpdateStatus(ctx context.Context, id int64, stat
 	return nil
 }
 
+func (r *MockInvoiceRepository) UpdateStatusAtomic(ctx context.Context, id int64, newStatus, oldStatus domain.InvoiceStatus) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	inv, ok := r.invoices[id]
+	if !ok || inv.Status != oldStatus {
+		return false, nil
+	}
+	inv.Status = newStatus
+	inv.UpdatedAt = time.Now().UTC()
+	return true, nil
+}
+
 func (r *MockInvoiceRepository) Delete(ctx context.Context, id int64) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

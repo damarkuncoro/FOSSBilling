@@ -57,7 +57,7 @@ func main() {
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
 	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, nil, taxCalc, invService, eventBus)
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, eventBus)
+	webhookService := payment.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
 	supportService := support.NewSupportService(supportRepo, clientRepo, eventBus)
 	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
 

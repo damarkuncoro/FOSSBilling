@@ -173,6 +173,18 @@ func (r *ProductRepository) Update(ctx context.Context, p *domain.Product) error
 	return nil
 }
 
+func (r *ProductRepository) DecrementStock(ctx context.Context, id int64, quantity int) error {
+	query := `UPDATE products SET stock = stock - $1 WHERE id = $2 AND stock >= $1`
+	tag, err := r.pool.Exec(ctx, query, quantity, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New("insufficient stock")
+	}
+	return nil
+}
+
 func (r *ProductRepository) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM products WHERE id = $1`
 	_, err := r.pool.Exec(ctx, query, id)

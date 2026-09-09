@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/apikey"
@@ -69,8 +68,7 @@ func (h *APIKeyHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	idStr := parts[len(parts)-1]
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid key ID", nil)

@@ -12,14 +12,18 @@ export class AdminSupportService {
     if (!id || id <= 0) {
       throw new Error('Valid ticket ID is required');
     }
-    return this.repo.getTicket(id);
+    const { ticket, messages } = await this.repo.getTicket(id);
+    return {
+      ...ticket,
+      messages,
+    };
   }
 
-  async replyTicket(id: number, content: string): Promise<any> {
-    if (!content.trim()) {
-      throw new Error('Reply content cannot be empty');
+  async replyTicket(id: number, message: string): Promise<any> {
+    if (!message.trim()) {
+      throw new Error('Reply message cannot be empty');
     }
-    return this.repo.replyTicket(id, content.trim());
+    return this.repo.replyTicket(id, message.trim());
   }
 
   async closeTicket(id: number): Promise<any> {

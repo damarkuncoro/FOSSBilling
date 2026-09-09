@@ -81,6 +81,18 @@ func (s *CronService) GenerateRenewalInvoicesBatch(ctx context.Context, issueDay
 		go func() {
 			defer wg.Done()
 			for ord := range jobs {
+				// BUG-33 FIX: Skip if order already has an active renewal invoice
+				if ord.InvoiceID != nil {
+					existingInv, err := s.invoiceService.GetInvoice(ctx, *ord.InvoiceID)
+					if err == nil && (existingInv.Status == domain.InvoiceStatusUnpaid) {
+						// Already has an unpaid invoice, skip to prevent duplicates
+						mu.Lock()
+						result.ProcessedCount-- // Adjust count since we skipped
+						mu.Unlock()
+						continue
+					}
+				}
+
 				item := billing.CreateInvoiceItemDTO{
 					OrderID:  &ord.ID,
 					Title:    fmt.Sprintf("Renewal: %s (%s)", ord.Title, ord.Period),

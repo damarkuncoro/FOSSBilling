@@ -6,23 +6,28 @@ import (
 	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type BillingModuleHandler struct {
+	staffService  *staff.StaffService
 	statsService  *stats.StatsService
 	taxCalculator *billingUsecase.TaxCalculator
 	promoRepo     domain.PromoRepository
 }
 
 func NewBillingModuleHandler(
+	staffService *staff.StaffService,
 	statsService *stats.StatsService,
 	taxCalculator *billingUsecase.TaxCalculator,
 	promoRepo domain.PromoRepository,
 ) *BillingModuleHandler {
 	return &BillingModuleHandler{
+		staffService:  staffService,
 		statsService:  statsService,
 		taxCalculator: taxCalculator,
 		promoRepo:     promoRepo,
@@ -31,6 +36,13 @@ func NewBillingModuleHandler(
 
 // --- Gateways & Tax ---
 func (h *BillingModuleHandler) ListGateways(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	gateways := []map[string]interface{}{
 		{"id": "midtrans", "name": "Midtrans Payment Gateway", "type": "wallet", "enabled": true, "test_mode": false},
 		{"id": "stripe", "name": "Stripe Global Payments", "type": "card", "enabled": true, "test_mode": true},
@@ -40,6 +52,13 @@ func (h *BillingModuleHandler) ListGateways(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingModuleHandler) ListTaxRules(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	rules, err := h.taxCalculator.ListRules(r.Context())
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
@@ -49,6 +68,13 @@ func (h *BillingModuleHandler) ListTaxRules(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingModuleHandler) CreateTaxRule(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	var rule domain.TaxRule
 	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_BODY", err.Error(), nil)
@@ -63,6 +89,13 @@ func (h *BillingModuleHandler) CreateTaxRule(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *BillingModuleHandler) DeleteTaxRule(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err := h.taxCalculator.DeleteRule(r.Context(), id); err != nil {
 		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
@@ -73,6 +106,13 @@ func (h *BillingModuleHandler) DeleteTaxRule(w http.ResponseWriter, r *http.Requ
 
 // --- Coupons ---
 func (h *BillingModuleHandler) ListCoupons(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	coupons, _, err := h.promoRepo.List(r.Context(), 100, 0)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
@@ -82,6 +122,13 @@ func (h *BillingModuleHandler) ListCoupons(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *BillingModuleHandler) CreateCoupon(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	var promo domain.Promo
 	if err := json.NewDecoder(r.Body).Decode(&promo); err != nil {
 		response.Error(w, http.StatusBadRequest, "INVALID_BODY", err.Error(), nil)
@@ -96,6 +143,13 @@ func (h *BillingModuleHandler) CreateCoupon(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *BillingModuleHandler) DeleteCoupon(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "delete")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	// Delete promo by ID - assuming promoRepo has Delete method. Let's check domain/promo.go
 	if err := h.promoRepo.Delete(r.Context(), id); err != nil {

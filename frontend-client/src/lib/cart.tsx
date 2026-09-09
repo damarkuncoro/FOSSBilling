@@ -33,8 +33,14 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('fossbilling_cart_items');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('fossbilling_cart_items');
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   });
   const [promoCode, setPromoCodeState] = useState<string>('');
   const [discount, setDiscount] = useState<number>(0);

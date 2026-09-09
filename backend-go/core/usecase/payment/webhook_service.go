@@ -7,12 +7,15 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"net/http"
 )
 
 var (
 	ErrDuplicateTransaction = errors.New("transaction has already been processed")
+	ErrGatewayNotFound      = errors.New("payment gateway driver not found")
 )
 
 type WebhookPayload struct {
@@ -25,14 +28,16 @@ type WebhookPayload struct {
 }
 
 type WebhookService struct {
-	txnRepo     domain.TransactionRepository
-	invoiceRepo domain.InvoiceRepository
-	eventBus    *events.EventBus
+	txnRepo         domain.TransactionRepository
+	invoiceRepo     domain.InvoiceRepository
+	gatewayRegistry *payment.GatewayRegistry
+	eventBus        *events.EventBus
 }
 
 func NewWebhookService(
 	txnRepo domain.TransactionRepository,
 	invoiceRepo domain.InvoiceRepository,
+	gatewayRegistry *payment.GatewayRegistry,
 	eventBus ...*events.EventBus,
 ) *WebhookService {
 	var bus *events.EventBus
@@ -40,10 +45,21 @@ func NewWebhookService(
 		bus = eventBus[0]
 	}
 	return &WebhookService{
-		txnRepo:     txnRepo,
-		invoiceRepo: invoiceRepo,
-		eventBus:    bus,
+		txnRepo:         txnRepo,
+		invoiceRepo:     invoiceRepo,
+		gatewayRegistry: gatewayRegistry,
+		eventBus:        bus,
 	}
+}
+
+// ProcessRawWebhook identifies the gateway and calls its driver to verify signature and parse data
+func (s *WebhookService) ProcessRawWebhook(r *http.Request, gatewayID string) (*payment.WebhookResult, error) {
+	gw, err := s.gatewayRegistry.Get(gatewayID)
+	if err != nil {
+		return nil, ErrGatewayNotFound
+	}
+
+	return gw.ParseWebhook(r)
 }
 
 // HandlePaymentWebhook processes inbound payment IPN/webhooks idempotently and triggers order activation via events

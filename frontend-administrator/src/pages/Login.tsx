@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 import { useLogin } from '@/hooks/useLogin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 
 export const Login: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
   const {
     email,
     setEmail,
@@ -21,6 +26,12 @@ export const Login: React.FC = () => {
     handleSubmit,
     handleVerify2FA,
   } = useLogin();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/30 to-background">

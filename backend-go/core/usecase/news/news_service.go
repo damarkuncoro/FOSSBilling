@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
 var (
@@ -86,9 +87,9 @@ func (s *NewsService) Create(ctx context.Context, dto CreateNewsDTO) (*domain.Ne
 
 	post := &domain.NewsPost{
 		AdminID: dto.AdminID,
-		Title:   dto.Title,
+		Title:   security.SanitizeHTML(dto.Title),
 		Slug:    slug,
-		Content: dto.Content,
+		Content: security.SanitizeHTML(dto.Content),
 		Status:  dto.Status,
 	}
 
@@ -106,13 +107,13 @@ func (s *NewsService) Update(ctx context.Context, id int64, dto UpdateNewsDTO) (
 	}
 
 	if dto.Title != "" {
-		post.Title = dto.Title
+		post.Title = security.SanitizeHTML(dto.Title)
 	}
 	if dto.Slug != "" {
-		post.Slug = dto.Slug
+		post.Slug = security.SanitizeSlug(dto.Slug)
 	}
 	if dto.Content != "" {
-		post.Content = dto.Content
+		post.Content = security.SanitizeHTML(dto.Content)
 	}
 	if dto.Status != "" {
 		post.Status = dto.Status

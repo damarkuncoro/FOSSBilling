@@ -64,13 +64,27 @@ docker compose up --build -d
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Simulation
 
+### 1. Unit & Integration Tests
 All test suites are centralized in `tests-backend-go/`:
 ```bash
 # Run all unit and integration tests
 make test
 ```
+
+### 2. Ultra-Deep Business Simulation
+Perform a complete end-to-end business lifecycle simulation including Fraud Prevention, Domain Lifecycle, Advanced Billing, Provisioning, and Support:
+```bash
+go run ./cmd/demo/deep_simulation.go
+```
+**Tested Scenarios:**
+* **Identity:** Registration with Anti-Spam (IP Blacklist) and TOTP 2FA.
+* **Domains:** Availability checks and DNS record management (A record).
+* **Billing:** Promo codes, PPN 11% Tax, Webhook payment settlement, and Client Balance credits.
+* **Provisioning:** Automated cPanel account creation and License Key generation.
+* **CRM:** News publishing, Mass Mail campaigns, and Support Ticket lifecycle.
+* **Lifecycle:** Prorata upgrade calculations, HMAC-secured digital asset links, and Automated Termination.
 
 ---
 
