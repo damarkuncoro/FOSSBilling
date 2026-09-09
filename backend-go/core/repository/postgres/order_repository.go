@@ -149,8 +149,38 @@ func (r *OrderRepository) ListOverdueSuspensions(ctx context.Context, overdueDay
 	for rows.Next() {
 		var o domain.Order
 		if err := scanOrder(rows, &o); err != nil {
+			return nil, 0, err
+		}
+		orders = append(orders, &o)
+	}
+	return orders, nil
+}
+
+func (r *OrderRepository) ListPendingProvisioning(ctx context.Context) ([]*domain.Order, error) {
+	query := fmt.Sprintf(`
+		SELECT o.id, o.client_id, o.product_id, o.invoice_id, o.status, o.title, o.period, o.price, o.currency, o.config, o.activated_at, o.expires_at, o.next_due_date, o.suspended_at, o.suspension_reason, o.created_at, o.updated_at
+		FROM client_orders o
+		JOIN invoices i ON o.invoice_id = i.id
+		WHERE o.status = 'pending_setup' AND i.status = 'paid'
+	`)
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []*domain.Order
+	for rows.Next() {
+		var o domain.Order
+		var prodID *int64
+		err := rows.Scan(
+			&o.ID, &o.ClientID, &prodID, &o.InvoiceID, &o.Status, &o.Title, &o.Period, &o.Price, &o.Currency,
+			&o.Config, &o.ActivatedAt, &o.ExpiresAt, &o.NextDueDate, &o.SuspendedAt, &o.SuspensionReason, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
 			return nil, err
 		}
+		if prodID != nil { o.ProductID = *prodID }
 		orders = append(orders, &o)
 	}
 	return orders, nil

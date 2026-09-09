@@ -16,7 +16,10 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 	// 1. Invoice Renewal Job (14 days advance notice)
 	tasks.RunInvoiceRenewalsTask(jobCtx, cronService, 14)
 
-	// 2. Overdue Order Auto-Suspension Job (7 days grace period)
+	// 2. Automated Provisioning Job (Process paid pending orders)
+	cronService.ProcessPendingProvisioningBatch(jobCtx)
+
+	// 3. Overdue Order Auto-Suspension Job (7 days grace period)
 	tasks.RunOverdueSuspensionsTask(jobCtx, cronService, 7)
 
 	// 3. Inactive Support Tickets Auto-Close (7 days inactive)

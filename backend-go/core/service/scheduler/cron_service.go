@@ -137,6 +137,38 @@ func (s *CronService) GenerateRenewalInvoicesBatch(ctx context.Context, issueDay
 	return result, nil
 }
 
+// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
+func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	start := time.Now()
+	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &domain.CronTaskResult{
+		TaskName:       "BatchProvisioning",
+		ProcessedCount: len(pendingOrders),
+	}
+
+	if len(pendingOrders) == 0 {
+		result.Duration = time.Since(start)
+		return result, nil
+	}
+
+	for _, ord := range pendingOrders {
+		err := s.orderService.Activate(ctx, ord.ID)
+		if err != nil {
+			result.ErrorCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
+		} else {
+			result.SuccessCount++
+		}
+	}
+
+	result.Duration = time.Since(start)
+	return result, nil
+}
+
 // AutoSuspendOverdueOrdersBatch finds overdue orders exceeding grace period and suspends them
 func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, gracePeriodDays int) (*domain.CronTaskResult, error) {
 	start := time.Now()
@@ -195,6 +227,38 @@ func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, gracePe
 	return result, nil
 }
 
+// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
+func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	start := time.Now()
+	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &domain.CronTaskResult{
+		TaskName:       "BatchProvisioning",
+		ProcessedCount: len(pendingOrders),
+	}
+
+	if len(pendingOrders) == 0 {
+		result.Duration = time.Since(start)
+		return result, nil
+	}
+
+	for _, ord := range pendingOrders {
+		err := s.orderService.Activate(ctx, ord.ID)
+		if err != nil {
+			result.ErrorCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
+		} else {
+			result.SuccessCount++
+		}
+	}
+
+	result.Duration = time.Since(start)
+	return result, nil
+}
+
 // AutoCloseInactiveTicketsBatch closes resolved or abandoned tickets exceeding inactiveDays
 func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, inactiveDays int) (*domain.CronTaskResult, error) {
 	start := time.Now()
@@ -215,6 +279,38 @@ func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, inactiv
 	} else {
 		result.ProcessedCount = closedCount
 		result.SuccessCount = closedCount
+	}
+
+	result.Duration = time.Since(start)
+	return result, nil
+}
+
+// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
+func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	start := time.Now()
+	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &domain.CronTaskResult{
+		TaskName:       "BatchProvisioning",
+		ProcessedCount: len(pendingOrders),
+	}
+
+	if len(pendingOrders) == 0 {
+		result.Duration = time.Since(start)
+		return result, nil
+	}
+
+	for _, ord := range pendingOrders {
+		err := s.orderService.Activate(ctx, ord.ID)
+		if err != nil {
+			result.ErrorCount++
+			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
+		} else {
+			result.SuccessCount++
+		}
 	}
 
 	result.Duration = time.Since(start)

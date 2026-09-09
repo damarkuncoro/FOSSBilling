@@ -45,6 +45,7 @@ type OrderRepository interface {
 	ListByInvoiceID(ctx context.Context, invoiceID int64) ([]*Order, error)
 	ListDueOrders(ctx context.Context, dueBefore time.Time) ([]*Order, error)
 	ListOverdueSuspensions(ctx context.Context, overdueDays int) ([]*Order, error)
+	ListPendingProvisioning(ctx context.Context) ([]*Order, error)
 	Create(ctx context.Context, order *Order) error
 	Update(ctx context.Context, order *Order) error
 	UpdateStatus(ctx context.Context, id int64, status OrderStatus, reason *string) error
