@@ -19,14 +19,22 @@ import (
 type InvoiceHandler struct {
 	invoiceRepo    domain.InvoiceRepository
 	clientRepo     domain.ClientRepository
+	companyRepo    domain.CompanyRepository
 	invoiceService *billing.InvoiceService
 	paymentService *paymentUsecase.PaymentService
 }
 
-func NewInvoiceHandler(invoiceRepo domain.InvoiceRepository, clientRepo domain.ClientRepository, invoiceService *billing.InvoiceService, paymentService *paymentUsecase.PaymentService) *InvoiceHandler {
+func NewInvoiceHandler(
+	invoiceRepo domain.InvoiceRepository,
+	clientRepo domain.ClientRepository,
+	companyRepo domain.CompanyRepository,
+	invoiceService *billing.InvoiceService,
+	paymentService *paymentUsecase.PaymentService,
+) *InvoiceHandler {
 	return &InvoiceHandler{
 		invoiceRepo:    invoiceRepo,
 		clientRepo:     clientRepo,
+		companyRepo:    companyRepo,
 		invoiceService: invoiceService,
 		paymentService: paymentService,
 	}
@@ -209,7 +217,15 @@ func (h *InvoiceHandler) DownloadPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pdfContent, err := pdf.GenerateInvoicePDF(invoice, client, "", "", "")
+	company, _ := h.companyRepo.Get(r.Context())
+	compName, compAddr, compTax := "", "", ""
+	if company != nil {
+		compName = company.Name
+		compAddr = fmt.Sprintf("%s, %s, %s %s", company.Address1, company.City, company.State, company.Postcode)
+		compTax = company.VatNumber
+	}
+
+	pdfContent, err := pdf.GenerateInvoicePDF(invoice, client, compName, compAddr, compTax)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "RENDER_ERROR", "Failed to generate invoice PDF", err.Error())
 		return

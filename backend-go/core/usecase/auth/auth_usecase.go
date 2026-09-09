@@ -282,3 +282,18 @@ func (u *AuthUsecase) DisableTwoFactor(ctx context.Context, clientID int64) erro
 	client.TwoFactorSecret = nil
 	return u.clientRepo.Update(ctx, client)
 }
+
+func (u *AuthUsecase) AdminImpersonateClient(ctx context.Context, clientID int64) (string, error) {
+	client, err := u.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return "", err
+	}
+
+	// Generate token as Client with impersonation flag
+	token, err := auth.GenerateTokenExt(u.jwtSecret, client.ID, client.Email, "client", 1*time.Hour, true)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}

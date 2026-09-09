@@ -10,8 +10,9 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
+	pkgAuth "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
@@ -19,11 +20,12 @@ import (
 
 type ClientManagementHandler struct {
 	staffService *staff.StaffService
+	authService  *auth.AuthUsecase
 	clientRepo   domain.ClientRepository
 }
 
-func NewClientManagementHandler(staffService *staff.StaffService, clientRepo domain.ClientRepository) *ClientManagementHandler {
-	return &ClientManagementHandler{staffService: staffService, clientRepo: clientRepo}
+func NewClientManagementHandler(staffService *staff.StaffService, authService *auth.AuthUsecase, clientRepo domain.ClientRepository) *ClientManagementHandler {
+	return &ClientManagementHandler{staffService: staffService, authService: authService, clientRepo: clientRepo}
 }
 
 func (h *ClientManagementHandler) ListClients(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +121,7 @@ func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Re
 	if pwd == "" {
 		pwd = "Password123!"
 	}
-	passHash, _ := auth.HashPassword(pwd)
+	passHash, _ := pkgAuth.HashPassword(pwd)
 
 	client := &domain.Client{
 		Email: req.Email, PasswordHash: passHash,
@@ -188,7 +190,7 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 		client.Status = domain.ClientStatus(req.Status)
 	}
 	if req.Password != "" {
-		client.PasswordHash, _ = auth.HashPassword(req.Password)
+		client.PasswordHash, _ = pkgAuth.HashPassword(req.Password)
 	}
 
 	if err := h.clientRepo.Update(r.Context(), client); err != nil {
@@ -222,4 +224,28 @@ func (h *ClientManagementHandler) DeleteClient(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]bool{"deleted": true}, nil)
+}
+
+func (h *ClientManagementHandler) ImpersonateClient(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	clientID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid client ID", nil)
+		return
+	}
+
+	token, err := h.authService.AdminImpersonateClient(r.Context(), clientID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Impersonation failed", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"token": token}, nil)
 }

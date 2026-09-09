@@ -5,13 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface TaxRulesListTabProps {
   taxRules: TaxRuleItem[];
   onDelete: (id: number) => void;
+  loading?: boolean;
 }
 
-export const TaxRulesListTab: React.FC<TaxRulesListTabProps> = ({ taxRules, onDelete }) => {
+export const TaxRulesListTab: React.FC<TaxRulesListTabProps> = ({ taxRules, onDelete, loading }) => {
   return (
     <Card className="border-border/60 shadow-sm">
       <CardHeader>
@@ -33,8 +35,26 @@ export const TaxRulesListTab: React.FC<TaxRulesListTabProps> = ({ taxRules, onDe
             </TableRow>
           </TableHeader>
           <TableBody>
-            {taxRules.map((rule) => (
-              <TableRow key={rule.id}>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-7 w-7 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : taxRules.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                  No tax rules configured. Invoice will be issued without tax.
+                </TableCell>
+              </TableRow>
+            ) : (
+              taxRules.map((rule) => (
+                <TableRow key={rule.id}>
                 <TableCell className="font-medium text-sm">{rule.name}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-mono text-xs">{rule.country}</Badge>

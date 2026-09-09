@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, CheckCircle, Trash2 } from 'lucide-react';
+import { RefreshCw, CheckCircle, Trash2, Globe2 } from 'lucide-react';
 import { useCurrencies } from '@/hooks/useCurrencies';
 import { AddCurrencyDialog } from '@/components/currencies/AddCurrencyDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,10 +16,12 @@ export const Currencies: React.FC = () => {
     form,
     setForm,
     saving,
+    syncing,
     fetchCurrencies,
     handleCreate,
     handleSetDefault,
     handleDelete,
+    handleSync,
   } = useCurrencies();
 
   return (
@@ -32,6 +34,10 @@ export const Currencies: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleSync} disabled={loading || syncing} className="gap-2 border-primary/20 text-primary hover:bg-primary/5">
+            <Globe2 className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Update Rates (API)'}
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchCurrencies} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh

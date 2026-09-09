@@ -73,6 +73,17 @@ export function useClients() {
     }
   };
 
+  const impersonateClient = async (id: number) => {
+    try {
+      const token = await adminClientService.impersonateClient(id);
+      // Open client portal with token in query string
+      window.open(`http://localhost:3001/login?token=${token}`, '_blank');
+    } catch (err) {
+      console.error('Impersonation failed:', err);
+      alert('Could not impersonate client. Check permissions.');
+    }
+  };
+
   useEffect(() => {
     fetchClients();
   }, []);
@@ -92,5 +103,6 @@ export function useClients() {
     createClient,
     updateClient,
     deleteClient,
+    impersonateClient,
   };
 }

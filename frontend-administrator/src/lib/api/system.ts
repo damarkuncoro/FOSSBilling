@@ -33,6 +33,9 @@ export const systemApi = {
   getSecuritySettings: () => request<SecuritySettings>('/admin/settings/security'),
   updateSecuritySettings: (settings: Partial<SecuritySettings>) =>
     request<SecuritySettings>('/admin/settings/security', { method: 'PUT', body: JSON.stringify(settings) }),
+  getBrandingSettings: () => request<any>('/admin/settings/branding'),
+  updateBrandingSettings: (settings: any) =>
+    request<any>('/admin/settings/branding', { method: 'PUT', body: JSON.stringify(settings) }),
   getSystemStatus: () => request<SystemStatusInfo>('/admin/system/status'),
   triggerCron: () => request<{ success: boolean; message: string; timestamp: string }>('/admin/system/cron/run', { method: 'POST' }),
   clearSystemCache: () => request<{ success: boolean; message: string }>('/admin/system/cache/clear', { method: 'POST' }),

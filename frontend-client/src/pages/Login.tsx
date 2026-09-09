@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Shield, Lock, Mail, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 import { useClientAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,40 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { completeLogin } = useClientAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const impersonateToken = searchParams.get('token');
+    if (impersonateToken) {
+      handleTokenLogin(impersonateToken);
+    }
+  }, [searchParams]);
+
+  const handleTokenLogin = async (token: string) => {
+    setLoading(true);
+    try {
+      // Fetch profile using the impersonate token to confirm it's valid and get user info
+      // Since we don't have a direct 'me' with token override easily here without setting it,
+      // we'll just use completeLogin with placeholder and then it will fetch profile.
+      // But completeLogin in our system usually expects both.
+
+      // Let's assume we can call an API with this token to get the user object
+      const res = await fetch('/api/v1/client/profile', {
+         headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        await completeLogin(token, json.data);
+        navigate('/dashboard');
+      } else {
+        setError('Impersonation token is invalid or expired.');
+      }
+    } catch (err) {
+      setError('Failed to authenticate with impersonation token.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

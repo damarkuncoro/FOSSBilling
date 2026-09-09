@@ -18,6 +18,7 @@ type SystemRepository interface {
 	GetSetting(ctx context.Context, section, key string) (*SystemSetting, error)
 	ListSettings(ctx context.Context, section string) ([]*SystemSetting, error)
 	UpdateSetting(ctx context.Context, section, key string, value json.RawMessage) error
+	GetDatabaseStats(ctx context.Context) (map[string]interface{}, error)
 }
 
 type SystemStatus struct {

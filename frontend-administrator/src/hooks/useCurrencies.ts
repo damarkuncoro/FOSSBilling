@@ -13,6 +13,7 @@ export function useCurrencies() {
     format: '$ {{price}}',
   });
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchCurrencies = async () => {
     setLoading(true);
@@ -67,6 +68,19 @@ export function useCurrencies() {
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await adminCurrencyService.syncRates();
+      await fetchCurrencies();
+      alert('Currency exchange rates have been updated to latest global market values.');
+    } catch (err: any) {
+      alert(`Sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return {
     currencies,
     loading,
@@ -75,9 +89,11 @@ export function useCurrencies() {
     form,
     setForm,
     saving,
+    syncing,
     fetchCurrencies,
     handleCreate,
     handleSetDefault,
     handleDelete,
+    handleSync,
   };
 }

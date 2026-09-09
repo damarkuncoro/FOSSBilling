@@ -34,10 +34,12 @@ export function useSystemHealth() {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const data = await adminSystemService.getSystemStatus().catch(() => null);
-      setStatus(data || defaultStatus);
+      const data = await adminSystemService.getSystemStatus();
+      if (data) {
+         setStatus(data);
+      }
     } catch {
-      setStatus(defaultStatus);
+      // Keep existing status on error
     } finally {
       setLoading(false);
     }
@@ -80,23 +82,20 @@ export function useSystemHealth() {
     }
   };
 
-  const handleExportBackup = () => {
-    const jsonStr = JSON.stringify(
-      {
-        exported_at: new Date().toISOString(),
-        system: status,
-        version: status.engine_version,
-      },
-      null,
-      2
-    );
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fossbilling-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExportBackup = async () => {
+    try {
+      const data = await request<any>('/admin/system/backup/export', { method: 'POST' });
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fossbilling-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Export failed: ${err.message}`);
+    }
   };
 
   return {

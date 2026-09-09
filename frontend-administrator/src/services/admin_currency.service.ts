@@ -35,6 +35,10 @@ export class AdminCurrencyService {
     }
     return this.repo.deleteCurrency(code.trim().toUpperCase());
   }
+
+  async syncRates(): Promise<any> {
+    return this.repo.syncRates();
+  }
 }
 
 export const adminCurrencyService = new AdminCurrencyService();

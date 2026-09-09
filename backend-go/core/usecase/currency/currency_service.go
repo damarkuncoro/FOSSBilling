@@ -2,8 +2,12 @@ package currency
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 )
@@ -117,4 +121,52 @@ func (s *CurrencyService) DeleteCurrency(ctx context.Context, code string) error
 		return ErrCannotDeleteDefault
 	}
 	return s.currencyRepo.Delete(ctx, code)
+}
+
+// UpdateExchangeRates fetches latest rates from public API and updates non-default currencies
+func (s *CurrencyService) UpdateExchangeRates(ctx context.Context) error {
+	currencies, err := s.currencyRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	var baseCode string
+	for _, c := range currencies {
+		if c.IsDefault {
+			baseCode = c.Code
+			break
+		}
+	}
+
+	if baseCode == "" {
+		baseCode = "USD"
+	}
+
+	// Fetch from ExchangeRate-API (Free Tier)
+	url := fmt.Sprintf("https://open.er-api.com/v6/latest/%s", baseCode)
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Rates map[string]float64 `json:"rates"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return err
+	}
+
+	for _, c := range currencies {
+		if c.IsDefault {
+			continue
+		}
+
+		if rate, ok := data.Rates[c.Code]; ok {
+			c.ConversionRate = rate
+			_ = s.currencyRepo.Update(ctx, c)
+		}
+	}
+
+	return nil
 }

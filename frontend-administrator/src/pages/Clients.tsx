@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, RefreshCw, Mail, MapPin, UserPlus, Edit3, Trash2, FileSpreadsheet } from 'lucide-react';
+import { Search, RefreshCw, Mail, MapPin, UserPlus, Edit3, Trash2, FileSpreadsheet, Fingerprint } from 'lucide-react';
 import { useClients } from '@/hooks/useClients';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { AddClientDialog } from '@/components/clients/AddClientDialog';
 import { EditClientDialog } from '@/components/clients/EditClientDialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const Clients: React.FC = () => {
-  const { loading, saving, search, setSearch, filtered, fetchClients, createClient, updateClient, deleteClient } = useClients();
+  const { loading, saving, search, setSearch, filtered, fetchClients, createClient, updateClient, deleteClient, impersonateClient } = useClients();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
 
@@ -89,9 +90,25 @@ export const Clients: React.FC = () => {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading clients...</TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No clients found.</TableCell>
@@ -127,6 +144,15 @@ export const Clients: React.FC = () => {
                     <TableCell className="text-xs text-muted-foreground">{formatDate(client.created_at)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50"
+                          onClick={() => impersonateClient(client.id)}
+                          title="Login as Client"
+                        >
+                          <Fingerprint className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setSelectedClient(client)} title="Edit Client">
                           <Edit3 className="h-3.5 w-3.5" />
                         </Button>

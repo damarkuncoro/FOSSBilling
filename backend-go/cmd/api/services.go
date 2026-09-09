@@ -73,6 +73,7 @@ type Services struct {
 	Notification  *notificationUsecase.NotificationService
 	AdminNotif    *notificationUsecase.AdminNotificationService
 	Antispam      *antispamUsecase.AntispamService
+	Fraud         fraud.FraudChecker
 	Formbuilder   *formbuilderUsecase.FormbuilderService
 	Extension     *extensionUsecase.ExtensionService
 	Redirect      *redirectUsecase.RedirectService
@@ -89,11 +90,18 @@ type Services struct {
 
 // InitServices instantiates and configures all domain services with their respective repository dependencies
 func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.EventBus, appCache cache.Cache, hookManager *plugins.HookManager) *Services {
-	mockMailer := mailer.NewMockMailer()
-	emailService := notification.NewEmailService(mockMailer, "admin@fossbilling.org", "FOSSBilling")
+	var appMailer mailer.Mailer
+	if cfg.MailDriver == "smtp" {
+		appMailer = mailer.NewSMTPMailer(cfg.MailHost, cfg.MailPort, cfg.MailUser, cfg.MailPass, cfg.MailFromAddr)
+	} else {
+		appMailer = mailer.NewMockMailer()
+	}
+
+	emailService := notification.NewEmailService(appMailer, cfg.MailFromAddr, cfg.MailFromName)
 
 	taxCalculator := billingUsecase.NewTaxCalculator(repos.Tax)
 	promoCalc := cartUsecase.NewPromoCalculator(repos.Promo)
+	fraudChecker := &fraud.MockFraudChecker{}
 
 	// 1. Antispam & Security
 	turnstileVerifier := security.NewTurnstileVerifier("")
@@ -141,12 +149,12 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	orderService := orderUsecase.NewOrderService(repos.Order, repos.Product, provisionerRegistry, registrarRegistry, eventBus)
 	invoiceService := billingUsecase.NewInvoiceService(repos.Invoice, repos.Client, taxCalculator, hookManager, eventBus)
 	formbuilderService := formbuilderUsecase.NewFormbuilderService(repos.Formbuilder)
-	cartService := cartUsecase.NewCartService(promoCalc, repos.Promo, repos.Order, repos.Product, repos.Client, formbuilderService, taxCalculator, invoiceService, eventBus)
+	cartService := cartUsecase.NewCartService(promoCalc, repos.Promo, repos.Order, repos.Product, repos.Client, formbuilderService, taxCalculator, invoiceService, fraudChecker, eventBus)
 
 	// 5. Gateways
 	gatewayRegistry := payment.NewGatewayRegistry()
-	gatewayRegistry.Register(gateways.NewStripeGateway("sk_test", "pk_test", "whsec_test"))
-	gatewayRegistry.Register(gateways.NewMidtransGateway("server_key", "client_key", false))
+	gatewayRegistry.Register(gateways.NewStripeGateway(cfg.StripeSecretKey, cfg.StripePublicKey, ""))
+	gatewayRegistry.Register(gateways.NewMidtransGateway(cfg.MidtransServerKey, cfg.MidtransClientKey, cfg.AppEnv == "production"))
 	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Mandiri", "1234567890", "FOSSBilling Indonesia"))
 
 	// 6. Rest of services
@@ -154,8 +162,8 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
 	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
 	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret)
-	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support)
-	companyService := companyUsecase.NewCompanyService(repos.Company)
+	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support, appCache)
+	companyService := companyUsecase.NewCompanyService(repos.Company, repos.System)
 	currencyService := currencyUsecase.NewCurrencyService(repos.Currency)
 	newsService := newsUsecase.NewNewsService(repos.News)
 	downloadService := downloadableUsecase.NewDownloadableService(repos.Downloadable, repos.Order, cfg.JWTSecret)
@@ -170,7 +178,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	activityService := activityUsecase.NewActivityService(repos.Activity)
 	notificationService := notificationUsecase.NewNotificationService(repos.Notification)
 	adminNotifService := notificationUsecase.NewAdminNotificationService(repos.AdminNotification)
-	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, mockMailer, "admin@fossbilling.org", "FOSSBilling")
+	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, appMailer, cfg.MailFromAddr, cfg.MailFromName)
 
 	// 7. Event Listeners
 	orderListener := listener.NewOrderListener(emailService, repos.Order, repos.Product, repos.Client, orderService, registrarRegistry, provisionerRegistry)
@@ -189,11 +197,12 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	eventBus.Subscribe(events.EventInvoicePaid, notificationListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventOrderActivated, notificationListener.HandleOrderActivated)
 
-	adminAlertListener := listener.NewAdminAlertListener(adminNotifService)
+	telegramService := centralalerts.NewTelegramService(cfg.TelegramBotToken, cfg.TelegramChatID)
+	adminAlertListener := listener.NewAdminAlertListener(adminNotifService, telegramService)
 	eventBus.Subscribe(events.EventInvoicePaid, adminAlertListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventTicketOpened, adminAlertListener.HandleTicketOpened)
 
-	systemListener := listener.NewSystemListener(emailService, "admin@fossbilling.org")
+	systemListener := listener.NewSystemListener(emailService, cfg.MailFromAddr)
 	eventBus.Subscribe(events.EventLowStock, systemListener.HandleLowStock)
 
 	return &Services{
@@ -223,6 +232,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		Notification:  notificationService,
 		AdminNotif:    adminNotifService,
 		Antispam:      antispamService,
+		Fraud:         fraudChecker,
 		Tax:           taxCalculator,
 		Formbuilder:   formbuilderService,
 		Extension:     extensionUsecase.NewExtensionService(repos.Extension),

@@ -7,6 +7,7 @@ import { InvoicesTable } from '@/components/invoices/InvoicesTable';
 import { InvoicePayDialog } from '@/components/invoices/InvoicePayDialog';
 import { DepositModal } from '@/components/invoices/DepositModal';
 import { formatMoney } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const Invoices: React.FC = () => {
   const {

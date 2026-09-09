@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const Services: React.FC = () => {
   const {
@@ -50,7 +51,26 @@ export const Services: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="py-16 text-center text-muted-foreground">Loading your cloud services...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="border-border/60 shadow-sm flex flex-col justify-between">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+                <Skeleton className="h-6 w-40 mt-2" />
+                <Skeleton className="h-4 w-32 mt-1" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-24 w-full rounded-lg" />
+              </CardContent>
+              <div className="p-6 pt-0">
+                <Skeleton className="h-9 w-full rounded-md" />
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : !orders || orders.length === 0 ? (
         <Card className="p-8 text-center border-dashed">
           <p className="text-sm text-muted-foreground">You don't have any active subscriptions yet.</p>

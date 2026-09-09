@@ -7,6 +7,7 @@ export interface IAdminClientRepository {
   createClient(dto: Partial<ClientProfile>): Promise<ClientProfile>;
   updateClient(id: number, dto: Partial<ClientProfile>): Promise<ClientProfile>;
   deleteClient(id: number): Promise<any>;
+  impersonateClient(id: number): Promise<{ token: string }>;
 }
 
 export class AdminClientRepository implements IAdminClientRepository {
@@ -35,6 +36,12 @@ export class AdminClientRepository implements IAdminClientRepository {
   async deleteClient(id: number): Promise<any> {
     return request<any>(`/admin/clients/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async impersonateClient(id: number): Promise<{ token: string }> {
+    return request<{ token: string }>(`/admin/clients/${id}/impersonate`, {
+      method: 'POST',
     });
   }
 }

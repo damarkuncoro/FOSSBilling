@@ -4,6 +4,7 @@ import { useReports } from '@/hooks/useReports';
 import { Button } from '@/components/ui/button';
 import { RevenueMetricsGrid } from '@/components/reports/RevenueMetricsGrid';
 import { TaxReportCard } from '@/components/reports/TaxReportCard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const Reports: React.FC = () => {
   const { report, loading, fetchReports, handleExportCsv } = useReports();
@@ -35,9 +36,25 @@ export const Reports: React.FC = () => {
         </div>
       </div>
 
-      <RevenueMetricsGrid report={report} />
+      <RevenueMetricsGrid report={report} loading={loading} />
 
-      <TaxReportCard report={report} onExport={handleExportCsv} />
+      {loading ? (
+        <Card className="border-border/60 shadow-sm">
+           <CardHeader>
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-64 mt-2" />
+           </CardHeader>
+           <CardContent>
+              <div className="space-y-4">
+                 {Array.from({ length: 4 }).map((_, i) => (
+                   <Skeleton key={i} className="h-10 w-full" />
+                 ))}
+              </div>
+           </CardContent>
+        </Card>
+      ) : (
+        <TaxReportCard report={report} onExport={handleExportCsv} />
+      )}
     </div>
   );
 };

@@ -20,13 +20,15 @@ type SystemModuleHandler struct {
 	staffService  *staff.StaffService
 	systemService *system.SystemService
 	pageService   *page.PageService
+	cache         cache.Cache
 }
 
-func NewSystemModuleHandler(staffService *staff.StaffService, systemService *system.SystemService, pageService *page.PageService) *SystemModuleHandler {
+func NewSystemModuleHandler(staffService *staff.StaffService, systemService *system.SystemService, pageService *page.PageService, appCache cache.Cache) *SystemModuleHandler {
 	return &SystemModuleHandler{
 		staffService:  staffService,
 		systemService: systemService,
 		pageService:   pageService,
+		cache:         appCache,
 	}
 }
 
@@ -71,6 +73,56 @@ func (h *SystemModuleHandler) UpdateSecuritySettings(w http.ResponseWriter, r *h
 	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
 }
 
+// --- Branding & White-labeling ---
+func (h *SystemModuleHandler) GetBrandingSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.systemService.GetBrandingSettings(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, settings, nil)
+}
+
+func (h *SystemModuleHandler) UpdateBrandingSettings(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
+	var settings map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body", nil)
+		return
+	}
+
+	for k, v := range settings {
+		if err := h.systemService.UpdateBrandingSetting(r.Context(), k, v); err != nil {
+			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+			return
+		}
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+}
+
+func (h *SystemModuleHandler) ExportBackup(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
+	backup, err := h.systemService.CreateBackup(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "BACKUP_FAILED", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, backup, nil)
+}
+
 // --- System Health & Maintenance ---
 func (h *SystemModuleHandler) GetSystemStatus(w http.ResponseWriter, r *http.Request) {
 	staffID := middleware.GetClientID(r.Context())
@@ -107,9 +159,14 @@ func (h *SystemModuleHandler) ClearCache(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if err := h.systemService.PurgeAllCache(r.Context(), h.cache); err != nil {
+		response.Error(w, http.StatusInternalServerError, "PURGE_FAILED", err.Error(), nil)
+		return
+	}
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Application cache cleared successfully.",
+		"message": "Application cache and dashboard metrics cleared successfully.",
 	}, nil)
 }
 

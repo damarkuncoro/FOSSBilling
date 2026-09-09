@@ -15,6 +15,24 @@ type Config struct {
 	DefaultCurrency string
 	AllowedOrigins  string
 	WorkerConcurrency int
+
+	// Mailer
+	MailDriver   string
+	MailHost     string
+	MailPort     string
+	MailUser     string
+	MailPass     string
+	MailFromAddr string
+	MailFromName string
+
+	// Payment Gateways
+	MidtransServerKey string
+	MidtransClientKey string
+	StripeSecretKey   string
+	StripePublicKey   string
+
+	TelegramBotToken string
+	TelegramChatID   string
 }
 
 func Load() *Config {
@@ -28,6 +46,22 @@ func Load() *Config {
 		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "USD"),
 		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "*"),
 		WorkerConcurrency: getEnvInt("WORKER_CONCURRENCY", 20),
+
+		MailDriver:   getEnv("MAIL_DRIVER", "mock"),
+		MailHost:     getEnv("MAIL_HOST", "smtp.mailtrap.io"),
+		MailPort:     getEnv("MAIL_PORT", "2525"),
+		MailUser:     getEnv("MAIL_USER", ""),
+		MailPass:     getEnv("MAIL_PASS", ""),
+		MailFromAddr: getEnv("MAIL_FROM_ADDRESS", "noreply@fossbilling.org"),
+		MailFromName: getEnv("MAIL_FROM_NAME", "FOSSBilling"),
+
+		MidtransServerKey: getEnv("MIDTRANS_SERVER_KEY", ""),
+		MidtransClientKey: getEnv("MIDTRANS_CLIENT_KEY", ""),
+		StripeSecretKey:   getEnv("STRIPE_SECRET_KEY", ""),
+		StripePublicKey:   getEnv("STRIPE_PUBLIC_KEY", ""),
+
+		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:   getEnv("TELEGRAM_CHAT_ID", ""),
 	}
 }
 

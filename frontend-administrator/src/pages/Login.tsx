@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { request } from '@/lib/api/client';
 
 export const Login: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [branding, setBranding] = useState<any>(null);
 
   const {
     email,
@@ -31,16 +33,30 @@ export const Login: React.FC = () => {
     if (isAuthenticated) {
       navigate('/', { replace: true });
     }
+    // Fetch public branding
+    request<any>('/guest/company').then(data => {
+       if (data && data.branding) setBranding(data.branding);
+    }).catch(() => {});
   }, [isAuthenticated, navigate]);
+
+  const companyName = branding?.company_name || 'FOSSBilling Admin';
+  const primaryColor = branding?.primary_color || '#4f46e5';
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-background via-muted/30 to-background">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-indigo-500 items-center justify-center text-white shadow-xl shadow-primary/30 mb-2">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">FOSSBilling Admin</h1>
+          {branding?.logo_url ? (
+            <img src={branding.logo_url} alt={companyName} className="h-14 mx-auto mb-4 object-contain" />
+          ) : (
+            <div
+               className="inline-flex h-14 w-14 rounded-2xl items-center justify-center text-white shadow-xl shadow-primary/30 mb-2"
+               style={{ backgroundColor: primaryColor }}
+            >
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold tracking-tight">{companyName}</h1>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
             Powered by Golang High-Performance API
             <Badge variant="success" className="text-[10px]">v2.0</Badge>

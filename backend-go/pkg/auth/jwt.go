@@ -12,18 +12,24 @@ var (
 )
 
 type Claims struct {
-	ClientID int64  `json:"client_id"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
+	ClientID       int64  `json:"client_id"`
+	Email          string `json:"email"`
+	Role           string `json:"role"`
+	IsImpersonated bool   `json:"is_impersonated,omitempty"`
 	jwt.RegisteredClaims
 }
 
 func GenerateToken(secret string, clientID int64, email, role string, duration time.Duration) (string, error) {
+	return GenerateTokenExt(secret, clientID, email, role, duration, false)
+}
+
+func GenerateTokenExt(secret string, clientID int64, email, role string, duration time.Duration, impersonated bool) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		ClientID: clientID,
-		Email:    email,
-		Role:     role,
+		ClientID:       clientID,
+		Email:          email,
+		Role:           role,
+		IsImpersonated: impersonated,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(now),

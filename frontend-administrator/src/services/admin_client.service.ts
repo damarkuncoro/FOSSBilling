@@ -36,6 +36,14 @@ export class AdminClientService {
     return this.repo.deleteClient(id);
   }
 
+  async impersonateClient(id: number): Promise<string> {
+    if (!id || id <= 0) {
+      throw new Error('Valid client ID is required');
+    }
+    const { token } = await this.repo.impersonateClient(id);
+    return token;
+  }
+
   filterClients(clients: ClientProfile[], query: string): ClientProfile[] {
     if (!query.trim()) return clients;
     const q = query.toLowerCase();

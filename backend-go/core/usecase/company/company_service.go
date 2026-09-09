@@ -2,6 +2,7 @@ package company
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
@@ -14,11 +15,12 @@ type CompanyService interface {
 }
 
 type companyService struct {
-	repo domain.CompanyRepository
+	repo       domain.CompanyRepository
+	systemRepo domain.SystemRepository
 }
 
-func NewCompanyService(repo domain.CompanyRepository) CompanyService {
-	return &companyService{repo: repo}
+func NewCompanyService(repo domain.CompanyRepository, systemRepo domain.SystemRepository) CompanyService {
+	return &companyService{repo: repo, systemRepo: systemRepo}
 }
 
 func (s *companyService) GetCompany(ctx context.Context) (*domain.CompanySettings, error) {
@@ -31,21 +33,26 @@ func (s *companyService) GetPublicCompany(ctx context.Context) (map[string]inter
 		return nil, err
 	}
 
+	// Fetch branding
+	brandingSettings, _ := s.systemRepo.ListSettings(ctx, "branding")
+	branding := make(map[string]interface{})
+	for _, setting := range brandingSettings {
+		var val interface{}
+		_ = json.Unmarshal(setting.Value, &val)
+		branding[setting.Key] = val
+	}
+
 	return map[string]interface{}{
 		"name":          c.Name,
 		"email":         c.Email,
 		"phone":         c.Phone,
 		"address_1":     c.Address1,
-		"address_2":     c.Address2,
 		"city":          c.City,
 		"state":         c.State,
-		"postcode":      c.Postcode,
 		"country":       c.Country,
 		"vat_number":    c.VatNumber,
 		"logo_url":      c.LogoURL,
-		"logo_dark_url": c.LogoDarkURL,
-		"favicon_url":   c.FaviconURL,
-		"terms_url":     c.TermsURL,
+		"branding":      branding,
 	}, nil
 }
 

@@ -35,13 +35,14 @@ type StaffAuthResponse struct {
 	Group             *domain.AdminGroup `json:"group,omitempty"`
 }
 
-func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuthResponse, error) {
+func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO, ip string) (*StaffAuthResponse, error) {
 	staff, err := s.staffRepo.GetByEmail(ctx, dto.Email)
 	if err != nil {
 		return nil, appErrors.ErrUnauthorized
 	}
 
 	if !auth.CheckPassword(dto.Password, staff.PasswordHash) {
+		// Log failed attempt?
 		return nil, appErrors.ErrUnauthorized
 	}
 
@@ -65,10 +66,12 @@ func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuth
 
 	// Log audit trail
 	_ = s.staffRepo.AddAuditLog(ctx, &domain.AuditLog{
-		StaffID: &staff.ID,
-		Module:  "staff",
-		Action:  "login",
-		Details: "Staff logged into admin dashboard",
+		StaffID:   &staff.ID,
+		Module:    "staff",
+		Action:    "login",
+		Details:   "Staff logged into admin dashboard",
+		IPAddress: ip,
+		CreatedAt: time.Now().UTC(),
 	})
 
 	return &StaffAuthResponse{
@@ -78,7 +81,7 @@ func (s *StaffService) Login(ctx context.Context, dto StaffLoginDTO) (*StaffAuth
 	}, nil
 }
 
-func (s *StaffService) VerifyTwoFactor(ctx context.Context, email, code string) (*StaffAuthResponse, error) {
+func (s *StaffService) VerifyTwoFactor(ctx context.Context, email, code, ip string) (*StaffAuthResponse, error) {
 	staff, err := s.staffRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, appErrors.ErrUnauthorized
@@ -94,6 +97,16 @@ func (s *StaffService) VerifyTwoFactor(ctx context.Context, email, code string) 
 	}
 
 	group, _ := s.staffRepo.GetGroupByID(ctx, staff.GroupID)
+
+	// Log audit trail
+	_ = s.staffRepo.AddAuditLog(ctx, &domain.AuditLog{
+		StaffID:   &staff.ID,
+		Module:    "staff",
+		Action:    "login_2fa",
+		Details:   "Staff completed 2FA challenge",
+		IPAddress: ip,
+		CreatedAt: time.Now().UTC(),
+	})
 
 	return &StaffAuthResponse{
 		Token: token,

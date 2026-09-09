@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export const Themes: React.FC = () => {
   const {
@@ -12,9 +14,13 @@ export const Themes: React.FC = () => {
     adminThemes,
     currentClientTheme,
     currentAdminTheme,
+    branding,
+    setBranding,
     loading,
+    savingBranding,
     fetchThemes,
     handleSelectTheme,
+    handleUpdateBranding,
   } = useThemes();
 
   const ThemeGrid = ({ themes, currentCode, target }: { themes: any[], currentCode: string, target: 'client' | 'admin' }) => (
@@ -97,7 +103,73 @@ export const Themes: React.FC = () => {
         <TabsList>
           <TabsTrigger value="client">Client Portal Themes</TabsTrigger>
           <TabsTrigger value="admin">Admin Dashboard Themes</TabsTrigger>
+          <TabsTrigger value="branding">Global Branding</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="branding">
+           <Card className="border-border/60">
+             <CardHeader>
+               <CardTitle className="text-base font-semibold">White-label & Brand Identity</CardTitle>
+               <CardDescription>Customize how your customers see your brand across all portals and emails.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                <form onSubmit={handleUpdateBranding} className="max-w-2xl space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="company_name">Company Display Name</Label>
+                      <Input
+                        id="company_name"
+                        value={branding.company_name}
+                        onChange={(e) => setBranding({ ...branding, company_name: e.target.value })}
+                        placeholder="e.g. My Hosting Co."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="primary_color">Primary Brand Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="primary_color"
+                          type="color"
+                          className="w-12 p-1 h-10"
+                          value={branding.primary_color}
+                          onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                        />
+                        <Input
+                          value={branding.primary_color}
+                          onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
+                          className="font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="logo_url">Custom Logo URL (Horizontal)</Label>
+                    <Input
+                      id="logo_url"
+                      value={branding.logo_url || ''}
+                      onChange={(e) => setBranding({ ...branding, logo_url: e.target.value })}
+                      placeholder="https://your-domain.com/logo.png"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="favicon_url">Favicon URL (16x16 or 32x32)</Label>
+                    <Input
+                      id="favicon_url"
+                      value={branding.favicon_url || ''}
+                      onChange={(e) => setBranding({ ...branding, favicon_url: e.target.value })}
+                      placeholder="https://your-domain.com/favicon.ico"
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={savingBranding} className="font-semibold">
+                    {savingBranding ? 'Saving...' : 'Save Branding Identity'}
+                  </Button>
+                </form>
+             </CardContent>
+           </Card>
+        </TabsContent>
 
         <TabsContent value="client">
           {loading ? (

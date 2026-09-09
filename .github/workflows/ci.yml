@@ -1,238 +1,71 @@
-name: CI
-
-permissions:
-  contents: read
+name: CI/CD Pipeline
 
 on:
   push:
+    branches: [ main ]
   pull_request:
-    branches: main
-    types: [opened, reopened, synchronize, labeled, unlabeled]
-  pull_request_target:
-    branches: main
-    types: [opened, reopened, synchronize]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && 'labels' || 'run' }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+    branches: [ main ]
 
 jobs:
-  merge-hold:
-    name: 'Check for Merge Hold'
-    if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
+  backend-test:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
     steps:
-      - name: 'Check merge-hold label'
-        run: |
-          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'merge-hold') }}" == 'true' ]]; then
-            echo "Pull request labeled 'merge-hold'"
-            echo "The pull request cannot be merged until the 'merge-hold' label is removed."
-            exit 1
-          fi
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Build
+        run: cd backend-go && go build -v ./...
+      - name: Test
+        run: cd backend-go && go test -v ./...
 
-          echo "Pull request not labeled 'merge-hold'"
-          echo "The pull request can be merged as no 'merge-hold' label is set."
-
-  labeler:
-    name: 'Pull Request Labeler'
-    permissions:
-      contents: read
-      pull-requests: write
-    if: ${{ github.event_name == 'pull_request_target' }}
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
+  frontend-admin:
+    name: Frontend (Admin)
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          repo-token: '${{ secrets.GITHUB_TOKEN }}'
-          sync-labels: true
+          node-version: '20'
+      - name: Install dependencies
+        run: cd frontend-administrator && npm install
+      - name: Lint
+        run: cd frontend-administrator && npm run lint
+      - name: Build
+        run: cd frontend-administrator && npm run build
 
-  release-drafter:
-    name: 'Release Drafter'
-    permissions:
-      contents: write
-      pull-requests: read
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
+  frontend-client:
+    name: Frontend (Client)
+    runs-on: ubuntu-latest
     steps:
-      - uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          config-name: release-drafter.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          node-version: '20'
+      - name: Install dependencies
+        run: cd frontend-client && npm install
+      - name: Lint
+        run: cd frontend-client && npm run lint
+      - name: Build
+        run: cd frontend-client && npm run build
 
-  spellcheck:
-    name: 'Spellcheck'
-    runs-on: ubuntu-slim
-    timeout-minutes: 10
-    if: ${{ (github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.base.repo.id != github.event.pull_request.head.repo.id) || github.event_name == 'push' }}
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
     steps:
-      - name: 'Checkout Repository'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@v4
+      - name: Run Gosec (Go Security Scan)
+        uses: securego/gosec@master
         with:
-          persist-credentials: false
-
-      - name: 'Perform Spellcheck'
-        uses: streetsidesoftware/cspell-action@6f3c77c1406bc930f944ba97e9801a22e42caf58 # v9
-        with:
-          incremental_files_only: true
-
-  php-build-test-pr:
-    name: 'PHP Build and Test'
-    # Keep PR and push callers separate because job permissions cannot be conditional.
-    permissions:
-      contents: read
-    if: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.base.repo.id != github.event.pull_request.head.repo.id }}
-    uses: ./.github/workflows/php-build-test.yml
-    with:
-      write-cache: false
-
-  php-build-test-push:
-    name: 'PHP Build and Test'
-    permissions:
-      contents: read
-      packages: write
-    if: ${{ github.event_name == 'push' }}
-    uses: ./.github/workflows/php-build-test.yml
-    with:
-      # Only main writes the shared registry cache, so concurrent branch pushes don't stomp on it.
-      write-cache: ${{ github.ref == 'refs/heads/main' }}
-
-  live-tests-pr:
-    name: 'Live Tests'
-    permissions:
-      contents: read
-    needs: [ php-build-test-pr ]
-    if: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.base.repo.id != github.event.pull_request.head.repo.id }}
-    uses: ./.github/workflows/live-tests.yml
-
-  live-tests-push:
-    name: 'Live Tests'
-    permissions:
-      contents: read
-    needs: [ php-build-test-push ]
-    if: ${{ github.event_name == 'push' }}
-    uses: ./.github/workflows/live-tests.yml
-
-  playwright-tests-pr:
-    name: 'Playwright Tests'
-    permissions:
-      contents: read
-    needs: [ php-build-test-pr ]
-    if: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.base.repo.id != github.event.pull_request.head.repo.id }}
-    uses: ./.github/workflows/playwright-tests.yml
-
-  playwright-tests-push:
-    name: 'Playwright Tests'
-    permissions:
-      contents: read
-    needs: [ php-build-test-push ]
-    if: ${{ github.event_name == 'push' }}
-    uses: ./.github/workflows/playwright-tests.yml
-
-  preview-build-pr:
-    name: 'Create Preview Build'
-    permissions:
-      contents: read
-    needs: [ live-tests-pr, playwright-tests-pr ]
-    if: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' && github.event.pull_request.base.repo.id != github.event.pull_request.head.repo.id }}
-    uses: ./.github/workflows/preview-build.yml
-    with:
-      write-cache: false
-
-  preview-build-push:
-    name: 'Create Preview Build'
-    permissions:
-      contents: read
-      packages: write
-    needs: [ live-tests-push, playwright-tests-push ]
-    if: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
-    uses: ./.github/workflows/preview-build.yml
-    with:
-      # This job only runs for non-main branches; main's preview-docker job keeps the cache warm.
-      write-cache: false
-
-  preview-docker:
-    name: 'Build and Push Preview Docker Image'
-    permissions:
-      contents: read
-      packages: write
-    needs: [ live-tests-push, playwright-tests-push ]
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-    uses: ./.github/workflows/docker-build.yml
-    secrets:
-      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-    with:
-      target: runtime
-      cache-scope: cache-preview
-      extract-release-tree: true
-      release-tree-artifact-name: preview-build
-      meta-images: fossbilling/fossbilling
-      meta-tags: |
-        type=raw,value=preview
-      meta-flavor: |
-        latest=false
-      build-args: |
-        FOSSBILLING_VERSION=${{ github.sha }}
-        FOSSBILLING_VERSION_TRUNCATE=7
-        SENTRY_DSN=${{ vars.SENTRY_DSN }}
-
-  upload-preview:
-    name: 'Upload Preview Release'
-    needs: [ preview-build-pr, preview-build-push, preview-docker ]
-    if: ${{ !cancelled() && (needs['preview-build-pr'].result == 'success' || needs['preview-build-push'].result == 'success' || needs['preview-docker'].result == 'success') }}
-    runs-on: ubuntu-slim
-    timeout-minutes: 15
-    steps:
-      - name: 'Download Preview Release Archive'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: preview-build
-          path: '/tmp'
-
-      - name: 'Extract Preview Release Archive'
-        run: |
-          mkdir ./src
-          tar -xf /tmp/build.tar -C ./src
-          rm -f ./src/provenance.json
-
-      - name: 'Create Downloadable Preview'
-        run: |
-          GITHUB_SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
-          echo "GITHUB_SHORT_SHA=${GITHUB_SHORT_SHA}" >> "$GITHUB_ENV"
-          zip -qr ../FOSSBilling-preview-${GITHUB_SHORT_SHA}.zip .
-          echo "FOSSBILLING_PREVIEW_DIGEST=sha256:$(sha256sum ../FOSSBilling-preview-${GITHUB_SHORT_SHA}.zip | awk '{print $1}')" >> "$GITHUB_ENV"
-        working-directory: ./src/
-
-      - name: 'Move Downloadable Preview for Upload'
-        run: |
-          mkdir ./dist
-          cp ./FOSSBilling-preview-${GITHUB_SHORT_SHA}.zip ./dist/FOSSBilling-preview.zip
-
-      - name: 'Upload Downloadable Preview to S3'
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          aws s3 sync "${SOURCE_DIR}" "s3://${AWS_S3_BUCKET}/" \
-            --endpoint-url "${AWS_S3_ENDPOINT}" \
-            --metadata="digest=${{ env.FOSSBILLING_PREVIEW_DIGEST }},commit-sha=${{ github.sha }}" \
-            --follow-symlinks \
-            --no-progress
-        env:
-          AWS_S3_BUCKET: ${{ vars.CF_R2_DOWNLOAD_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
-          AWS_S3_ENDPOINT: ${{ vars.CF_R2_ENDPOINT_URL }}
-          AWS_REGION: 'auto'
-          SOURCE_DIR: './dist'
-
-      - name: 'Upload Downloadable Preview to GitHub'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          if-no-files-found: 'error'
-          name: 'FOSSBilling-preview-${{ env.GITHUB_SHORT_SHA }}.zip'
-          path: './FOSSBilling-preview-${{ env.GITHUB_SHORT_SHA }}.zip'
-          archive: false
-          retention-days: 14
+          args: ./backend-go/...

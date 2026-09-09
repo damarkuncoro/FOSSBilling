@@ -14,6 +14,7 @@ import { SystemMetricsGrid } from '@/components/system/SystemMetricsGrid';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const SystemHealth: React.FC = () => {
   const {
@@ -29,6 +30,11 @@ export const SystemHealth: React.FC = () => {
     handleExportBackup,
     cronTasks,
   } = useSystemHealth();
+
+  React.useEffect(() => {
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -115,19 +121,19 @@ export const SystemHealth: React.FC = () => {
             <CardContent className="space-y-3 text-xs">
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Core Release</span>
-                <span className="font-mono font-semibold">{status.engine_version}</span>
+                {loading ? <Skeleton className="h-3 w-20" /> : <span className="font-mono font-semibold">{status.engine_version}</span>}
               </div>
               <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Go Runtime</span>
-                <span className="font-mono">{status.go_version}</span>
+                {loading ? <Skeleton className="h-3 w-24" /> : <span className="font-mono">{status.go_version}</span>}
               </div>
               <div className="flex justify-between border-b pb-2">
-                <span className="text-muted-foreground">Active Sessions</span>
-                <span className="font-semibold">{status.active_sessions} Active</span>
+                <span className="text-muted-foreground">Goroutines (Tasks)</span>
+                {loading ? <Skeleton className="h-3 w-10" /> : <span className="font-semibold">{status.active_sessions}</span>}
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Database Engine</span>
-                <span className="font-mono">{status.database_type}</span>
+                {loading ? <Skeleton className="h-3 w-32" /> : <span className="font-mono">{status.database_type}</span>}
               </div>
             </CardContent>
           </Card>

@@ -55,7 +55,12 @@ func (h *CartHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	cartReq.ClientID = clientID
 
-	res, err := h.cartService.Checkout(r.Context(), &cartReq)
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+
+	res, err := h.cartService.Checkout(r.Context(), &cartReq, ip)
 	if err != nil {
 		if errors.Is(err, cart.ErrEmptyCart) {
 			response.Error(w, http.StatusBadRequest, "EMPTY_CART", "Cart is empty", nil)

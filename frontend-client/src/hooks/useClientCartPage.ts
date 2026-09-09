@@ -39,7 +39,7 @@ export function useClientCartPage() {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (gatewayID: string = 'midtrans') => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -47,7 +47,7 @@ export function useClientCartPage() {
 
     setCheckoutLoading(true);
     try {
-      await api.checkoutCart({
+      const res = await api.checkoutCart({
         client_id: user?.id || 1,
         items: items.map((i) => ({
           product_id: i.product_id,
@@ -58,9 +58,23 @@ export function useClientCartPage() {
           config: i.config || (i.domain_name ? { domain_name: i.domain_name } : undefined),
         })),
         promo_code: promoCode || undefined,
-        gateway: 'midtrans',
       });
+
       clearCart();
+
+      // If checkout successful, initiate payment for the generated invoice
+      if (res && res.invoice) {
+        try {
+          const payRes = await api.initiateInvoicePayment(res.invoice.id, gatewayID);
+          if (payRes.redirect_url) {
+            window.location.href = payRes.redirect_url;
+            return;
+          }
+        } catch (payErr) {
+           console.error('Payment initiation failed, falling back to invoices list', payErr);
+        }
+      }
+
       navigate('/invoices');
     } catch (err: any) {
       alert(`Checkout failed: ${err.message}`);

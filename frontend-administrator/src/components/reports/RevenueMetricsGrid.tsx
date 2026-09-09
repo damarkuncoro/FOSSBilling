@@ -3,12 +3,33 @@ import { DollarSign, TrendingUp, Users, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatMoney } from '@/lib/utils';
 import { FinancialReportSummary } from '@/types/modules';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface RevenueMetricsGridProps {
   report: FinancialReportSummary | null;
+  loading?: boolean;
 }
 
-export const RevenueMetricsGrid: React.FC<RevenueMetricsGridProps> = ({ report }) => {
+export const RevenueMetricsGrid: React.FC<RevenueMetricsGridProps> = ({ report, loading }) => {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="border-border/60">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-3 w-40" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* MRR */}

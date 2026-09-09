@@ -67,7 +67,7 @@ type AppHandlers struct {
 }
 
 // setupRoutes initializes system routes and dispatches to role-scoped routers
-func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter *middleware.RateLimiter) http.Handler {
+func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimiter *middleware.RateLimiter) http.Handler {
 	mux := http.NewServeMux()
 
 	// 1. System Base (Health check & OpenAPI specs)
@@ -125,9 +125,9 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter *middleware.Rat
 	adminAuth := middleware.RequireAuth(cfg.JWTSecret, "admin", "superadmin", "support", "billing")
 
 	// 3. Register Role-Scoped Routes
-	registerGuestRoutes(mux, h, rateLimiter)
+	registerGuestRoutes(mux, h, rateLimiter, authRateLimiter)
 	registerClientRoutes(mux, h, clientAuth)
-	registerAdminRoutes(mux, h, adminAuth, rateLimiter)
+	registerAdminRoutes(mux, h, adminAuth, rateLimiter, authRateLimiter)
 
 	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux)))))
 }

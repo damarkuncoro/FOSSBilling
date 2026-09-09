@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react';
 import { adminStatsService } from '@/services/admin_stats.service';
+import { adminSystemService } from '@/services/admin_system.service';
 import type { DashboardStats } from '@/types/api';
-
-export const mockRevenueTrends = [
-  { month: 'Jan', revenue: 12400, mrr: 8200 },
-  { month: 'Feb', revenue: 15800, mrr: 9400 },
-  { month: 'Mar', revenue: 19200, mrr: 11000 },
-  { month: 'Apr', revenue: 24500, mrr: 14500 },
-  { month: 'May', revenue: 31000, mrr: 18200 },
-  { month: 'Jun', revenue: 42000, mrr: 23500 },
-  { month: 'Jul', revenue: 56000, mrr: 29000 },
-];
 
 export function useDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,8 +13,12 @@ export function useDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminStatsService.getDashboardMetrics();
-      setStats(data);
+      const [statsData, logsData] = await Promise.all([
+        adminStatsService.getDashboardMetrics(),
+        adminSystemService.getAuditLogs(5, 0), // Get top 5 recent logs
+      ]);
+      setStats(statsData);
+      setRecentLogs(logsData || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load dashboard metrics');
     } finally {
@@ -36,14 +32,14 @@ export function useDashboard() {
 
   const revenueTrends = stats?.revenue_trends && stats.revenue_trends.length > 0
     ? stats.revenue_trends
-    : mockRevenueTrends;
+    : [];
 
   return {
     stats,
+    recentLogs,
     loading,
     error,
     fetchStats,
     revenueTrends,
-    mockRevenueTrends,
   };
 }

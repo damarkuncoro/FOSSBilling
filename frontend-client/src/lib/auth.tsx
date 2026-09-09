@@ -18,6 +18,7 @@ interface ClientAuthContextType {
   token: string | null;
   balance: number;
   isAuthenticated: boolean;
+  isImpersonated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   completeLogin: (token: string, user?: ClientUser) => Promise<void>;
@@ -50,6 +51,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const [token, setToken] = useState<string | null>(getStoredClientToken);
   const [balance, setBalance] = useState<number>(0);
+  const [isImpersonated, setIsImpersonated] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('fossbilling_client_theme') as 'light' | 'dark') || 'dark';
@@ -79,8 +81,15 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setIsImpersonated(!!payload.is_impersonated);
+      } catch {
+        setIsImpersonated(false);
+      }
       refreshProfile().finally(() => setIsLoading(false));
     } else {
+      setIsImpersonated(false);
       setIsLoading(false);
     }
   }, [token]);
@@ -147,6 +156,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         token,
         balance,
         isAuthenticated: !!token && !!user,
+        isImpersonated,
         isLoading,
         login,
         completeLogin,

@@ -9,10 +9,10 @@ import (
 )
 
 // registerGuestRoutes configures all public guest API endpoints
-func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rateLimiter *middleware.RateLimiter) {
-	mux.Handle("POST /api/v1/guest/auth/register", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Register)))
-	mux.Handle("POST /api/v1/guest/auth/login", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Login)))
-	mux.Handle("POST /api/v1/guest/auth/verify-2fa", rateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.VerifyTwoFactor)))
+func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rateLimiter, authRateLimiter *middleware.RateLimiter) {
+	mux.Handle("POST /api/v1/guest/auth/register", authRateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Register)))
+	mux.Handle("POST /api/v1/guest/auth/login", authRateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.Login)))
+	mux.Handle("POST /api/v1/guest/auth/verify-2fa", authRateLimiter.RateLimit(http.HandlerFunc(h.GuestAuth.VerifyTwoFactor)))
 	mux.Handle("POST /api/v1/guest/cart/calculate", rateLimiter.RateLimit(http.HandlerFunc(h.GuestCart.Calculate)))
 	mux.Handle("POST /api/v1/guest/cart/checkout", http.HandlerFunc(h.GuestCart.Checkout))
 	mux.Handle("POST /api/v1/guest/webhook/custom", http.HandlerFunc(h.GuestWebhook.HandleGatewayWebhook))

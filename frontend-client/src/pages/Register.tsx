@@ -100,7 +100,17 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Password (Min. 8 chars)</label>
+                <label className="text-xs font-semibold text-muted-foreground flex justify-between items-center">
+                   <span>Password (Min. 8 chars)</span>
+                   {password.length > 0 && (
+                     <span className={`text-[10px] uppercase font-bold ${
+                       password.length < 8 ? 'text-rose-500' :
+                       password.length < 12 ? 'text-amber-500' : 'text-emerald-500'
+                     }`}>
+                        {password.length < 8 ? 'Weak' : password.length < 12 ? 'Medium' : 'Strong'}
+                     </span>
+                   )}
+                </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -113,6 +123,13 @@ export const Register: React.FC = () => {
                     className="pl-9"
                   />
                 </div>
+                {password.length > 0 && (
+                  <div className="flex gap-1 mt-1">
+                    <div className={`h-1 flex-1 rounded-full transition-colors ${password.length >= 1 ? (password.length < 8 ? 'bg-rose-500' : 'bg-emerald-500') : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 rounded-full transition-colors ${password.length >= 8 ? (password.length < 12 ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-muted'}`} />
+                    <div className={`h-1 flex-1 rounded-full transition-colors ${password.length >= 12 ? 'bg-emerald-500' : 'bg-muted'}`} />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">

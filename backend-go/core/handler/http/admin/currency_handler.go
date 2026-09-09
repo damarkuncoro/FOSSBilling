@@ -145,3 +145,22 @@ func (h *CurrencyHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		"message": "Currency deleted successfully",
 	}, nil)
 }
+
+func (h *CurrencyHandler) SyncRates(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
+		return
+	}
+
+	if err := h.currencyService.UpdateExchangeRates(r.Context()); err != nil {
+		response.Error(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Currency exchange rates synchronized with global central bank data",
+	}, nil)
+}

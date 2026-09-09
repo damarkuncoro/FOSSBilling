@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
@@ -54,6 +55,7 @@ type StatsService struct {
 	orderRepo   domain.OrderRepository
 	invoiceRepo domain.InvoiceRepository
 	supportRepo domain.SupportRepository
+	cache       cache.Cache
 }
 
 func NewStatsService(
@@ -61,17 +63,27 @@ func NewStatsService(
 	orderRepo domain.OrderRepository,
 	invoiceRepo domain.InvoiceRepository,
 	supportRepo domain.SupportRepository,
+	appCache cache.Cache,
 ) *StatsService {
 	return &StatsService{
 		clientRepo:  clientRepo,
 		orderRepo:   orderRepo,
 		invoiceRepo: invoiceRepo,
 		supportRepo: supportRepo,
+		cache:       appCache,
 	}
 }
 
 // CalculateDashboard aggregates real-time business and operations KPIs
 func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats, error) {
+	// Try to get from cache first
+	var cachedStats DashboardStats
+	if s.cache != nil {
+		if err := s.cache.Get(ctx, "admin_dashboard_metrics", &cachedStats); err == nil {
+			return &cachedStats, nil
+		}
+	}
+
 	stats := &DashboardStats{
 		RevenueTrends: make([]RevenueTrend, 0),
 	}
@@ -156,6 +168,11 @@ func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats,
 	stats.MonthlyRevenue = stats.MonthlyRecurring
 	stats.ActiveClients = stats.TotalClients
 	stats.TotalOrders = stats.ActiveOrders + stats.SuspendedOrders + stats.PendingOrders
+
+	// Save to cache for 5 minutes
+	if s.cache != nil {
+		_ = s.cache.Set(ctx, "admin_dashboard_metrics", stats, 5*time.Minute)
+	}
 
 	return stats, nil
 }

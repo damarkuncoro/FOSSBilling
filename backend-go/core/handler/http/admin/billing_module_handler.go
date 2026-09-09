@@ -88,6 +88,29 @@ func (h *BillingModuleHandler) CreateTaxRule(w http.ResponseWriter, r *http.Requ
 	response.JSON(w, http.StatusCreated, rule, nil)
 }
 
+func (h *BillingModuleHandler) UpdateTaxRule(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "write")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: billing", nil)
+		return
+	}
+
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	var rule domain.TaxRule
+	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+		response.Error(w, http.StatusBadRequest, "INVALID_BODY", err.Error(), nil)
+		return
+	}
+	rule.ID = id
+
+	if err := h.taxCalculator.UpdateRule(r.Context(), &rule); err != nil {
+		response.Error(w, http.StatusInternalServerError, "DB_ERROR", err.Error(), nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, rule, nil)
+}
+
 func (h *BillingModuleHandler) DeleteTaxRule(w http.ResponseWriter, r *http.Request) {
 	staffID := middleware.GetClientID(r.Context())
 	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "billing", "delete")

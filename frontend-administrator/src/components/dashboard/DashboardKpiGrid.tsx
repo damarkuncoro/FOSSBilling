@@ -2,12 +2,33 @@ import React from 'react';
 import { DollarSign, TrendingUp, Users, Package, ArrowUpRight } from 'lucide-react';
 import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardKpiGridProps {
   stats: any;
+  loading?: boolean;
 }
 
-export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats }) => {
+export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loading }) => {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="border-border/60 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-3 w-40" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Total Revenue */}

@@ -27,7 +27,12 @@ func (h *StaffAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.staffService.Login(r.Context(), req)
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+
+	res, err := h.staffService.Login(r.Context(), req, ip)
 	if err != nil {
 		if errors.Is(err, appErrors.ErrUnauthorized) {
 			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid staff credentials", nil)
@@ -47,7 +52,12 @@ func (h *StaffAuthHandler) VerifyTwoFactor(w http.ResponseWriter, r *http.Reques
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	res, err := h.staffService.VerifyTwoFactor(r.Context(), req.Email, req.Code)
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+
+	res, err := h.staffService.VerifyTwoFactor(r.Context(), req.Email, req.Code, ip)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error(), nil)
 		return

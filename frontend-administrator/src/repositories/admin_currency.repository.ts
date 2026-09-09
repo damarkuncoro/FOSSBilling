@@ -13,6 +13,7 @@ export interface IAdminCurrencyRepository {
   createCurrency(dto: Partial<CurrencyItem>): Promise<CurrencyItem>;
   setDefaultCurrency(code: string): Promise<any>;
   deleteCurrency(code: string): Promise<any>;
+  syncRates(): Promise<any>;
 }
 
 export class AdminCurrencyRepository implements IAdminCurrencyRepository {
@@ -36,6 +37,12 @@ export class AdminCurrencyRepository implements IAdminCurrencyRepository {
   async deleteCurrency(code: string): Promise<any> {
     return request<any>(`/admin/currencies/${code}`, {
       method: 'DELETE',
+    });
+  }
+
+  async syncRates(): Promise<any> {
+    return request<any>('/admin/currencies/sync', {
+      method: 'POST',
     });
   }
 }

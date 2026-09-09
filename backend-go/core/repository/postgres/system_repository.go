@@ -67,3 +67,23 @@ func (r *SystemRepository) UpdateSetting(ctx context.Context, section, key strin
 	}
 	return nil
 }
+
+func (r *SystemRepository) GetDatabaseStats(ctx context.Context) (map[string]interface{}, error) {
+	var dbSize string
+	err := r.pool.QueryRow(ctx, "SELECT pg_size_pretty(pg_database_size(current_database()))").Scan(&dbSize)
+	if err != nil {
+		return nil, err
+	}
+
+	var version string
+	err = r.pool.QueryRow(ctx, "SHOW server_version").Scan(&version)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"size":    dbSize,
+		"version": version,
+		"type":    "PostgreSQL",
+	}, nil
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/formbuilder"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/fraud"
 )
 
 var (
@@ -51,6 +52,7 @@ type CartService struct {
 	formService     *formbuilder.FormbuilderService
 	taxCalculator   *billing.TaxCalculator
 	invoiceService  *billing.InvoiceService
+	fraudChecker    fraud.FraudChecker
 	eventBus        *events.EventBus
 }
 
@@ -63,6 +65,7 @@ func NewCartService(
 	formService *formbuilder.FormbuilderService,
 	taxCalculator *billing.TaxCalculator,
 	invoiceService *billing.InvoiceService,
+	fraudChecker fraud.FraudChecker,
 	eventBus *events.EventBus,
 ) *CartService {
 	return &CartService{
@@ -74,6 +77,7 @@ func NewCartService(
 		formService:     formService,
 		taxCalculator:   taxCalculator,
 		invoiceService:  invoiceService,
+		fraudChecker:    fraudChecker,
 		eventBus:        eventBus,
 	}
 }
@@ -150,13 +154,22 @@ func (s *CartService) CalculateTotals(ctx context.Context, cart *Cart) error {
 }
 
 // Checkout converts cart items into Orders (pending_setup) and generates an Invoice
-func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult, error) {
+func (s *CartService) Checkout(ctx context.Context, cart *Cart, remoteIP string) (*CheckoutResult, error) {
 	if len(cart.Items) == 0 {
 		return nil, ErrEmptyCart
 	}
 
 	if err := s.CalculateTotals(ctx, cart); err != nil {
 		return nil, err
+	}
+
+	// Security: Run Fraud Check
+	isHighRisk := false
+	if s.fraudChecker != nil && remoteIP != "" {
+		score, _ := s.fraudChecker.CheckIP(ctx, remoteIP)
+		if score != nil && score.RiskLevel == "high" {
+			isHighRisk = true
+		}
 	}
 
 	var createdOrders []*domain.Order
@@ -208,10 +221,15 @@ func (s *CartService) Checkout(ctx context.Context, cart *Cart) (*CheckoutResult
 			}
 		}
 
+		status := domain.OrderStatusPendingSetup
+		if isHighRisk {
+			status = "manual_review" // Mark for admin to check
+		}
+
 		order := &domain.Order{
 			ClientID:  cart.ClientID,
 			ProductID: item.ProductID,
-			Status:    domain.OrderStatusPendingSetup,
+			Status:    status,
 			Title:     item.Title,
 			Period:    item.Period,
 			Price:     item.Price,

@@ -91,7 +91,7 @@ export const PaymentGateways: React.FC = () => {
       )}
 
       {activeTab === 'tax' && (
-        <TaxRulesListTab taxRules={taxRules} onDelete={handleDeleteTaxRule} />
+        <TaxRulesListTab taxRules={taxRules} onDelete={handleDeleteTaxRule} loading={loading} />
       )}
 
       <EditGatewayDialog

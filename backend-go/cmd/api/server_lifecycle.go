@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/logger"
 )
 
 // HTTPServerLifecycle manages startup, listener binding, and graceful drain lifecycle
@@ -36,9 +37,10 @@ func NewHTTPServerLifecycle(cfg *config.Config, handler http.Handler) *HTTPServe
 // StartAndListenWithGracefulShutdown launches the server in a goroutine and blocks on OS interrupt signals
 func (l *HTTPServerLifecycle) StartAndListenWithGracefulShutdown() {
 	go func() {
-		log.Printf("🚀 FOSSBilling API Server running on port %s in %s mode...", l.cfg.Port, l.cfg.AppEnv)
+		logger.Info("FOSSBilling API Server is live", "port", l.cfg.Port, "env", l.cfg.AppEnv)
 		if err := l.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Server listener error: %v", err)
+			logger.Error("Server listener failed", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -46,13 +48,13 @@ func (l *HTTPServerLifecycle) StartAndListenWithGracefulShutdown() {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 	<-shutdown
 
-	log.Println("🛑 Shutting down HTTP server gracefully...")
+	logger.Warn("Shutdown signal received, draining connections...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := l.server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("❌ Graceful shutdown error: %v", err)
+		logger.Error("Graceful shutdown failed", err)
 	} else {
-		log.Println("✅ Server exited cleanly.")
+		logger.Info("Server exited cleanly")
 	}
 }

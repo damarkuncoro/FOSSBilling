@@ -7,10 +7,10 @@ import (
 )
 
 // registerAdminRoutes configures all staff and administrator protected endpoints
-func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) http.Handler, rateLimiter *middleware.RateLimiter) {
+func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) http.Handler, rateLimiter, authRateLimiter *middleware.RateLimiter) {
 	// Admin Auth
-	mux.Handle("POST /api/v1/admin/auth/login", rateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.Login)))
-	mux.Handle("POST /api/v1/admin/auth/verify-2fa", rateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.VerifyTwoFactor)))
+	mux.Handle("POST /api/v1/admin/auth/login", authRateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.Login)))
+	mux.Handle("POST /api/v1/admin/auth/verify-2fa", authRateLimiter.RateLimit(http.HandlerFunc(h.AdminAuth.VerifyTwoFactor)))
 	mux.Handle("POST /api/v1/admin/auth/2fa/setup", aAuth(http.HandlerFunc(h.AdminAuth.SetupTwoFactor)))
 	mux.Handle("POST /api/v1/admin/auth/2fa/enable", aAuth(http.HandlerFunc(h.AdminAuth.EnableTwoFactor)))
 	mux.Handle("POST /api/v1/admin/auth/2fa/disable", aAuth(http.HandlerFunc(h.AdminAuth.DisableTwoFactor)))
@@ -22,6 +22,7 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("GET /api/v1/admin/clients/{id}", aAuth(http.HandlerFunc(h.AdminClient.GetClient)))
 	mux.Handle("PUT /api/v1/admin/clients/{id}", aAuth(http.HandlerFunc(h.AdminClient.UpdateClient)))
 	mux.Handle("DELETE /api/v1/admin/clients/{id}", aAuth(http.HandlerFunc(h.AdminClient.DeleteClient)))
+	mux.Handle("POST /api/v1/admin/clients/{id}/impersonate", aAuth(http.HandlerFunc(h.AdminClient.ImpersonateClient)))
 	mux.Handle("GET /api/v1/admin/invoices", aAuth(http.HandlerFunc(h.AdminInvoice.ListInvoices)))
 	mux.Handle("POST /api/v1/admin/invoices", aAuth(http.HandlerFunc(h.AdminInvoice.CreateInvoice)))
 	mux.Handle("GET /api/v1/admin/invoices/{id}", aAuth(http.HandlerFunc(h.AdminInvoice.GetInvoice)))
@@ -42,6 +43,7 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("POST /api/v1/admin/currencies", aAuth(http.HandlerFunc(h.AdminCurrency.Create)))
 	mux.Handle("PUT /api/v1/admin/currencies/{code}", aAuth(http.HandlerFunc(h.AdminCurrency.Update)))
 	mux.Handle("DELETE /api/v1/admin/currencies/{code}", aAuth(http.HandlerFunc(h.AdminCurrency.Delete)))
+	mux.Handle("POST /api/v1/admin/currencies/sync", aAuth(http.HandlerFunc(h.AdminCurrency.SyncRates)))
 	mux.Handle("POST /api/v1/admin/currencies/{code}/default", aAuth(http.HandlerFunc(h.AdminCurrency.SetDefault)))
 	mux.Handle("GET /api/v1/admin/news", aAuth(http.HandlerFunc(h.AdminNews.List)))
 	mux.Handle("POST /api/v1/admin/news", aAuth(http.HandlerFunc(h.AdminNews.Create)))
@@ -72,6 +74,7 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	mux.Handle("GET /api/v1/admin/gateways", aAuth(http.HandlerFunc(h.AdminBilling.ListGateways)))
 	mux.Handle("GET /api/v1/admin/tax-rules", aAuth(http.HandlerFunc(h.AdminBilling.ListTaxRules)))
 	mux.Handle("POST /api/v1/admin/tax-rules", aAuth(http.HandlerFunc(h.AdminBilling.CreateTaxRule)))
+	mux.Handle("PUT /api/v1/admin/tax-rules/{id}", aAuth(http.HandlerFunc(h.AdminBilling.UpdateTaxRule)))
 	mux.Handle("DELETE /api/v1/admin/tax-rules/{id}", aAuth(http.HandlerFunc(h.AdminBilling.DeleteTaxRule)))
 	mux.Handle("GET /api/v1/admin/coupons", aAuth(http.HandlerFunc(h.AdminBilling.ListCoupons)))
 	mux.Handle("POST /api/v1/admin/coupons", aAuth(http.HandlerFunc(h.AdminBilling.CreateCoupon)))
@@ -85,6 +88,9 @@ func registerAdminRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Han
 	// System (Security, Health, Pages, KB)
 	mux.Handle("GET /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.GetSecuritySettings)))
 	mux.Handle("PUT /api/v1/admin/settings/security", aAuth(http.HandlerFunc(h.AdminSystem.UpdateSecuritySettings)))
+	mux.Handle("GET /api/v1/admin/settings/branding", aAuth(http.HandlerFunc(h.AdminSystem.GetBrandingSettings)))
+	mux.Handle("PUT /api/v1/admin/settings/branding", aAuth(http.HandlerFunc(h.AdminSystem.UpdateBrandingSettings)))
+	mux.Handle("POST /api/v1/admin/system/backup/export", aAuth(http.HandlerFunc(h.AdminSystem.ExportBackup)))
 	mux.Handle("GET /api/v1/admin/notifications", aAuth(http.HandlerFunc(h.AdminNotification.List)))
 	mux.Handle("PUT /api/v1/admin/notifications/{id}/read", aAuth(http.HandlerFunc(h.AdminNotification.MarkRead)))
 	mux.Handle("POST /api/v1/admin/notifications/mark-all-read", aAuth(http.HandlerFunc(h.AdminNotification.MarkAllRead)))
