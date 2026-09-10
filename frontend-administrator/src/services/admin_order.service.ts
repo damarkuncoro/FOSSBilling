@@ -1,42 +1,22 @@
-import { AdminOrderRepository, adminOrderRepository, IAdminOrderRepository } from '../repositories/admin_order.repository';
+import { adminOrderRepository, AdminOrderRepository } from '../repositories/admin_order.repository';
 import type { Order } from '@/types/api';
 
 export class AdminOrderService {
-  constructor(private repo: IAdminOrderRepository = adminOrderRepository) {}
+  constructor(private repo: AdminOrderRepository = adminOrderRepository) {}
 
-  async listOrders(): Promise<Order[]> {
-    return this.repo.listOrders();
-  }
+  listOrders = () => this.repo.list();
+  getOrderDetail = (id: number) => this.repo.get(id);
+  activateOrder = (id: number) => this.repo.activate(id);
+  suspendOrder = (id: number, reason: string) => {
+    if (!reason || !reason.trim()) throw new Error('Suspension reason is required');
+    return this.repo.suspend(id, reason);
+  };
+  unsuspendOrder = (id: number) => this.repo.unsuspend(id);
+  cancelOrder = (id: number, reason?: string) => this.repo.cancel(id, reason);
 
-  async getOrderDetail(id: number): Promise<Order> {
-    if (!id || id <= 0) {
-      throw new Error('Valid order ID is required');
-    }
-    return this.repo.getOrder(id);
-  }
-
-  async activateOrder(id: number): Promise<any> {
-    return this.repo.activateOrder(id);
-  }
-
-  async suspendOrder(id: number, reason: string): Promise<any> {
-    if (!reason.trim()) {
-      throw new Error('Suspension reason is required');
-    }
-    return this.repo.suspendOrder(id, reason.trim());
-  }
-
-  async unsuspendOrder(id: number): Promise<any> {
-    return this.repo.unsuspendOrder(id);
-  }
-
-  async cancelOrder(id: number, reason?: string): Promise<any> {
-    return this.repo.cancelOrder(id, reason);
-  }
-
-  filterByStatus(orders: Order[], status?: string): Order[] {
-    if (!status || status === 'all') return orders;
-    return orders.filter((o) => o.status.toLowerCase() === status.toLowerCase());
+  filterByStatus(os: Order[], st?: string) {
+    if (!st || st === 'all') return os;
+    return os.filter(o => o.status.toLowerCase() === st.toLowerCase());
   }
 }
 

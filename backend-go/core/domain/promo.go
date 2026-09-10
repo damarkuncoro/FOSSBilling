@@ -17,7 +17,7 @@ const (
 type Promo struct {
 	ID            int64         `json:"id"`
 	Code          string        `json:"code"`
-	Description   string        `json:"description"`
+	Description   *string       `json:"description,omitempty"`
 	Type          PromoType     `json:"type"`  // percentage or absolute
 	Value         decimal.Money `json:"value"` // percentage (e.g. 200000 = 20.00%) or fixed money amount
 	MaxUses       int           `json:"max_uses"`

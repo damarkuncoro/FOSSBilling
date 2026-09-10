@@ -48,6 +48,12 @@ export const systemApi = {
   getCompany: () => request<CompanySettings>('/admin/company'),
   updateCompany: (settings: Partial<CompanySettings>) => request<CompanySettings>('/admin/company', { method: 'PUT', body: JSON.stringify(settings) }),
   getAuditLogs: () => request<any[]>('/admin/audit-logs'),
+  getActivityTrend: (days: number) => request<Record<string, number>>(`/admin/activity/trend?days=${days}`),
+
+  // Email Templates
+  listEmailTemplates: () => request<any[]>('/admin/settings/email-templates'),
+  updateEmailTemplate: (tpl: any) => request<any>('/admin/settings/email-templates', { method: 'PUT', body: JSON.stringify(tpl) }),
+
   getPages: () => request<CustomPageItem[]>('/admin/pages'),
   savePage: (page: Partial<CustomPageItem>) => request<CustomPageItem>('/admin/pages', { method: 'POST', body: JSON.stringify(page) }),
   deletePage: (id: number) => request<any>(`/admin/pages/${id}`, { method: 'DELETE' }),

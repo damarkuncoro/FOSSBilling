@@ -1,161 +1,52 @@
 package client
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
-type SupportHandler struct {
-	supportService *support.SupportService
-}
+type SupportHandler struct{ svc *support.SupportService }
 
-func NewSupportHandler(supportService *support.SupportService) *SupportHandler {
-	return &SupportHandler{supportService: supportService}
-}
+func NewSupportHandler(s *support.SupportService) *SupportHandler { return &SupportHandler{s} }
 
 func (h *SupportHandler) OpenTicket(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	var req struct {
-		HelpdeskID int64   `json:"helpdesk_id"`
-		Subject    string  `json:"subject"`
-		Message    string  `json:"message"`
-		RelType    *string `json:"rel_type,omitempty"`
-		RelID      *int64  `json:"rel_id,omitempty"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
-		return
-	}
-
-	ticket, err := h.supportService.OpenTicket(r.Context(), support.CreateTicketDTO{
-		ClientID:   clientID,
-		HelpdeskID: req.HelpdeskID,
-		Subject:    req.Subject,
-		Message:    req.Message,
-		Priority:   "medium",
-		RelType:    req.RelType,
-		RelID:      req.RelID,
-		IPAddress:  r.RemoteAddr,
-	})
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusCreated, ticket, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	var req struct { HelpdeskID int64; Subject, Message string; RelType *string; RelID *int64 }
+	if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	t, err := h.svc.OpenTicket(r.Context(), support.CreateTicketDTO{ClientID: cid, HelpdeskID: req.HelpdeskID, Subject: req.Subject, Message: req.Message, Priority: "medium", RelType: req.RelType, RelID: req.RelID, IPAddress: r.RemoteAddr})
+	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 201, t, nil)
 }
 
 func (h *SupportHandler) ListTickets(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	limit, offset := 20, 0
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
-			limit = v
-		}
-	}
-	if o := r.URL.Query().Get("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
-			offset = v
-		}
-	}
-
-	tickets, total, err := h.supportService.ListClientTickets(r.Context(), clientID, limit, offset)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve tickets", err.Error())
-		return
-	}
-	response.JSON(w, http.StatusOK, tickets, &response.Meta{Total: total, Limit: limit, Offset: offset})
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	l, o := request.GetLimitOffset(r)
+	ts, tot, err := h.svc.ListClientTickets(r.Context(), cid, l, o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, ts, &response.Meta{Total: tot, Limit: l, Offset: o})
 }
 
 func (h *SupportHandler) GetTicket(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	ticketID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
-		return
-	}
-
-	details, err := h.supportService.GetTicket(r.Context(), ticketID, clientID)
-	if err != nil {
-		if errors.Is(err, appErrors.ErrNotFound) {
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", "Ticket not found", nil)
-			return
-		}
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Forbidden", nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, details, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	d, err := h.svc.GetTicket(r.Context(), request.GetID(r), cid)
+	if err != nil { response.Error(w, 403, "FORBIDDEN", err.Error(), nil); return }
+	response.JSON(w, 200, d, nil)
 }
 
 func (h *SupportHandler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	ticketID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
-		return
-	}
-
-	var req struct {
-		Message string `json:"message"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
-		return
-	}
-
-	msg, err := h.supportService.ClientReply(r.Context(), ticketID, clientID, req.Message, r.RemoteAddr)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "REPLY_FAILED", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusCreated, msg, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	var req struct{ Message string }; if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	m, err := h.svc.ClientReply(r.Context(), request.GetID(r), cid, req.Message, r.RemoteAddr)
+	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 201, m, nil)
 }
 
 func (h *SupportHandler) CloseTicket(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	ticketID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid ticket ID", nil)
-		return
-	}
-
-	if err := h.supportService.CloseTicket(r.Context(), ticketID, clientID); err != nil {
-		response.Error(w, http.StatusBadRequest, "CLOSE_FAILED", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, map[string]string{"status": "closed", "message": "Ticket closed successfully"}, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	if err := h.svc.CloseTicket(r.Context(), request.GetID(r), cid); err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, map[string]string{"status": "closed"}, nil)
 }

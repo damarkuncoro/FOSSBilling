@@ -11,7 +11,8 @@ import (
 
 func TestCompanyService_GetAndUpdate(t *testing.T) {
 	repo := memory.NewMockCompanyRepository()
-	service := company.NewCompanyService(repo)
+	sysRepo := memory.NewMockSystemRepository()
+	service := company.NewCompanyService(repo, sysRepo)
 	ctx := context.Background()
 
 	// 1. Get Company Settings

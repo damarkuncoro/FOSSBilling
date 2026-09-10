@@ -52,11 +52,12 @@ export function useEmbedWidgets() {
   };
 
   const generateEmbedCode = () => {
+    const clientUrl = import.meta.env.VITE_CLIENT_URL || window.location.origin;
     if (config.layout === 'iframe_checkout') {
-      return `<iframe \n  src="https://billing.myhosting.com/cart/embed?product_id=${config.product_id}" \n  width="100%" \n  height="600" \n  frameborder="0"\n></iframe>`;
+      return `<iframe \n  src="${clientUrl}/cart/embed?product_id=${config.product_id}" \n  width="100%" \n  height="600" \n  frameborder="0"\n></iframe>`;
     }
 
-    return `<script src="https://billing.myhosting.com/assets/widgets/fossbilling-button.js"></script>\n<button \n  data-fossbilling-btn \n  data-product-id="${config.product_id}" \n  data-action="${config.action_type}" \n  style="background-color: ${config.button_color}; color: ${config.text_color}; border-radius: ${config.border_radius}px; padding: 10px 20px; font-weight: 600; border: none; cursor: pointer;"\n>\n  ${config.button_text}\n</button>`;
+    return `<script src="${clientUrl}/assets/widgets/fossbilling-button.js"></script>\n<button \n  data-fossbilling-btn \n  data-product-id="${config.product_id}" \n  data-action="${config.action_type}" \n  style="background-color: ${config.button_color}; color: ${config.text_color}; border-radius: ${config.border_radius}px; padding: 10px 20px; font-weight: 600; border: none; cursor: pointer;"\n>\n  ${config.button_text}\n</button>`;
   };
 
   const copyToClipboard = () => {

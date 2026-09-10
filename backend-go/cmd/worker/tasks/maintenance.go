@@ -2,14 +2,12 @@ package tasks
 
 import (
 	"context"
-	"log"
 	"time"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/logger"
 )
 
-// RunSystemMaintenanceTask executes housekeeping routines
 func RunSystemMaintenanceTask(ctx context.Context) {
 	start := time.Now()
-	log.Println("⏱️ [Task: Maintenance] Running system housekeeping and database maintenance...")
-	// Log maintenance execution
-	log.Printf("✅ [Task: Maintenance] Housekeeping completed in %v.", time.Since(start))
+	logger.Info("Running maintenance")
+	logger.Info("Maintenance completed", "took", time.Since(start))
 }

@@ -10,103 +10,26 @@ import (
 )
 
 type OrderBuilder struct {
-	clientID      int64
-	productID     int64
-	invoiceID     *int64
-	title         string
-	period        string
-	price         decimal.Money
-	currency      string
-	status        domain.OrderStatus
-	config        map[string]interface{}
-	activatedDays int
+	cid, pid, iid int64; tit, per, cur string; pri decimal.Money; st domain.OrderStatus; cfg map[string]any; days int
 }
 
 func NewOrderBuilder() *OrderBuilder {
-	return &OrderBuilder{
-		period:        "1M",
-		currency:      "USD",
-		status:        domain.OrderStatusPendingSetup,
-		config:        make(map[string]interface{}),
-		activatedDays: 30,
-	}
+	return &OrderBuilder{per: "1M", cur: "USD", st: domain.OrderStatusPendingSetup, cfg: make(map[string]any), days: 30}
 }
 
-func (b *OrderBuilder) ForClient(clientID int64) *OrderBuilder {
-	b.clientID = clientID
-	return b
-}
-
-func (b *OrderBuilder) ForProduct(productID int64, title string) *OrderBuilder {
-	b.productID = productID
-	b.title = title
-	return b
-}
-
-func (b *OrderBuilder) WithInvoice(invoiceID int64) *OrderBuilder {
-	b.invoiceID = &invoiceID
-	return b
-}
-
-func (b *OrderBuilder) WithPeriod(period string) *OrderBuilder {
-	b.period = period
-	return b
-}
-
-func (b *OrderBuilder) WithPrice(price decimal.Money, currency string) *OrderBuilder {
-	b.price = price
-	b.currency = currency
-	return b
-}
-
-func (b *OrderBuilder) WithConfig(key string, value interface{}) *OrderBuilder {
-	b.config[key] = value
-	return b
-}
-
-func (b *OrderBuilder) AsActive() *OrderBuilder {
-	b.status = domain.OrderStatusActive
-	return b
-}
+func (b *OrderBuilder) ForClient(id int64) *OrderBuilder { b.cid = id; return b }
+func (b *OrderBuilder) ForProduct(id int64, t string) *OrderBuilder { b.pid, b.tit = id, t; return b }
+func (b *OrderBuilder) WithInvoice(id int64) *OrderBuilder { b.iid = id; return b }
+func (b *OrderBuilder) WithPeriod(p string) *OrderBuilder { b.per = p; return b }
+func (b *OrderBuilder) WithPrice(p decimal.Money, c string) *OrderBuilder { b.pri, b.cur = p, c; return b }
+func (b *OrderBuilder) WithConfig(k string, v any) *OrderBuilder { b.cfg[k] = v; return b }
+func (b *OrderBuilder) AsActive() *OrderBuilder { b.st = domain.OrderStatusActive; return b }
 
 func (b *OrderBuilder) Build() (*domain.Order, error) {
-	if b.clientID == 0 {
-		return nil, errors.New("order requires a valid client ID")
-	}
-	if b.productID == 0 {
-		return nil, errors.New("order requires a valid product ID")
-	}
-	if b.title == "" {
-		return nil, errors.New("order requires a non-empty title")
-	}
-
-	configJSON, _ := json.Marshal(b.config)
-	now := time.Now().UTC()
-	var activatedAt *time.Time
-	var expiresAt *time.Time
-	var nextDueDate *time.Time
-
-	if b.status == domain.OrderStatusActive {
-		activatedAt = &now
-		exp := now.Add(time.Duration(b.activatedDays) * 24 * time.Hour)
-		expiresAt = &exp
-		nextDueDate = &exp
-	}
-
-	return &domain.Order{
-		ClientID:    b.clientID,
-		ProductID:   b.productID,
-		InvoiceID:   b.invoiceID,
-		Title:       b.title,
-		Period:      b.period,
-		Price:       b.price,
-		Currency:    b.currency,
-		Status:      b.status,
-		Config:      configJSON,
-		ActivatedAt: activatedAt,
-		ExpiresAt:   expiresAt,
-		NextDueDate: nextDueDate,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}, nil
+	if b.cid == 0 || b.pid == 0 || b.tit == "" { return nil, errors.New("missing fields") }
+	cj, _ := json.Marshal(b.cfg); now := time.Now().UTC()
+	var act, exp *time.Time
+	if b.st == domain.OrderStatusActive { act = &now; e := now.AddDate(0, 0, b.days); exp = &e }
+	var iid *int64; if b.iid > 0 { iid = &b.iid }
+	return &domain.Order{ClientID: b.cid, ProductID: b.pid, InvoiceID: iid, Title: b.tit, Period: b.per, Price: b.pri, Currency: b.cur, Status: b.st, Config: cj, ActivatedAt: act, ExpiresAt: exp, NextDueDate: exp, CreatedAt: now, UpdatedAt: now}, nil
 }

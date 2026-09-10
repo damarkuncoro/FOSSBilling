@@ -31,7 +31,7 @@ export const Redirects: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={refresh}
+            onClick={() => refresh()}
             className="p-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl shadow-sm transition-all"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

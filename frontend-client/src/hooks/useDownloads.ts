@@ -1,60 +1,20 @@
-import { useState, useEffect } from 'react';
-import type { DownloadItem } from '../types/clientModules';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { downloadService } from '../services/download.service';
 
-export function useDownloads(initial: DownloadItem[] = []) {
-  const [downloads, setDownloads] = useState<DownloadItem[]>(initial);
-  const [loading, setLoading] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+export function useDownloads() {
+  const { data: downloads = [], isLoading: loading } = useQuery({
+    queryKey: ['client', 'downloads'],
+    queryFn: () => downloadService.listDownloads(),
+  });
 
-  const fetchDownloads = async () => {
-    try {
-      setLoading(true);
-      const res = await downloadService.listDownloads();
-      if (res && Array.isArray(res)) {
-        setDownloads(res);
-      } else {
-        setDownloads([]);
-      }
-    } catch {
-      // Retain current state if offline or mocked
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDownloads();
-  }, []);
-
-  const triggerDownload = async (item: DownloadItem) => {
-    setDownloadingId(item.id);
-    try {
-      let url = item.download_url;
-      if (!url) {
-        url = await downloadService.getSecureDownloadUrl(item.id);
-      }
-      setTimeout(() => {
-        setDownloadingId(null);
-        window.open(url, '_blank');
-      }, 600);
-    } catch {
-      setTimeout(() => {
-        setDownloadingId(null);
-        if (item.download_url) {
-          window.open(item.download_url, '_blank');
-        }
-      }, 600);
-    }
-  };
+  const downloadMutation = useMutation({
+    mutationFn: (id: number) => downloadService.getSecureDownloadUrl(id),
+    onSuccess: (url) => window.open(url, '_blank'),
+  });
 
   return {
-    downloads,
-    loading,
-    downloadingId,
-    triggerDownload,
-    refreshDownloads: fetchDownloads,
-    setDownloads,
+    downloads, loading,
+    downloadingId: downloadMutation.isPending ? -1 : null,
+    triggerDownload: (item: any) => item.download_url ? window.open(item.download_url, '_blank') : downloadMutation.mutate(item.id),
   };
 }
-

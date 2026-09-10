@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
@@ -14,49 +15,36 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
-	logger.Init(cfg.AppEnv)
+	cfg := config.Load(); logger.Init(cfg.AppEnv); logger.Info("API Start", "port", cfg.Port)
+	os.Setenv("BOOT_TIME", time.Now().UTC().Format(time.RFC3339))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second); defer cancel()
 
-	logger.Info("Starting FOSSBilling API", "env", cfg.AppEnv, "port", cfg.Port)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// 1. Database Connection Pool
-	pgPool, err := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
-	if err != nil {
-		logger.Error("Failed to connect to PostgreSQL", err)
-	} else {
-		logger.Info("Connected to PostgreSQL successfully")
-		defer pgPool.Close()
+	pool, _ := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if pool != nil {
+		defer pool.Close()
+		_ = postgres.RunMigrations(ctx, pool, "migrations")
 	}
 
-	// 2. Event Bus
-	eventBus := events.NewEventBus()
+	var appCache cache.Cache
+	if cfg.RedisURL != "" {
+		rc, err := cache.NewRedisCache(cfg.RedisURL)
+		if err == nil {
+			appCache = rc
+			logger.Info("Connected to Redis cache", "url", cfg.RedisURL)
+		}
+	}
+	if appCache == nil {
+		appCache = cache.NewMemoryCache()
+		logger.Warn("Redis not available, using in-memory cache")
+	}
 
-	// 3. Cache System
-	appCache := cache.NewMemoryCache()
+	eb, hm := events.NewEventBus(), plugins.NewHookManager()
+	rs := InitRepositories(ctx, cfg, pool)
+	ss := InitServices(cfg, rs, pool, eb, appCache, hm)
+	hs := InitHandlers(ss, rs)
 
-	// 4. Hook/Plugin System
-	hookManager := plugins.NewHookManager()
+	arl := middleware.NewRateLimiter(5, time.Minute/5)
+	rl := middleware.NewRateLimiter(60, time.Minute/60)
 
-	// 5. Data Access Layer (Repositories)
-	repos := InitRepositories(ctx, cfg, pgPool)
-
-	// 6. Domain Business Logic Layer (Services & Use Cases)
-	services := InitServices(cfg, repos, eventBus, appCache, hookManager)
-
-	// 7. HTTP Presentation Layer (Handlers & Router)
-	handlers := InitHandlers(services, repos)
-
-	// API Rate Limiting: 60 requests per minute
-	apiRateLimiter := middleware.NewRateLimiter(60, time.Minute/60)
-	// Auth Rate Limiting: 5 attempts per minute (Brute force protection)
-	authRateLimiter := middleware.NewRateLimiter(5, time.Minute/5)
-
-	router := setupRoutes(cfg, handlers, apiRateLimiter, authRateLimiter)
-
-	// 5. Server Lifecycle & Graceful Shutdown
-	serverLifecycle := NewHTTPServerLifecycle(cfg, router)
-	serverLifecycle.StartAndListenWithGracefulShutdown()
+	NewHTTPServerLifecycle(cfg, setupRoutes(cfg, hs, rl, arl)).StartAndListenWithGracefulShutdown()
 }

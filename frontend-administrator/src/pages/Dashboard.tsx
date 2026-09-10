@@ -1,8 +1,10 @@
 import React from 'react';
-import { FileText, LifeBuoy, RefreshCw, ShieldCheck } from 'lucide-react';
+import { FileText, LifeBuoy, RefreshCw, ShieldCheck, Activity, Database, Cpu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useDashboard } from '@/hooks/useDashboard';
 import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
 import { RevenueChartCard } from '@/components/dashboard/RevenueChartCard';
+import { SystemActivityChartCard } from '@/components/dashboard/SystemActivityChartCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/utils';
 
 export const Dashboard: React.FC = () => {
-  const { stats, recentLogs, loading, error, fetchStats, revenueTrends } = useDashboard();
+  const { t } = useTranslation();
+  const { stats, recentLogs, systemStatus, activityTrend, loading, error, fetchStats, revenueTrends } = useDashboard();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -21,9 +24,9 @@ export const Dashboard: React.FC = () => {
             Real-time financial performance and active operations overview.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => fetchStats()} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Data
+          {t('refresh')}
         </Button>
       </div>
 
@@ -57,7 +60,7 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-6">
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Operational Health</CardTitle>
+              <CardTitle className="text-base font-semibold">{t('operational_health')}</CardTitle>
               <CardDescription>Live pending tasks requiring staff attention</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -82,7 +85,7 @@ export const Dashboard: React.FC = () => {
                         <FileText className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold">Unpaid Invoices</p>
+                        <p className="text-xs font-semibold">{t('unpaid_invoices')}</p>
                         <p className="text-[11px] text-muted-foreground">Awaiting client settlement</p>
                       </div>
                     </div>
@@ -97,7 +100,7 @@ export const Dashboard: React.FC = () => {
                         <LifeBuoy className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold">Open Support Tickets</p>
+                        <p className="text-xs font-semibold">{t('open_tickets')}</p>
                         <p className="text-[11px] text-muted-foreground">Client inquiries awaiting reply</p>
                       </div>
                     </div>
@@ -112,7 +115,7 @@ export const Dashboard: React.FC = () => {
                         <ShieldCheck className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-semibold">Active Orders</p>
+                        <p className="text-xs font-semibold">{t('active_services')}</p>
                         <p className="text-[11px] text-muted-foreground">Automated provisioning</p>
                       </div>
                     </div>
@@ -124,12 +127,38 @@ export const Dashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          <SystemActivityChartCard data={activityTrend} />
+
+          <Card className="border-border/60 shadow-sm bg-indigo-600 text-white">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">{t('system_engine')}</CardTitle>
+                <Activity className="h-4 w-4 text-indigo-200" />
+              </div>
+              <CardDescription className="text-indigo-100">Go High-Performance Core</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Cpu className="h-4 w-4 text-indigo-300" />
+                <span className="text-xs font-mono">{systemStatus?.engine_version || 'Go 1.23 Cloud-Native'}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Database className="h-4 w-4 text-indigo-300" />
+                <span className="text-xs font-mono">{systemStatus?.database_type || 'PostgreSQL 16'}</span>
+              </div>
+              <div className="mt-2 pt-2 border-t border-indigo-500/50 flex justify-between items-center">
+                 <span className="text-[10px] uppercase font-bold text-indigo-200 tracking-wider">{t('uptime')}</span>
+                 <span className="text-xs font-bold">{systemStatus?.uptime || 'N/A'}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Recent Administrative Actions</CardTitle>
+          <CardTitle className="text-base font-semibold">{t('audit_trail')}</CardTitle>
           <CardDescription>Live audit trail of security-sensitive operations by staff</CardDescription>
         </CardHeader>
         <CardContent className="p-0">

@@ -6,6 +6,7 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
+	paymentService "github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
@@ -16,7 +17,7 @@ func setupWebhookService() (*payment.WebhookService, *memory.MockTransactionRepo
 	invRepo := memory.NewMockInvoiceRepository()
 	eventBus := events.NewEventBus()
 
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
+	webhookService := payment.NewWebhookService(txnRepo, invRepo, paymentService.NewGatewayRegistry(), eventBus)
 
 	return webhookService, txnRepo, invRepo, eventBus
 }

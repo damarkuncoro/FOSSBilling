@@ -1,72 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminMassMailService } from '@/services/admin_massmail.service';
 import { api } from '@/lib/api';
 
 export function useMassMail() {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
   const [form, setForm] = useState({ subject: '', content: '' });
-  const [saving, setSaving] = useState(false);
-  const [sendingId, setSendingId] = useState<number | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const fetchCampaigns = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getMassMailCampaigns();
-      setCampaigns(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: campaigns = [], isLoading: loading, refetch: fetchCampaigns } = useQuery({
+    queryKey: ['admin', 'mass-mail'],
+    queryFn: () => api.getMassMailCampaigns(),
+  });
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.createMassMailCampaign(form);
+  const createMutation = useMutation({
+    mutationFn: (d: any) => api.createMassMailCampaign(d),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mass-mail'] });
       setOpenModal(false);
       setForm({ subject: '', content: '' });
-      await fetchCampaigns();
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleSend = async (id: number) => {
-    setSendingId(id);
-    setMessage(null);
-    try {
-      await adminMassMailService.sendMassMail(form.subject || 'System Announcement', form.content || 'Notice from management');
-      setMessage(`Campaign #${id} has been broadcasted to all active clients!`);
-      await fetchCampaigns();
-    } catch (err: any) {
-      setMessage(`Error sending campaign: ${err.message}`);
-    } finally {
-      setSendingId(null);
-    }
-  };
+  const sendMutation = useMutation({
+    mutationFn: (id: number) => api.sendMassMailCampaign(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'mass-mail'] }),
+  });
 
   return {
     campaigns,
     loading,
+    fetchCampaigns,
     openModal,
     setOpenModal,
     form,
     setForm,
-    saving,
-    sendingId,
-    message,
-    setMessage,
-    fetchCampaigns,
-    handleCreate,
-    handleSend,
+    saving: createMutation.isPending,
+    sendingId: sendMutation.isPending ? -1 : null,
+    handleCreate: (e: React.FormEvent) => { e.preventDefault(); createMutation.mutate(form); },
+    handleSend: (id: number) => sendMutation.mutate(id),
   };
 }

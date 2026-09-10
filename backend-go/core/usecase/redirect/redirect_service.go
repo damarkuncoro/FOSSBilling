@@ -11,151 +11,47 @@ import (
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 )
 
-type RedirectService struct {
-	repo domain.RedirectRepository
-}
+type RedirectService struct{ repo domain.RedirectRepository }
 
-func NewRedirectService(repo domain.RedirectRepository) *RedirectService {
-	return &RedirectService{repo: repo}
-}
+func NewRedirectService(r domain.RedirectRepository) *RedirectService { return &RedirectService{r} }
 
-func (s *RedirectService) SanitizePath(p string) string {
-	p = strings.TrimSpace(p)
-	p = strings.TrimPrefix(p, "/")
-	return "/" + p
-}
+func (s *RedirectService) san(p string) string { return "/" + strings.Trim(strings.TrimSpace(p), "/") }
 
-func (s *RedirectService) ValidateTarget(target string) error {
-	target = strings.TrimSpace(target)
-	if target == "" {
-		return errors.New("target redirect URL cannot be empty")
-	}
-
-	if strings.HasPrefix(target, "/") {
-		return nil // internal relative redirect
-	}
-
-	u, err := url.Parse(target)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return errors.New("target must be a valid relative path (starting with '/') or an absolute HTTP/HTTPS URL")
-	}
+func (s *RedirectService) val(t string) error {
+	t = strings.TrimSpace(t); if t == "" { return errors.New("empty target") }
+	if strings.HasPrefix(t, "/") { return nil }
+	u, err := url.Parse(t); if err != nil || (u.Scheme != "http" && u.Scheme != "https") { return errors.New("invalid target") }
 	return nil
 }
 
-func (s *RedirectService) ListRedirects(ctx context.Context, limit, offset int) ([]*domain.Redirect, int, error) {
-	return s.repo.List(ctx, limit, offset)
+func (s *RedirectService) ListRedirects(ctx context.Context, l, o int) ([]*domain.Redirect, int, error) { return s.repo.List(ctx, l, o) }
+func (s *RedirectService) GetRedirect(ctx context.Context, id int64) (*domain.Redirect, error) { return s.repo.GetByID(ctx, id) }
+
+func (s *RedirectService) MatchRedirect(ctx context.Context, p string) (*domain.Redirect, error) {
+	r, err := s.repo.GetByPath(ctx, s.san(p)); if err != nil || !r.IsEnabled { return nil, appErrors.ErrNotFound }
+	_ = s.repo.IncrementHitCount(ctx, r.ID); return r, nil
 }
 
-func (s *RedirectService) GetRedirect(ctx context.Context, id int64) (*domain.Redirect, error) {
-	return s.repo.GetByID(ctx, id)
+type CreateRedirectDTO struct { Path, Target string; StatusCode int; IsEnabled bool }
+
+func (s *RedirectService) CreateRedirect(ctx context.Context, d CreateRedirectDTO) (*domain.Redirect, error) {
+	p := s.san(d.Path); if p == "/" { return nil, errors.New("cannot redirect /") }
+	if err := s.val(d.Target); err != nil { return nil, err }
+	if ex, _ := s.repo.GetByPath(ctx, p); ex != nil { return nil, fmt.Errorf("exists: %s", p) }
+	c := d.StatusCode; if c != 301 && c != 302 && c != 307 && c != 308 { c = 301 }
+	r := &domain.Redirect{Path: p, Target: strings.TrimSpace(d.Target), StatusCode: c, IsEnabled: d.IsEnabled}
+	return r, s.repo.Create(ctx, r)
 }
 
-func (s *RedirectService) MatchRedirect(ctx context.Context, reqPath string) (*domain.Redirect, error) {
-	normalized := s.SanitizePath(reqPath)
+type UpdateRedirectDTO struct { ID int64; Path, Target *string; StatusCode *int; IsEnabled *bool }
 
-	r, err := s.repo.GetByPath(ctx, normalized)
-	if err != nil {
-		return nil, err
-	}
-
-	if !r.IsEnabled {
-		return nil, appErrors.ErrNotFound
-	}
-
-	// Increment hit count asynchronously or inline
-	_ = s.repo.IncrementHitCount(ctx, r.ID)
-	return r, nil
+func (s *RedirectService) UpdateRedirect(ctx context.Context, d UpdateRedirectDTO) (*domain.Redirect, error) {
+	r, err := s.repo.GetByID(ctx, d.ID); if err != nil { return nil, err }
+	if d.Path != nil { p := s.san(*d.Path); if p == "/" { return nil, errors.New("cannot redirect /") }; r.Path = p }
+	if d.Target != nil { if err := s.val(*d.Target); err != nil { return nil, err }; r.Target = strings.TrimSpace(*d.Target) }
+	if d.StatusCode != nil { c := *d.StatusCode; if c == 301 || c == 302 || c == 307 || c == 308 { r.StatusCode = c } }
+	if d.IsEnabled != nil { r.IsEnabled = *d.IsEnabled }
+	return r, s.repo.Update(ctx, r)
 }
 
-type CreateRedirectDTO struct {
-	Path       string `json:"path"`
-	Target     string `json:"target"`
-	StatusCode int    `json:"status_code"`
-	IsEnabled  bool   `json:"is_enabled"`
-}
-
-func (s *RedirectService) CreateRedirect(ctx context.Context, dto CreateRedirectDTO) (*domain.Redirect, error) {
-	path := s.SanitizePath(dto.Path)
-	if path == "/" {
-		return nil, errors.New("cannot redirect root '/' path")
-	}
-
-	if err := s.ValidateTarget(dto.Target); err != nil {
-		return nil, err
-	}
-
-	// Check if already exists
-	existing, err := s.repo.GetByPath(ctx, path)
-	if err == nil && existing != nil {
-		return nil, fmt.Errorf("redirect rule for path '%s' already exists", path)
-	}
-
-	code := dto.StatusCode
-	if code != 301 && code != 302 && code != 307 && code != 308 {
-		code = 301
-	}
-
-	item := &domain.Redirect{
-		Path:       path,
-		Target:     strings.TrimSpace(dto.Target),
-		StatusCode: code,
-		IsEnabled:  dto.IsEnabled,
-	}
-
-	if err := s.repo.Create(ctx, item); err != nil {
-		return nil, err
-	}
-
-	return item, nil
-}
-
-type UpdateRedirectDTO struct {
-	ID         int64   `json:"id"`
-	Path       *string `json:"path"`
-	Target     *string `json:"target"`
-	StatusCode *int    `json:"status_code"`
-	IsEnabled  *bool   `json:"is_enabled"`
-}
-
-func (s *RedirectService) UpdateRedirect(ctx context.Context, dto UpdateRedirectDTO) (*domain.Redirect, error) {
-	item, err := s.repo.GetByID(ctx, dto.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if dto.Path != nil {
-		p := s.SanitizePath(*dto.Path)
-		if p == "/" {
-			return nil, errors.New("cannot redirect root '/' path")
-		}
-		item.Path = p
-	}
-
-	if dto.Target != nil {
-		if err := s.ValidateTarget(*dto.Target); err != nil {
-			return nil, err
-		}
-		item.Target = strings.TrimSpace(*dto.Target)
-	}
-
-	if dto.StatusCode != nil {
-		code := *dto.StatusCode
-		if code == 301 || code == 302 || code == 307 || code == 308 {
-			item.StatusCode = code
-		}
-	}
-
-	if dto.IsEnabled != nil {
-		item.IsEnabled = *dto.IsEnabled
-	}
-
-	if err := s.repo.Update(ctx, item); err != nil {
-		return nil, err
-	}
-
-	return item, nil
-}
-
-func (s *RedirectService) DeleteRedirect(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
-}
+func (s *RedirectService) DeleteRedirect(ctx context.Context, id int64) error { return s.repo.Delete(ctx, id) }

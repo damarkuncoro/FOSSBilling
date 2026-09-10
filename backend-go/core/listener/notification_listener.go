@@ -3,36 +3,22 @@ package listener
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
-type NotificationListener struct {
-	notifService *notification.NotificationService
-}
+type NotificationListener struct { ns *notification.NotificationService }
 
-func NewNotificationListener(notifService *notification.NotificationService) *NotificationListener {
-	return &NotificationListener{
-		notifService: notifService,
-	}
-}
+func NewNotificationListener(s *notification.NotificationService) *NotificationListener { return &NotificationListener{s} }
 
 func (l *NotificationListener) HandleInvoicePaid(ctx context.Context, e events.Event) error {
-	payload := e.Payload.(domain.InvoicePaidPayload)
-	title := "Payment Received"
-	msg := fmt.Sprintf("Your payment of %s %s for Invoice #%d has been confirmed.", payload.Currency, payload.Amount.String(), payload.InvoiceID)
-
-	log.Printf("🔔 [Notification] Sending to Client #%d: %s", payload.ClientID, title)
-	return l.notifService.CreateNotification(ctx, payload.ClientID, title, msg, "success")
+	p, ok := e.Payload.(domain.InvoicePaidPayload); if !ok { return nil }
+	return l.ns.CreateNotification(ctx, p.ClientID, "Payment Received", fmt.Sprintf("Payment of %s %s for Invoice #%d confirmed.", p.Currency, p.Amount.String(), p.InvoiceID), "success")
 }
 
 func (l *NotificationListener) HandleOrderActivated(ctx context.Context, e events.Event) error {
-	payload := e.Payload.(domain.OrderActivatedPayload)
-	title := "Service Activated"
-	msg := fmt.Sprintf("Your order #%d (%s) is now active and ready to use.", payload.OrderID, payload.Title)
-
-	return l.notifService.CreateNotification(ctx, payload.ClientID, title, msg, "info")
+	p, ok := e.Payload.(domain.OrderActivatedPayload); if !ok { return nil }
+	return l.ns.CreateNotification(ctx, p.ClientID, "Service Activated", fmt.Sprintf("Order #%d (%s) is now active.", p.OrderID, p.Title), "info")
 }

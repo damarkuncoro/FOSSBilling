@@ -12,157 +12,57 @@ import (
 )
 
 var (
-	ErrIPBlocked         = errors.New("access denied: your IP address is blacklisted")
-	ErrDisposableEmail   = errors.New("registration with disposable or temporary email domains is not allowed")
-	ErrSpamDetected      = errors.New("submission flagged by anti-spam system")
-	ErrHoneypotTriggered = errors.New("bot activity detected")
-	ErrCaptchaFailed     = errors.New("captcha verification failed, please try again")
+	ErrIPBlocked   = errors.New("IP blacklisted")
+	ErrDispEmail   = errors.New("disposable email not allowed")
+	ErrSpam        = errors.New("spam detected")
+	ErrBot         = errors.New("bot activity detected")
+	ErrCaptcha     = errors.New("captcha failed")
 )
 
 type AntispamService struct {
-	repo            domain.AntispamRepository
-	emailChecker    *security.DisposableEmailChecker
-	sfsChecker      *security.StopForumSpamChecker
-	captchaVerifier security.CaptchaVerifier
+	repo domain.AntispamRepository; email *security.DisposableEmailChecker; sfs *security.StopForumSpamChecker; cap security.CaptchaVerifier
 }
 
-func NewAntispamService(
-	repo domain.AntispamRepository,
-	captchaVerifier security.CaptchaVerifier,
-	emailChecker *security.DisposableEmailChecker,
-	sfsChecker *security.StopForumSpamChecker,
-) *AntispamService {
-	if emailChecker == nil {
-		emailChecker = security.NewDisposableEmailChecker()
-	}
-	if sfsChecker == nil {
-		sfsChecker = security.NewStopForumSpamChecker()
-	}
-	return &AntispamService{
-		repo:            repo,
-		captchaVerifier: captchaVerifier,
-		emailChecker:    emailChecker,
-		sfsChecker:      sfsChecker,
-	}
+func NewAntispamService(r domain.AntispamRepository, cv security.CaptchaVerifier, e *security.DisposableEmailChecker, s *security.StopForumSpamChecker) *AntispamService {
+	if e == nil { e = security.NewDisposableEmailChecker() }; if s == nil { s = security.NewStopForumSpamChecker() }
+	return &AntispamService{r, e, s, cv}
 }
 
-// ValidateSignup performs complete multi-layer spam & bot validation on user registrations
-func (s *AntispamService) ValidateSignup(ctx context.Context, email, remoteIP, honeypotVal, captchaToken string) error {
-	config, _ := s.repo.GetConfig(ctx)
-	if config == nil {
-		config = &domain.AntispamConfig{
-			TempEmailBlockEnabled: true,
-			StopForumSpamEnabled:  true,
-			HoneypotEnabled:       true,
-			HoneypotFieldName:     "website_hp",
-		}
-	}
+func (s *AntispamService) ValidateSignup(ctx context.Context, em, ip, hp, token string) error {
+	cfg, _ := s.repo.GetConfig(ctx)
+	if cfg == nil { cfg = &domain.AntispamConfig{TempEmailBlockEnabled: true, StopForumSpamEnabled: true, HoneypotEnabled: true} }
 
-	// 1. IP Blacklist check
-	if remoteIP != "" {
-		blocked, err := s.repo.IsIPBlocked(ctx, remoteIP)
-		if err == nil && blocked {
-			return ErrIPBlocked
-		}
+	if ip != "" { if b, _ := s.repo.IsIPBlocked(ctx, ip); b { return ErrIPBlocked } }
+	if cfg.HoneypotEnabled && strings.TrimSpace(hp) != "" { return ErrBot }
+	if cfg.CaptchaEnabled && s.cap != nil { if p, err := s.cap.Verify(ctx, token, ip); err != nil || !p { return ErrCaptcha } }
+	if cfg.TempEmailBlockEnabled && em != "" {
+		if len(cfg.CustomBlockedDomains) > 0 { s.email.SetCustomBlocks(cfg.CustomBlockedDomains) }
+		if s.email.IsDisposable(em) { return ErrDispEmail }
 	}
-
-	// 2. Honeypot check (hidden bot field should remain empty)
-	if config.HoneypotEnabled && strings.TrimSpace(honeypotVal) != "" {
-		return ErrHoneypotTriggered
+	if cfg.StopForumSpamEnabled && s.sfs != nil {
+		conf := cfg.SFSMinConfidence; if conf <= 0 { conf = 80.0 }
+		if sp, r, _ := s.sfs.CheckSpam(ctx, em, ip, conf); sp { return fmt.Errorf("%w: %s", ErrSpam, r) }
 	}
-
-	// 3. CAPTCHA verification (Cloudflare Turnstile / reCAPTCHA)
-	if config.CaptchaEnabled && s.captchaVerifier != nil {
-		passed, err := s.captchaVerifier.Verify(ctx, captchaToken, remoteIP)
-		if err != nil || !passed {
-			return ErrCaptchaFailed
-		}
-	}
-
-	// 4. Disposable/Temporary Email Check
-	if config.TempEmailBlockEnabled && email != "" {
-		if len(config.CustomBlockedDomains) > 0 {
-			s.emailChecker.SetCustomBlocks(config.CustomBlockedDomains)
-		}
-		if s.emailChecker.IsDisposable(email) {
-			return ErrDisposableEmail
-		}
-	}
-
-	// 5. StopForumSpam External Lookup
-	if config.StopForumSpamEnabled && s.sfsChecker != nil {
-		minConfidence := config.SFSMinConfidence
-		if minConfidence <= 0 {
-			minConfidence = 80.0
-		}
-		isSpam, reason, _ := s.sfsChecker.CheckSpam(ctx, email, remoteIP, minConfidence)
-		if isSpam {
-			return fmt.Errorf("%w: %s", ErrSpamDetected, reason)
-		}
-	}
-
 	return nil
 }
 
-// ValidateTicketSubmission validates guest/client ticket opening against spam
-func (s *AntispamService) ValidateTicketSubmission(ctx context.Context, email, remoteIP, captchaToken string) error {
-	config, _ := s.repo.GetConfig(ctx)
-	if config == nil {
-		config = &domain.AntispamConfig{
-			TempEmailBlockEnabled: true,
-			StopForumSpamEnabled:  true,
-		}
-	}
-
-	if remoteIP != "" {
-		blocked, err := s.repo.IsIPBlocked(ctx, remoteIP)
-		if err == nil && blocked {
-			return ErrIPBlocked
-		}
-	}
-
-	if config.CaptchaEnabled && s.captchaVerifier != nil {
-		passed, err := s.captchaVerifier.Verify(ctx, captchaToken, remoteIP)
-		if err != nil || !passed {
-			return ErrCaptchaFailed
-		}
-	}
-
-	if config.TempEmailBlockEnabled && email != "" && s.emailChecker.IsDisposable(email) {
-		return ErrDisposableEmail
-	}
-
+func (s *AntispamService) ValidateTicketSubmission(ctx context.Context, em, ip, token string) error {
+	cfg, _ := s.repo.GetConfig(ctx); if cfg == nil { cfg = &domain.AntispamConfig{TempEmailBlockEnabled: true, StopForumSpamEnabled: true} }
+	if ip != "" { if b, _ := s.repo.IsIPBlocked(ctx, ip); b { return ErrIPBlocked } }
+	if cfg.CaptchaEnabled && s.cap != nil { if p, err := s.cap.Verify(ctx, token, ip); err != nil || !p { return ErrCaptcha } }
+	if cfg.TempEmailBlockEnabled && em != "" && s.email.IsDisposable(em) { return ErrDispEmail }
 	return nil
 }
 
-func (s *AntispamService) IsIPBlocked(ctx context.Context, ip string) (bool, error) {
-	return s.repo.IsIPBlocked(ctx, ip)
-}
-
-func (s *AntispamService) GetConfig(ctx context.Context) (*domain.AntispamConfig, error) {
-	return s.repo.GetConfig(ctx)
-}
-
-func (s *AntispamService) UpdateConfig(ctx context.Context, cfg *domain.AntispamConfig) error {
-	return s.repo.UpdateConfig(ctx, cfg)
-}
-
-func (s *AntispamService) ListBlockedIPs(ctx context.Context) ([]*domain.BlockedIP, error) {
-	return s.repo.ListBlockedIPs(ctx)
-}
+func (s *AntispamService) IsIPBlocked(ctx context.Context, ip string) (bool, error) { return s.repo.IsIPBlocked(ctx, ip) }
+func (s *AntispamService) GetConfig(ctx context.Context) (*domain.AntispamConfig, error) { return s.repo.GetConfig(ctx) }
+func (s *AntispamService) UpdateConfig(ctx context.Context, cfg *domain.AntispamConfig) error { return s.repo.UpdateConfig(ctx, cfg) }
+func (s *AntispamService) ListBlockedIPs(ctx context.Context) ([]*domain.BlockedIP, error) { return s.repo.ListBlockedIPs(ctx) }
 
 func (s *AntispamService) BlockIP(ctx context.Context, ip, reason string) (*domain.BlockedIP, error) {
-	parsed := net.ParseIP(strings.TrimSpace(ip))
-	if parsed == nil {
-		// Also support CIDR format
-		_, _, err := net.ParseCIDR(strings.TrimSpace(ip))
-		if err != nil {
-			return nil, fmt.Errorf("invalid IP address or CIDR notation: %s", ip)
-		}
-	}
-	return s.repo.AddBlockedIP(ctx, strings.TrimSpace(ip), reason)
+	ip = strings.TrimSpace(ip)
+	if net.ParseIP(ip) == nil { if _, _, err := net.ParseCIDR(ip); err != nil { return nil, fmt.Errorf("invalid IP/CIDR: %s", ip) } }
+	return s.repo.AddBlockedIP(ctx, ip, reason)
 }
 
-func (s *AntispamService) UnblockIP(ctx context.Context, ip string) error {
-	return s.repo.DeleteBlockedIP(ctx, strings.TrimSpace(ip))
-}
+func (s *AntispamService) UnblockIP(ctx context.Context, ip string) error { return s.repo.DeleteBlockedIP(ctx, strings.TrimSpace(ip)) }

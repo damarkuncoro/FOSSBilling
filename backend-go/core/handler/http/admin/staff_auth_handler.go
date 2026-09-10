@@ -1,133 +1,57 @@
 package admin
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
-type StaffAuthHandler struct {
-	staffService *staff.StaffService
-}
+type StaffAuthHandler struct{ svc *staff.StaffService }
 
-func NewStaffAuthHandler(staffService *staff.StaffService) *StaffAuthHandler {
-	return &StaffAuthHandler{staffService: staffService}
-}
+func NewStaffAuthHandler(s *staff.StaffService) *StaffAuthHandler { return &StaffAuthHandler{s} }
 
 func (h *StaffAuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req staff.StaffLoginDTO
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
-		return
-	}
-
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-
-	res, err := h.staffService.Login(r.Context(), req, ip)
-	if err != nil {
-		if errors.Is(err, appErrors.ErrUnauthorized) {
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid staff credentials", nil)
-			return
-		}
-		response.Error(w, http.StatusBadRequest, "LOGIN_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, res, nil)
+	var req staff.StaffLoginDTO; if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	res, err := h.svc.Login(r.Context(), req, r.RemoteAddr)
+	if err != nil { response.Error(w, 401, "UNAUTHORIZED", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *StaffAuthHandler) VerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email string `json:"email"`
-		Code  string `json:"code"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-
-	res, err := h.staffService.VerifyTwoFactor(r.Context(), req.Email, req.Code, ip)
-	if err != nil {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, res, nil)
+	var req struct{ Email, Code string }; _ = request.Decode(r, &req)
+	res, err := h.svc.VerifyTwoFactor(r.Context(), req.Email, req.Code, r.RemoteAddr)
+	if err != nil { response.Error(w, 401, "UNAUTHORIZED", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *StaffAuthHandler) SetupTwoFactor(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	secret, qrURL, err := h.staffService.SetupTwoFactor(r.Context(), staffID)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, map[string]string{"secret": secret, "qr_url": qrURL}, nil)
+	s, q, err := h.svc.SetupTwoFactor(r.Context(), middleware.GetClientID(r.Context()))
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, map[string]string{"secret": s, "qr_url": q}, nil)
 }
 
 func (h *StaffAuthHandler) EnableTwoFactor(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	var req struct {
-		Code string `json:"code"`
+	var req struct{ Code string }; _ = request.Decode(r, &req)
+	if err := h.svc.EnableTwoFactor(r.Context(), middleware.GetClientID(r.Context()), req.Code); err != nil {
+		response.Error(w, 400, "ERR", err.Error(), nil); return
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	if err := h.staffService.EnableTwoFactor(r.Context(), staffID, req.Code); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_CODE", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+	response.JSON(w, 200, map[string]bool{"success": true}, nil)
 }
 
 func (h *StaffAuthHandler) DisableTwoFactor(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	if err := h.staffService.DisableTwoFactor(r.Context(), staffID); err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
-		return
+	if err := h.svc.DisableTwoFactor(r.Context(), middleware.GetClientID(r.Context())); err != nil {
+		response.Error(w, 500, "ERR", err.Error(), nil); return
 	}
-	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+	response.JSON(w, 200, map[string]bool{"success": true}, nil)
 }
 
 func (h *StaffAuthHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "system", "read")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: system", nil)
-		return
-	}
-
-	limit := 50
-	offset := 0
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
-			limit = v
-		}
-	}
-	if o := r.URL.Query().Get("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
-			offset = v
-		}
-	}
-
-	logs, total, err := h.staffService.ListAuditLogs(r.Context(), limit, offset)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve audit logs", err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, logs, &response.Meta{
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
-	})
+	if !check(w, r, h.svc, "system", "read") { return }
+	l, o := request.GetLimitOffset(r)
+	ls, tot, err := h.svc.ListAuditLogs(r.Context(), l, o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, ls, &response.Meta{Total: tot, Limit: l, Offset: o})
 }

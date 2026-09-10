@@ -9,53 +9,23 @@ import (
 )
 
 type PaymentService struct {
-	gatewayRegistry *payment.GatewayRegistry
-	invoiceRepo     domain.InvoiceRepository
-	clientRepo      domain.ClientRepository
+	reg *payment.GatewayRegistry; ir domain.InvoiceRepository; cr domain.ClientRepository
 }
 
-func NewPaymentService(
-	gatewayRegistry *payment.GatewayRegistry,
-	invoiceRepo domain.InvoiceRepository,
-	clientRepo domain.ClientRepository,
-) *PaymentService {
-	return &PaymentService{
-		gatewayRegistry: gatewayRegistry,
-		invoiceRepo:     invoiceRepo,
-		clientRepo:      clientRepo,
-	}
+func NewPaymentService(r *payment.GatewayRegistry, ir domain.InvoiceRepository, cr domain.ClientRepository) *PaymentService {
+	return &PaymentService{r, ir, cr}
 }
 
-func (s *PaymentService) InitiateInvoicePayment(ctx context.Context, invoiceID int64, gatewayID string) (*payment.PaymentResponse, error) {
-	inv, err := s.invoiceRepo.GetByID(ctx, invoiceID)
-	if err != nil {
-		return nil, err
-	}
+func (s *PaymentService) InitiateInvoicePayment(ctx context.Context, id int64, gid string) (*payment.PaymentResponse, error) {
+	inv, err := s.ir.GetByID(ctx, id); if err != nil { return nil, err }
+	c, err := s.cr.GetByID(ctx, inv.ClientID); if err != nil { return nil, err }
+	gw, err := s.reg.Get(gid); if err != nil { return nil, err }
 
-	client, err := s.clientRepo.GetByID(ctx, inv.ClientID)
-	if err != nil {
-		return nil, err
-	}
-
-	gw, err := s.gatewayRegistry.Get(gatewayID)
-	if err != nil {
-		return nil, err
-	}
-
-	req := payment.PaymentRequest{
-		InvoiceID:   inv.ID,
-		InvoiceNr:   fmt.Sprintf("%s%s", inv.Serie, inv.Nr),
-		Amount:      inv.Total,
-		Currency:    inv.Currency,
-		ClientEmail: client.Email,
-		ClientName:  fmt.Sprintf("%s %s", client.FirstName, client.LastName),
-		ReturnURL:   "/client/invoice/" + fmt.Sprint(inv.ID),
-		CancelURL:   "/client/invoice/" + fmt.Sprint(inv.ID),
-	}
-
-	return gw.InitiatePayment(ctx, req)
+	return gw.InitiatePayment(ctx, payment.PaymentRequest{
+		InvoiceID: inv.ID, InvoiceNr: inv.Serie + inv.Nr, Amount: inv.Total, Currency: inv.Currency,
+		ClientEmail: c.Email, ClientName: c.FirstName + " " + c.LastName,
+		ReturnURL: "/client/invoice/" + fmt.Sprint(inv.ID), CancelURL: "/client/invoice/" + fmt.Sprint(inv.ID),
+	})
 }
 
-func (s *PaymentService) ListAvailableGateways() []payment.PaymentGateway {
-	return s.gatewayRegistry.List()
-}
+func (s *PaymentService) ListAvailableGateways() []payment.PaymentGateway { return s.reg.List() }

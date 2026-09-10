@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fossbilling-worker
+  labels:
+    app: fossbilling
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fossbilling
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: fossbilling
+        component: worker
+    spec:
+      containers:
+      - name: worker
+        image: fossbilling/backend-go:latest
+        command: ["/app/worker"]
+        envFrom:
+        - configMapRef:
+            name: fossbilling-config
+        - secretRef:
+            name: fossbilling-secrets
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"

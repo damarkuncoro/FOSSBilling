@@ -43,14 +43,14 @@ func TestAntispamService_ValidateSignup(t *testing.T) {
 
 	// 2. Honeypot triggered
 	err = svc.ValidateSignup(ctx, "bot@gmail.com", "192.168.1.10", "http://spamwebsite.com", "token")
-	if !errors.Is(err, antispam.ErrHoneypotTriggered) {
-		t.Errorf("Expected ErrHoneypotTriggered, got: %v", err)
+	if !errors.Is(err, antispam.ErrBot) {
+		t.Errorf("Expected ErrBot, got: %v", err)
 	}
 
 	// 3. Disposable email triggered
 	err = svc.ValidateSignup(ctx, "spammer@mailinator.com", "192.168.1.10", "", "token")
-	if !errors.Is(err, antispam.ErrDisposableEmail) {
-		t.Errorf("Expected ErrDisposableEmail, got: %v", err)
+	if !errors.Is(err, antispam.ErrDispEmail) {
+		t.Errorf("Expected ErrDispEmail, got: %v", err)
 	}
 
 	// 4. IP Blacklist triggered

@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 )
 
 func TestTDD_NewFeaturesBackendEndpoints(t *testing.T) {
-	ts, promoRepo, staffRepo := setupTestServer()
+	ts, promoRepo, staffRepo, productRepo := setupTestServer()
 	defer ts.Close()
 	ctx := context.Background()
-	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo)
+	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo, productRepo)
 
 	// 1. Register Client for Testing
 	regBody, _ := json.Marshal(map[string]interface{}{
@@ -60,7 +61,8 @@ func TestTDD_NewFeaturesBackendEndpoints(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil || resp.StatusCode != http.StatusOK {
-			t.Fatalf("Expected 200 OK for valid password change, got %d", resp.StatusCode)
+			var b []byte; if resp != nil { b, _ = io.ReadAll(resp.Body) }
+			t.Fatalf("Expected 200 OK for valid password change, got %d. Body: %s", resp.StatusCode, string(b))
 		}
 	})
 

@@ -20,5 +20,6 @@ type ActivityRepository interface {
 	Log(ctx context.Context, activity *Activity) error
 	List(ctx context.Context, limit, offset int) ([]*Activity, int, error)
 	ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*Activity, int, error)
+	GetTrend(ctx context.Context, days int) (map[string]int, error)
 	DeleteOld(ctx context.Context, days int) error
 }

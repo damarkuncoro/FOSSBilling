@@ -8,54 +8,19 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 )
 
-// NewMockRepositories instantiates in-memory mock repositories and seeds mock demonstration data
 func NewMockRepositories(ctx context.Context) *Repositories {
-	log.Println("🧪 [Mock Data] Initializing in-memory mock repositories & seeding mock data...")
-
-	memClient := memory.NewMockClientRepository()
-	memStaff := memory.NewMockStaffRepository()
-	memPromo := memory.NewMockPromoRepository()
-	memNews := memory.NewMockNewsRepository()
-	memCurr := memory.NewMockCurrencyRepository()
-	memInv := memory.NewMockInvoiceRepository()
-	memNotif := memory.NewMockNotificationRepository()
-
-	seed.SeedAll(ctx, seed.MemoryRepositories{
-		ClientRepo:   memClient,
-		StaffRepo:    memStaff,
-		PromoRepo:    memPromo,
-		NewsRepo:     memNews,
-		CurrencyRepo: memCurr,
-		InvoiceRepo:  memInv,
-	})
+	log.Println("🧪 Seeding mock data...")
+	mc, ms, mp, mn, mcur, mi, mnot := memory.NewMockClientRepository(), memory.NewMockStaffRepository(), memory.NewMockPromoRepository(), memory.NewMockNewsRepository(), memory.NewMockCurrencyRepository(), memory.NewMockInvoiceRepository(), memory.NewMockNotificationRepository()
+	seed.SeedAll(ctx, seed.MemoryRepositories{ClientRepo: mc, StaffRepo: ms, PromoRepo: mp, NewsRepo: mn, CurrencyRepo: mcur, InvoiceRepo: mi})
 
 	return &Repositories{
-		Client:            memClient,
-		Order:             memory.NewMockOrderRepository(),
-		Invoice:           memInv,
-		Transaction:       memory.NewMockTransactionRepository(),
-		Promo:             memPromo,
-		Support:           memory.NewMockSupportRepository(),
-		Staff:             memStaff,
-		Currency:          memCurr,
-		News:              memNews,
-		Downloadable:      memory.NewMockDownloadableRepository(),
-		APIKey:            memory.NewMockAPIKeyRepository(),
-		MassMail:          memory.NewMockMassMailRepository(),
-		Company:           memory.NewMockCompanyRepository(),
-		Product:           memory.NewMockProductRepository(),
-		Catalog:           memory.NewMockCatalogRepository(),
-		System:            memory.NewMockSystemRepository(),
-		Activity:          memory.NewMockActivityRepository(),
-		Notification:      memNotif,
-		AdminNotification: memNotif,
-		Page:              memory.NewMockPageRepository(),
-		KB:                memory.NewMockKBRepository(),
-		Antispam:          memory.NewMockAntispamRepository(),
-		Formbuilder:       memory.NewMockFormbuilderRepository(),
-		Extension:         memory.NewMockExtensionRepository(),
-		Redirect:          memory.NewRedirectRepository(),
-		Theme:             memory.NewThemeRepository(),
-		Tax:               memory.NewMockTaxRepository(),
+		Client: mc, Staff: ms, Promo: mp, News: mn, Currency: mcur, Invoice: mi, Notification: mnot, AdminNotification: mnot,
+		Order: memory.NewMockOrderRepository(), Transaction: memory.NewMockTransactionRepository(), Support: memory.NewMockSupportRepository(),
+		Downloadable: memory.NewMockDownloadableRepository(), APIKey: memory.NewMockAPIKeyRepository(), MassMail: memory.NewMockMassMailRepository(),
+		Company: memory.NewMockCompanyRepository(), Product: memory.NewMockProductRepository(), Catalog: memory.NewMockCatalogRepository(),
+		System: memory.NewMockSystemRepository(), Activity: memory.NewMockActivityRepository(), Page: memory.NewMockPageRepository(),
+		KB: memory.NewMockKBRepository(), Antispam: memory.NewMockAntispamRepository(), Formbuilder: memory.NewMockFormbuilderRepository(),
+		Extension: memory.NewMockExtensionRepository(), Redirect: memory.NewRedirectRepository(), Theme: memory.NewThemeRepository(), Tax: memory.NewMockTaxRepository(),
+		EmailTemplate: memory.NewMockEmailTemplateRepository(),
 	}
 }

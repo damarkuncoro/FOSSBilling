@@ -17,27 +17,51 @@ These variables control the connection to essential services and core security s
 | `JWT_SECRET` | - | A 32+ character string used to sign authentication tokens |
 | `APP_URL` | `http://localhost:8080` | The base URL where the API is publicly accessible |
 | `DEFAULT_CURRENCY` | `USD` | Default 3-letter ISO code for pricing |
+| `COMPANY_NAME` | `FOSSBilling` | Name of your hosting company for branding |
+| `ADMIN_PORTAL_URL` | `http://localhost:3000` | URL to access the staff dashboard |
+| `CLIENT_PORTAL_URL` | `http://localhost:3001` | URL for the customer portal |
 
 ---
 
-## 🔒 Security Configuration
+## 🔐 Security & 2FA
 
-It is critical to change the `JWT_SECRET` in production. If this key is compromised, attackers can forge authentication tokens for any user or administrator.
+FOSSBilling Next-Gen supports TOTP-based Two-Factor Authentication.
 
-```bash
-# Generate a secure secret
-openssl rand -base64 32
-```
+- **Issuer Name:** The name that appears in authenticator apps (e.g. Google Authenticator) is controlled by `COMPANY_NAME`.
+- **JWT Lifespan:** Configured in `AuthUsecase` (default 24 hours).
 
 ---
 
-## 📧 Mailer Configuration
+## 📧 Notification Channels
 
-FOSSBilling supports multiple mail transports (SMTP, Sendmail). These are currently configured within the system settings database, but can be overridden via environment variables in future updates.
+### Email (SMTP)
+| Variable | Description |
+| :--- | :--- |
+| `MAIL_DRIVER` | `smtp` or `mock` |
+| `MAIL_HOST` | SMTP server address |
+| `MAIL_PORT` | SMTP server port |
+| `MAIL_USER` | SMTP username |
+| `MAIL_PASS` | SMTP password |
+| `MAIL_FROM_ADDRESS` | Sender email (e.g. billing@yourcompany.com) |
+| `MAIL_FROM_NAME` | Sender name shown in inbox |
 
-- **SMTP Host:** Server address for outgoing mail.
-- **SMTP Port:** 587 (TLS) or 465 (SSL).
-- **Authentication:** Username and password for your mail provider.
+### Telegram Alerts
+| Variable | Description |
+| :--- | :--- |
+| `TELEGRAM_BOT_TOKEN` | API token from @BotFather |
+| `TELEGRAM_CHAT_ID` | Your numeric Chat ID (use @userinfobot to find it) |
+
+---
+
+## 🌐 External API Integrations
+
+| Variable | Provider | Purpose |
+| :--- | :--- | :--- |
+| `CLOUDFLARE_TOKEN` | Cloudflare | DNS Zone & Record management |
+| `NAMECHEAP_API_USER` | Namecheap | Automated domain registration |
+| `NAMECHEAP_API_KEY` | Namecheap | Domain API authentication |
+| `STRIPE_SECRET_KEY` | Stripe | Global credit card processing |
+| `MIDTRANS_SERVER_KEY`| Midtrans | Local Indonesian payments (QRIS/VA) |
 
 ---
 

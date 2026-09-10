@@ -1,161 +1,63 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminServerService } from '@/services/admin_server.service';
 import type { ServerItem } from '@/types/api';
 
 export const defaultServers: ServerItem[] = [
-  {
-    id: 1,
-    name: 'US-East Production Node 01',
-    hostname: 'srv1.fossbilling-cloud.net',
-    ip: '198.51.100.24',
-    manager: 'cpanel',
-    status: 'online',
-    active_accounts: 84,
-    max_accounts: 150,
-    nameserver_1: 'ns1.fossbilling-cloud.net',
-    nameserver_2: 'ns2.fossbilling-cloud.net',
-    is_default: true,
-  },
-  {
-    id: 2,
-    name: 'EU-Central Hestia Cluster',
-    hostname: 'hestia-de.fossbilling-cloud.net',
-    ip: '203.0.113.88',
-    manager: 'hestiacp',
-    status: 'online',
-    active_accounts: 32,
-    max_accounts: 100,
-    nameserver_1: 'ns1.fossbilling-cloud.net',
-    nameserver_2: 'ns2.fossbilling-cloud.net',
-    is_default: false,
-  },
-  {
-    id: 3,
-    name: 'SG-Asia CWP VPS Node',
-    hostname: 'sg-cwp.fossbilling-cloud.net',
-    ip: '198.51.100.99',
-    manager: 'cwp',
-    status: 'online',
-    active_accounts: 12,
-    max_accounts: 50,
-    nameserver_1: 'ns3.fossbilling-cloud.net',
-    nameserver_2: 'ns4.fossbilling-cloud.net',
-    is_default: false,
-  },
+  { id: 1, name: 'US Node 01', hostname: 'srv1.example.net', ip: '198.51.100.24', manager: 'cpanel', status: 'online', active_accounts: 84, max_accounts: 150, nameserver_1: 'ns1.example.net', nameserver_2: 'ns2.example.net', is_default: true },
 ];
 
 export const initialServerForm: Partial<ServerItem> & { api_token?: string } = {
-  name: '',
-  hostname: '',
-  ip: '',
-  manager: 'cpanel',
-  max_accounts: 100,
-  nameserver_1: 'ns1.example.com',
-  nameserver_2: 'ns2.example.com',
-  is_default: false,
-  api_token: '',
+  name: '', hostname: '', ip: '', manager: 'cpanel', max_accounts: 100, nameserver_1: 'ns1.example.com', nameserver_2: 'ns2.example.com', is_default: false, api_token: '',
 };
 
 export function useServers() {
-  const [servers, setServers] = useState<ServerItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
-  const [testingId, setTestingId] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<{ id: number; message: string; success: boolean } | null>(null);
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(initialServerForm);
 
-  const fetchServers = async () => {
-    setLoading(true);
-    try {
-      const data = await adminServerService.listServers().catch(() => null);
-      setServers(data && data.length > 0 ? data : defaultServers);
-    } catch {
-      setServers(defaultServers);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: servers = [], isLoading: loading, refetch: fetchServers } = useQuery({
+    queryKey: ['admin', 'servers'],
+    queryFn: async () => {
+      const data = await adminServerService.listServers();
+      return data && data.length > 0 ? data : defaultServers;
+    },
+  });
 
-  useEffect(() => {
-    fetchServers();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const newServer = await adminServerService.createServer(form).catch(() => ({
-        id: Date.now(),
-        name: form.name || 'New Server Node',
-        hostname: form.hostname || 'srv.example.com',
-        ip: form.ip || '127.0.0.1',
-        manager: form.manager || 'cpanel',
-        status: 'online',
-        active_accounts: 0,
-        max_accounts: Number(form.max_accounts) || 100,
-        nameserver_1: form.nameserver_1,
-        nameserver_2: form.nameserver_2,
-        is_default: form.is_default || false,
-      } as ServerItem));
-
-      if (newServer.is_default) {
-        setServers((prev) => [newServer, ...prev.map((s) => ({ ...s, is_default: false }))]);
-      } else {
-        setServers((prev) => [newServer, ...prev]);
-      }
-
+  const createMutation = useMutation({
+    mutationFn: (input: Partial<ServerItem>) => adminServerService.createServer(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'servers'] });
       setOpenModal(false);
       setForm(initialServerForm);
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleTestConnection = async (id: number) => {
-    setTestingId(id);
-    setTestResult(null);
-    try {
-      const res = await adminServerService.testConnection(id).catch(() => ({
-        success: true,
-        message: 'Connection successful: Handshake 200 OK (Latency: 28ms)',
-      }));
-      setTestResult({ id, success: res.success, message: res.message });
-    } catch (err: any) {
-      setTestResult({
-        id,
-        success: false,
-        message: err.message || 'Failed to establish connection',
-      });
-    } finally {
-      setTestingId(null);
-    }
-  };
+  const testMutation = useMutation({
+    mutationFn: (id: number) => adminServerService.testConnection(id),
+    onSuccess: (res, id) => setTestResult({ id, success: res.success, message: res.message }),
+  });
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to remove this hosting server?')) return;
-    try {
-      await adminServerService.deleteServer(id).catch(() => null);
-      setServers((prev) => prev.filter((s) => s.id !== id));
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminServerService.deleteServer(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'servers'] }),
+  });
 
   return {
     servers,
     loading,
+    fetchServers,
     openModal,
     setOpenModal,
-    testingId,
+    testingId: testMutation.isPending ? -1 : null,
     testResult,
     setTestResult,
-    saving,
+    saving: createMutation.isPending,
     form,
     setForm,
-    fetchServers,
-    handleCreate,
-    handleTestConnection,
-    handleDelete,
+    handleCreate: (e: React.FormEvent) => { e.preventDefault(); createMutation.mutate(form); },
+    handleTestConnection: (id: number) => testMutation.mutate(id),
+    handleDelete: (id: number) => { if (confirm('Delete server?')) deleteMutation.mutate(id); },
   };
 }

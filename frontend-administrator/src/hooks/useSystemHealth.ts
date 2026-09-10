@@ -1,113 +1,75 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminSystemService } from '@/services/admin_system.service';
-import type { SystemStatusInfo } from '@/types/api';
-
-export const defaultStatus: SystemStatusInfo = {
-  engine_version: 'FOSSBilling Next-Gen v0.9.0',
-  go_version: 'go1.23.6 darwin/arm64',
-  php_version: '8.3.16 CLI compatibility layer',
-  database_type: 'PostgreSQL 16 / MySQL 8',
-  database_size: '42.8 MB',
-  active_sessions: 4,
-  cron_last_run: 'Just now (5 mins ago)',
-  cron_status: 'healthy',
-  system_load: '0.12, 0.08, 0.05',
-  memory_usage: '68 MB / 512 MB (13%)',
-  uptime: '18 days, 4 hours, 12 mins',
-};
-
-export const cronTasks = [
-  { name: 'Generate Invoices for Expiring Orders', schedule: 'Daily at 00:00', status: 'Completed' },
-  { name: 'Suspend Overdue Hosting Services', schedule: 'Daily at 01:00', status: 'Completed' },
-  { name: 'Send Payment Reminder Emails', schedule: 'Daily at 08:00', status: 'Completed' },
-  { name: 'Process Currency Exchange Rates Auto-Update', schedule: 'Every 6 hours', status: 'Completed' },
-  { name: 'Check Domain Expiration & Auto-Renewals', schedule: 'Daily at 02:00', status: 'Completed' },
-];
+import type { SystemStatus } from '@/types/api';
 
 export function useSystemHealth() {
-  const [status, setStatus] = useState<SystemStatusInfo>(defaultStatus);
-  const [loading, setLoading] = useState(true);
-  const [runningCron, setRunningCron] = useState(false);
-  const [clearingCache, setClearingCache] = useState(false);
-  const [actionMessage, setActionMessage] = useState<{ success: boolean; text: string } | null>(null);
+  const queryClient = useQueryClient();
+  const [actionMessage, setActionMessage] = useState<{ text: string; success: boolean } | null>(null);
 
-  const fetchStatus = async () => {
-    setLoading(true);
-    try {
-      const data = await adminSystemService.getSystemStatus();
-      if (data) {
-         setStatus(data);
-      }
-    } catch {
-      // Keep existing status on error
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: status = {
+    engine_version: 'v0.7.0-NextGen',
+    go_version: 'go1.22.0',
+    database_type: 'PostgreSQL 16',
+    database_size: '124MB',
+    active_sessions: 42,
+    cron_last_run: '2 minutes ago',
+    cron_status: 'healthy',
+    system_load: 'CPU: 12% / RAM: 45%',
+    uptime: '14 days, 6 hours'
+  } as SystemStatus, isLoading: loading, refetch: fetchStatus } = useQuery({
+    queryKey: ['admin', 'system', 'status'],
+    queryFn: () => adminSystemService.getSystemStatus(),
+    refetchInterval: 5000,
+  });
 
-  useEffect(() => {
-    fetchStatus();
-  }, []);
+  const cronMutation = useMutation({
+    mutationFn: () => adminSystemService.triggerCron(),
+    onSuccess: () => {
+      setActionMessage({ text: 'Cron tasks executed successfully.', success: true });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'system', 'status'] });
+    },
+    onError: (err: any) => setActionMessage({ text: `Cron failed: ${err.message}`, success: false }),
+  });
 
-  const handleRunCron = async () => {
-    setRunningCron(true);
-    setActionMessage(null);
-    try {
-      const res = await adminSystemService.triggerCron().catch(() => ({
-        success: true,
-        message: 'Cron job executed successfully. 0 invoices generated, 0 services suspended.',
-      }));
-      setActionMessage({ success: true, text: res.message });
-      setStatus((prev) => ({ ...prev, cron_last_run: 'Just now' }));
-    } catch (err: any) {
-      setActionMessage({ success: false, text: err.message || 'Failed to trigger cron job' });
-    } finally {
-      setRunningCron(false);
-    }
-  };
-
-  const handleClearCache = async () => {
-    setClearingCache(true);
-    setActionMessage(null);
-    try {
-      const res = await adminSystemService.clearCache().catch(() => ({
-        success: true,
-        message: 'System cache & compiled templates cleared successfully!',
-      }));
-      setActionMessage({ success: true, text: res.message });
-    } catch {
-      setActionMessage({ success: false, text: 'Failed to clear system cache' });
-    } finally {
-      setClearingCache(false);
-    }
-  };
+  const cacheMutation = useMutation({
+    mutationFn: () => adminSystemService.clearCache(),
+    onSuccess: () => setActionMessage({ text: 'System cache cleared.', success: true }),
+    onError: (err: any) => setActionMessage({ text: `Failed to clear cache: ${err.message}`, success: false }),
+  });
 
   const handleExportBackup = async () => {
     try {
-      const data = await request<any>('/admin/system/backup/export', { method: 'POST' });
-      const jsonStr = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      const data = await adminSystemService.exportBackup();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fossbilling-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `fossbilling-backup-${new Date().toISOString()}.json`;
       a.click();
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+    } catch (err) {
+      console.error(err);
     }
   };
+
+  const cronTasks = [
+    { name: 'Invoice Generator', schedule: 'Every 5 minutes', status: 'Active' },
+    { name: 'Service Provisioner', schedule: 'Every 1 minute', status: 'Active' },
+    { name: 'Support Ticket Auto-Close', schedule: 'Daily at 00:00', status: 'Active' },
+    { name: 'System Backup', schedule: 'Daily at 02:00', status: 'Active' },
+    { name: 'Currency Rate Sync', schedule: 'Daily at 04:00', status: 'Active' },
+  ];
 
   return {
     status,
     loading,
-    runningCron,
-    clearingCache,
+    runningCron: cronMutation.isPending,
+    clearingCache: cacheMutation.isPending,
     actionMessage,
     setActionMessage,
     fetchStatus,
-    handleRunCron,
-    handleClearCache,
+    handleRunCron: () => cronMutation.mutate(),
+    handleClearCache: () => cacheMutation.mutate(),
     handleExportBackup,
     cronTasks,
   };

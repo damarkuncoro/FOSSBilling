@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Server,
   Download,
+  Mail,
 } from 'lucide-react';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { SystemMetricsGrid } from '@/components/system/SystemMetricsGrid';
@@ -46,7 +47,7 @@ export const SystemHealth: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchStatus()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -151,6 +152,15 @@ export const SystemHealth: React.FC = () => {
               >
                 <Trash2 className="h-3.5 w-3.5 text-amber-500" />
                 {clearingCache ? 'Purging Cache...' : 'Purge All System Cache'}
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 text-xs"
+                onClick={() => window.location.href = '/email-templates'}
+              >
+                <Mail className="h-3.5 w-3.5 text-rose-500" />
+                Customize System Email Templates
               </Button>
 
               <Button

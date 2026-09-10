@@ -50,7 +50,7 @@ func (m *ThreadSafeMockClientRepo) AddBalanceTransaction(ctx context.Context, tx
 
 	if tx.Type == domain.BalanceTypeDebit {
 		if m.balance < tx.Amount {
-			return appErrors.ErrInsufficientFunds
+			return appErrors.ErrNoFunds
 		}
 		m.balance -= tx.Amount
 	} else {
@@ -162,7 +162,7 @@ func TestConcurrency_InvoiceSettlementIdempotency(t *testing.T) {
 		}
 
 		if bal < inv.Total {
-			return appErrors.ErrInsufficientFunds
+			return appErrors.ErrNoFunds
 		}
 
 		deduct := &domain.ClientBalance{

@@ -60,6 +60,9 @@ func (m *mockOrderRepoForLicense) Update(ctx context.Context, order *domain.Orde
 func (m *mockOrderRepoForLicense) UpdateStatus(ctx context.Context, id int64, status domain.OrderStatus, reason *string) error {
 	return nil
 }
+func (m *mockOrderRepoForLicense) ListPendingProvisioning(ctx context.Context) ([]*domain.Order, error) {
+	return nil, nil
+}
 
 func TestClientLicenseHandler(t *testing.T) {
 	mockRepo := &mockOrderRepoForLicense{
@@ -90,8 +93,8 @@ func TestClientLicenseHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code)
 
 		var res struct {
-			Success bool                              `json:"success"`
-			Data    []licenseUsecase.LicenseRecordDTO `json:"data"`
+			Success bool                     `json:"success"`
+			Data    []licenseUsecase.LicenseDTO `json:"data"`
 		}
 		err := json.NewDecoder(rec.Body).Decode(&res)
 		require.NoError(t, err)

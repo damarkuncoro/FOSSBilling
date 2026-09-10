@@ -36,7 +36,7 @@ func (h *ThemeHandler) ListThemes(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve themes", err.Error())
 		return
 	}
-	response.JSON(w, http.StatusOK, map[string]interface{}{"list": themes}, nil)
+	response.JSON(w, http.StatusOK, themes, nil)
 }
 
 func (h *ThemeHandler) GetCurrentTheme(w http.ResponseWriter, r *http.Request) {

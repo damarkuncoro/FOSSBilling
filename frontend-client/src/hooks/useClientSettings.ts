@@ -1,88 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useClientAuth } from '@/lib/auth';
-import { ApiKey } from '@/types/api';
 
 export function useClientSettings() {
+  const queryClient = useQueryClient();
   const { user, refreshProfile } = useClientAuth();
-  const [profileForm, setProfileForm] = useState({
-    first_name: user?.first_name || '',
-    last_name: user?.last_name || '',
-    company: user?.company || '',
-    country: user?.country || 'ID',
-  });
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [profileForm, setProfileForm] = useState({ first_name: user?.first_name || '', last_name: user?.last_name || '', company: user?.company || '', country: user?.country || 'ID' });
   const [keyName, setKeyName] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [generatingKey, setGeneratingKey] = useState(false);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
-  const fetchKeys = useCallback(async () => {
-    try {
-      const data = await api.getApiKeys();
-      setApiKeys(data || []);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const { data: apiKeys = [] } = useQuery({ queryKey: ['client', 'api-keys'], queryFn: () => api.getApiKeys().catch(() => []) });
 
-  useEffect(() => {
-    fetchKeys();
-  }, [fetchKeys]);
+  const profileMutation = useMutation({
+    mutationFn: (d: any) => api.updateProfile(d),
+    onSuccess: () => { refreshProfile(); setProfileMessage('Saved'); },
+  });
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingProfile(true);
-    setProfileMessage(null);
-    try {
-      await api.updateProfile(profileForm);
-      await refreshProfile();
-      setProfileMessage('Your profile has been saved successfully!');
-    } catch (err: any) {
-      alert(`Update failed: ${err.message}`);
-    } finally {
-      setSavingProfile(false);
-    }
-  };
+  const keyMutation = useMutation({
+    mutationFn: (n: string) => api.generateApiKey(n),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'api-keys'] }); setKeyName(''); },
+  });
 
-  const handleGenerateKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!keyName.trim()) return;
-
-    setGeneratingKey(true);
-    try {
-      await api.generateApiKey(keyName.trim());
-      setKeyName('');
-      await fetchKeys();
-    } catch (err: any) {
-      alert(`Failed to generate key: ${err.message}`);
-    } finally {
-      setGeneratingKey(false);
-    }
-  };
-
-  const handleRevokeKey = async (id: number) => {
-    if (!confirm('Are you sure you want to revoke this API key?')) return;
-    try {
-      await api.revokeApiKey(id);
-      await fetchKeys();
-    } catch (err: any) {
-      alert(`Failed to revoke key: ${err.message}`);
-    }
-  };
+  const revokeMutation = useMutation({
+    mutationFn: (id: number) => api.revokeApiKey(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client', 'api-keys'] }),
+  });
 
   return {
-    user,
-    profileForm,
-    setProfileForm,
-    apiKeys,
-    keyName,
-    setKeyName,
-    savingProfile,
-    generatingKey,
-    profileMessage,
-    handleUpdateProfile,
-    handleGenerateKey,
-    handleRevokeKey,
+    user, profileForm, setProfileForm, apiKeys, keyName, setKeyName, profileMessage,
+    savingProfile: profileMutation.isPending, generatingKey: keyMutation.isPending,
+    handleUpdateProfile: (e: any) => { e.preventDefault(); setProfileMessage(null); profileMutation.mutate(profileForm); },
+    handleGenerateKey: (e: any) => { e.preventDefault(); if (keyName) keyMutation.mutate(keyName); },
+    handleRevokeKey: (id: number) => { if (confirm('Revoke?')) revokeMutation.mutate(id); },
   };
 }

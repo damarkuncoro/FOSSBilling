@@ -32,8 +32,8 @@ func TestDownloadableService_SignedDownloadFlow(t *testing.T) {
 
 	// 2. Client without active order should fail
 	_, err := service.GenerateDownloadLink(ctx, 1, file.ID, 1*time.Hour)
-	if err != downloadable.ErrProductNotOrdered {
-		t.Fatalf("expected ErrProductNotOrdered, got: %v", err)
+	if err != downloadable.ErrNoSvc {
+		t.Fatalf("expected ErrNoSvc, got: %v", err)
 	}
 
 	// 3. Client buys and activates order
@@ -67,7 +67,7 @@ func TestDownloadableService_SignedDownloadFlow(t *testing.T) {
 
 	// 6. Invalid signature should fail
 	_, err = service.VerifyAndGetFile(ctx, 1, file.ID, expUnix, "invalidsig1234")
-	if err != downloadable.ErrInvalidSignature {
-		t.Errorf("expected ErrInvalidSignature, got: %v", err)
+	if err != downloadable.ErrSig {
+		t.Errorf("expected ErrSig, got: %v", err)
 	}
 }

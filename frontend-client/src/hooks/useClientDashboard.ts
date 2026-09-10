@@ -1,32 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useClientAuth } from '@/lib/auth';
-import { Order, Invoice, SupportTicket } from '@/types/api';
 
 export function useClientDashboard() {
   const { user, balance } = useClientAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchDashboardData = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      api.getOrders().catch(() => []),
-      api.getInvoices().catch(() => []),
-      api.getTickets().catch(() => []),
-    ]).then(([ordersData, invoicesData, ticketsData]) => {
-      setOrders(ordersData || []);
-      setInvoices(invoicesData || []);
-      setTickets(ticketsData || []);
-      setLoading(false);
-    });
-  }, []);
+  const { data: orders = [], isLoading: ordersLoading, refetch: fetchOrders } = useQuery({
+    queryKey: ['client', 'orders'],
+    queryFn: () => api.getOrders(),
+  });
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  const { data: invoices = [], isLoading: invoicesLoading, refetch: fetchInvoices } = useQuery({
+    queryKey: ['client', 'invoices'],
+    queryFn: () => api.getInvoices(),
+  });
+
+  const { data: tickets = [], isLoading: ticketsLoading, refetch: fetchTickets } = useQuery({
+    queryKey: ['client', 'support', 'tickets'],
+    queryFn: () => api.getTickets(),
+  });
 
   const unpaidInvoices = invoices.filter((inv) => inv.status === 'unpaid');
   const activeOrders = orders.filter((o) => o.status === 'active');
@@ -37,9 +29,13 @@ export function useClientDashboard() {
     orders,
     invoices,
     tickets,
-    loading,
+    loading: ordersLoading || invoicesLoading || ticketsLoading,
     unpaidInvoices,
     activeOrders,
-    fetchDashboardData,
+    fetchDashboardData: () => {
+      fetchOrders();
+      fetchInvoices();
+      fetchTickets();
+    },
   };
 }

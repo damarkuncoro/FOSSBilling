@@ -3,15 +3,15 @@ import type { SeoSettings } from '../types/seo';
 import { systemApi } from '../lib/api/system';
 
 const initialSettings: SeoSettings = {
-  site_title: 'FOSSBilling - NextGen Cloud Hosting & Domains',
-  meta_description: 'Fast, secure NVMe cloud hosting, domain registrations, and dedicated servers with 99.9% uptime SLA.',
-  meta_keywords: 'cloud hosting, domains, vps, dedicated servers, billing management',
-  og_image_url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200&auto=format&fit=crop',
-  twitter_handle: '@fossbilling',
-  google_analytics_id: 'G-XYZ998877',
-  robots_txt: `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://myhosting.com/sitemap.xml`,
+  site_title: 'FOSSBilling - Cloud Hosting & Domains',
+  meta_description: 'Fast, secure cloud hosting and domain registrations.',
+  meta_keywords: 'cloud hosting, domains, billing management',
+  og_image_url: '',
+  twitter_handle: '',
+  google_analytics_id: '',
+  robots_txt: `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n`,
   sitemap_auto_generate: true,
-  canonical_url: 'https://myhosting.com',
+  canonical_url: '',
 };
 
 export function useSeoSettings() {

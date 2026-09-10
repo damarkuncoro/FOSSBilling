@@ -31,8 +31,18 @@ type Config struct {
 	StripeSecretKey   string
 	StripePublicKey   string
 
+	// Third Party APIs
+	CloudflareToken string
+	NamecheapAPIUser string
+	NamecheapAPIKey  string
+
 	TelegramBotToken string
 	TelegramChatID   string
+
+	// UI & Identity
+	CompanyName    string
+	AdminPortalURL string
+	ClientPortalURL string
 }
 
 func Load() *Config {
@@ -60,8 +70,16 @@ func Load() *Config {
 		StripeSecretKey:   getEnv("STRIPE_SECRET_KEY", ""),
 		StripePublicKey:   getEnv("STRIPE_PUBLIC_KEY", ""),
 
+		CloudflareToken:  getEnv("CLOUDFLARE_TOKEN", ""),
+		NamecheapAPIUser: getEnv("NAMECHEAP_API_USER", ""),
+		NamecheapAPIKey:  getEnv("NAMECHEAP_API_KEY", ""),
+
 		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramChatID:   getEnv("TELEGRAM_CHAT_ID", ""),
+
+		CompanyName:     getEnv("COMPANY_NAME", "FOSSBilling"),
+		AdminPortalURL:  getEnv("ADMIN_PORTAL_URL", "http://localhost:3000"),
+		ClientPortalURL: getEnv("CLIENT_PORTAL_URL", "http://localhost:3001"),
 	}
 }
 

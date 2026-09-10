@@ -55,33 +55,34 @@ export const TaxRulesListTab: React.FC<TaxRulesListTabProps> = ({ taxRules, onDe
             ) : (
               taxRules.map((rule) => (
                 <TableRow key={rule.id}>
-                <TableCell className="font-medium text-sm">{rule.name}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono text-xs">{rule.country}</Badge>
-                </TableCell>
-                <TableCell className="font-mono text-sm font-bold text-primary">{rule.rate}%</TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {rule.apply_to_all_clients ? 'All Clients Globally' : 'Matching Country Only'}
-                </TableCell>
-                <TableCell>
-                  {rule.is_active ? (
-                    <Badge variant="success" className="text-[10px]">Active</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px]">Inactive</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => onDelete(rule.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                  <TableCell className="font-medium text-sm">{rule.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono text-xs">{rule.country}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm font-bold text-primary">{rule.rate}%</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {rule.apply_to_all_clients ? 'All Clients Globally' : 'Matching Country Only'}
+                  </TableCell>
+                  <TableCell>
+                    {rule.is_active ? (
+                      <Badge variant="success" className="text-[10px]">Active</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">Inactive</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => onDelete(rule.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </CardContent>

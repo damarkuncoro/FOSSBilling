@@ -12,7 +12,7 @@ import (
 
 func setupStaffService() (*staff.StaffService, *memory.MockStaffRepository) {
 	repo := memory.NewMockStaffRepository()
-	service := staff.NewStaffService(repo, "staff-jwt-secret-key-32-bytes")
+	service := staff.NewStaffService(repo, "staff-jwt-secret-key-32-bytes", "FOSSBilling")
 	return service, repo
 }
 
@@ -34,7 +34,7 @@ func TestStaffService_LoginAndAuditLog(t *testing.T) {
 	res, err := service.Login(ctx, staff.StaffLoginDTO{
 		Email:    "admin@fossbilling.org",
 		Password: "AdminPass!123",
-	})
+	}, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Staff login failed: %v", err)
 	}

@@ -1,45 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { adminStatsService } from '@/services/admin_stats.service';
 import { adminSystemService } from '@/services/admin_system.service';
-import type { DashboardStats } from '@/types/api';
+import type { DashboardStats, AuditLog } from '@/types/api';
 
 export function useDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentLogs, setRecentLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: stats, isLoading: statsLoading, refetch: fetchStats, error: statsError } = useQuery({
+    queryKey: ['admin', 'dashboard', 'stats'],
+    queryFn: () => adminStatsService.getDashboardStats(),
+    refetchInterval: 60000,
+  });
 
-  const fetchStats = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [statsData, logsData] = await Promise.all([
-        adminStatsService.getDashboardMetrics(),
-        adminSystemService.getAuditLogs(5, 0), // Get top 5 recent logs
-      ]);
-      setStats(statsData);
-      setRecentLogs(logsData || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard metrics');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: recentLogs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['admin', 'dashboard', 'recent-logs'],
+    queryFn: async () => {
+      const logs = await adminSystemService.listAuditLogs(5, 0);
+      return (logs as any).data || logs; // handle potential wrapper
+    },
+  });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  const { data: systemStatus, isLoading: statusLoading } = useQuery({
+    queryKey: ['admin', 'dashboard', 'system-status'],
+    queryFn: () => adminSystemService.getSystemStatus(),
+  });
 
-  const revenueTrends = stats?.revenue_trends && stats.revenue_trends.length > 0
-    ? stats.revenue_trends
-    : [];
+  const { data: activityTrend = {}, isLoading: trendLoading } = useQuery({
+    queryKey: ['admin', 'dashboard', 'activity-trend'],
+    queryFn: () => adminSystemService.getActivityTrend(7),
+  });
 
   return {
-    stats,
-    recentLogs,
-    loading,
-    error,
+    stats: stats as DashboardStats,
+    recentLogs: recentLogs as AuditLog[],
+    systemStatus,
+    activityTrend,
+    loading: statsLoading || logsLoading || statusLoading || trendLoading,
+    error: statsError ? (statsError as Error).message : null,
     fetchStats,
-    revenueTrends,
+    revenueTrends: stats?.revenue_trends || [],
   };
 }

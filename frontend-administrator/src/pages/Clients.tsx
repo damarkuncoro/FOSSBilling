@@ -48,7 +48,7 @@ export const Clients: React.FC = () => {
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filtered.length === 0} className="gap-2">
             <FileSpreadsheet className="h-4 w-4" /> Export CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchClients} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchClients()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)} className="gap-2">

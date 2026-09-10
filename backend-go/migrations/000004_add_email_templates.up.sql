@@ -1,0 +1,117 @@
+CREATE TABLE IF NOT EXISTS email_templates (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    subject VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed initial templates
+INSERT INTO email_templates (code, subject, content, description) VALUES
+('welcome', 'Selamat Datang di {{.AppName}}, {{.FirstName}}!', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #206bc4;">Selamat Datang di {{.AppName}}, {{.FirstName}}!</h2>
+    <p>Akun Anda telah berhasil dibuat. Anda sekarang dapat masuk ke Client Portal untuk mengelola layanan.</p>
+    <p><strong>Email Login:</strong> {{.Email}}</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>', 'Sent to new clients after registration'),
+
+('invoice_created', 'Tagihan Baru Terbit #{{.InvoiceNr}}', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #206bc4;">Tagihan Baru Terbit #{{.InvoiceNr}}</h2>
+    <p>Halo {{.FirstName}},</p>
+    <ul>
+      <li><strong>Nomor Invoice:</strong> {{.InvoiceNr}}</li>
+      <li><strong>Total Tagihan:</strong> {{.Currency}} {{.Total}}</li>
+      <li><strong>Batas Pembayaran:</strong> {{.DueAt}}</li>
+    </ul>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>', 'Sent when a new invoice is generated'),
+
+('payment_receipt', 'Bukti Pembayaran Lunas #{{.InvoiceNr}}', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #2fb344;">Bukti Pembayaran Lunas #{{.InvoiceNr}}</h2>
+    <p>Halo {{.FirstName}},</p>
+    <ul>
+      <li><strong>Nomor Invoice:</strong> {{.InvoiceNr}}</li>
+      <li><strong>Jumlah Dibayar:</strong> {{.Currency}} {{.Total}}</li>
+      <li><strong>ID Transaksi:</strong> {{.TxnID}}</li>
+    </ul>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>', 'Sent after an invoice is marked as paid'),
+
+('ticket_reply', '[#{{.TicketID}}] Balasan Baru pada Tiket: {{.Subject}}', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #206bc4;">Balasan Baru pada Tiket [#{{.TicketID}}]</h2>
+    <p>Halo {{.FirstName}}, staf kami telah membalas tiket Anda: <strong>{{.Subject}}</strong></p>
+    <div style="background: #f8fafc; border-left: 4px solid #206bc4; padding: 12px; margin: 15px 0;">
+      {{.Message}}
+    </div>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>', 'Sent when staff replies to a support ticket'),
+
+('service_activated', 'Layanan Anda Telah Aktif: {{.Title}}', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #2fb344;">Layanan Anda Telah Aktif: {{.Title}}</h2>
+    <p>Halo {{.FirstName}},</p>
+    <p>Pesanan layanan <strong>{{.Title}}</strong> (Order #{{.OrderID}}) telah berhasil diprovisioning dan siap digunakan.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>', 'Sent when a service is successfully activated'),
+
+('low_stock', '⚠️ Peringatan: Stok Produk Menipis', '
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; border-top: 4px solid #d63939;">
+    <h2 style="color: #d63939;">⚠️ Peringatan: Stok Produk Menipis</h2>
+    <p>Halo Administrator,</p>
+    <p>Sistem mendeteksi bahwa produk berikut telah mencapai ambang batas stok rendah:</p>
+    <div style="background: #fdf2f2; padding: 15px; border-radius: 4px; margin: 15px 0;">
+      <p style="margin: 5px 0;"><strong>Produk:</strong> {{.ProductName}} (ID: {{.ProductID}})</p>
+      <p style="margin: 5px 0;"><strong>Sisa Stok:</strong> <span style="color: #d63939; font-weight: bold;">{{.CurrentStock}}</span></p>
+    </div>
+    <p>Mohon segera lakukan penambahan stok atau penyesuaian inventaris di Admin Portal.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}} Automatic System Alert</p>
+  </div>
+</body>
+</html>', 'Sent to admins when product stock is low')
+ON CONFLICT (code) DO NOTHING;

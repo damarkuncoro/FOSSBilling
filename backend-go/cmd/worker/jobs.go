@@ -27,4 +27,9 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 
 	// 4. Housekeeping & Maintenance
 	tasks.RunSystemMaintenanceTask(jobCtx)
+
+	// 5. Automated Daily Backup (Runs at 02:00 UTC)
+	if time.Now().Hour() == 2 {
+		_, _ = cronService.PerformAutomatedBackup(jobCtx)
+	}
 }

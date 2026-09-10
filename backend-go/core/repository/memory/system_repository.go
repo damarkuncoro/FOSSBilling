@@ -28,3 +28,11 @@ func (m *MockSystemRepository) ListSettings(ctx context.Context, section string)
 func (m *MockSystemRepository) UpdateSetting(ctx context.Context, section, key string, value json.RawMessage) error {
 	return nil
 }
+
+func (m *MockSystemRepository) GetDatabaseStats(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"type":    "Memory",
+		"size":    "0 MB",
+		"version": "Mock",
+	}, nil
+}

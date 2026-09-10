@@ -16,6 +16,7 @@ func setupInvoiceService() (*billing.InvoiceService, *memory.MockInvoiceReposito
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
 	taxRepo := memory.NewMockTaxRepository()
+	companyRepo := memory.NewMockCompanyRepository()
 
 	id := "ID"
 	_ = taxRepo.Create(context.Background(), &domain.TaxRule{
@@ -23,7 +24,7 @@ func setupInvoiceService() (*billing.InvoiceService, *memory.MockInvoiceReposito
 	})
 	taxCalc := billing.NewTaxCalculator(taxRepo)
 
-	service := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, plugins.NewHookManager())
+	service := billing.NewInvoiceService(invRepo, clientRepo, companyRepo, taxCalc, plugins.NewHookManager())
 	return service, invRepo, clientRepo
 }
 
@@ -115,9 +116,9 @@ func TestInvoiceService_PayWithBalance(t *testing.T) {
 		},
 	})
 
-	_, err := service.PayWithBalance(ctx, invoice.ID)
-	if err != appErrors.ErrInsufficientFunds {
-		t.Errorf("Expected ErrInsufficientFunds, got: %v", err)
+	_, err := service.PayWithBalance(ctx, client.ID, invoice.ID)
+	if err != appErrors.ErrNoFunds {
+		t.Errorf("Expected ErrNoFunds, got: %v", err)
 	}
 
 	_ = clientRepo.AddBalanceTransaction(ctx, &domain.ClientBalance{
@@ -126,7 +127,7 @@ func TestInvoiceService_PayWithBalance(t *testing.T) {
 		Amount:   decimal.FromFloat(100.00),
 	})
 
-	paidInv, err := service.PayWithBalance(ctx, invoice.ID)
+	paidInv, err := service.PayWithBalance(ctx, client.ID, invoice.ID)
 	if err != nil {
 		t.Fatalf("PayWithBalance failed: %v", err)
 	}
@@ -154,7 +155,7 @@ func TestInvoiceService_HookPipeline(t *testing.T) {
 		return payload.(string) + " [PROMO]", nil
 	})
 
-	service := billing.NewInvoiceService(invRepo, clientRepo, nil, hookManager)
+	service := billing.NewInvoiceService(invRepo, clientRepo, memory.NewMockCompanyRepository(), nil, hookManager)
 
 	client := &domain.Client{Email: "hook@test.com", Currency: "USD"}
 	_ = clientRepo.Create(ctx, client)

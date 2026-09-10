@@ -36,56 +36,70 @@ import { Themes } from '@/pages/Themes';
 import { SystemHealth } from '@/pages/SystemHealth';
 import { AuditLogs } from '@/pages/AuditLogs';
 import { I18nProvider } from '@/lib/i18n';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    },
+  },
+});
 
 export const App: React.FC = () => {
   return (
-    <I18nProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AdminLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/profile" element={<AdminProfile />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/invoices" element={<Invoices />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/support" element={<Support />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/licenses" element={<Licenses />} />
-              <Route path="/form-builder" element={<FormBuilder />} />
-              <Route path="/domains" element={<Domains />} />
-              <Route path="/servers" element={<Servers />} />
-              <Route path="/gateways" element={<PaymentGateways />} />
-              <Route path="/coupons" element={<Coupons />} />
-              <Route path="/currencies" element={<Currencies />} />
-              <Route path="/pages" element={<Pages />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/mass-mail" element={<MassMail />} />
-              <Route path="/email-templates" element={<EmailTemplates />} />
-              <Route path="/seo" element={<SeoSettings />} />
-              <Route path="/embed-widgets" element={<EmbedWidgets />} />
-              <Route path="/company" element={<Company />} />
-              <Route path="/themes" element={<Themes />} />
-              <Route path="/extensions" element={<Extensions />} />
-              <Route path="/staff-security" element={<StaffSecurity />} />
-              <Route path="/antispam" element={<AntiSpam />} />
-              <Route path="/webhooks" element={<Webhooks />} />
-              <Route path="/cookie-consent" element={<CookieConsent />} />
-              <Route path="/redirects" element={<Redirects />} />
-              <Route path="/system" element={<SystemHealth />} />
-              <Route path="/audit-logs" element={<AuditLogs />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AdminLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/profile" element={<AdminProfile />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/orders" element={<Orders />} />
+                <Route path="/invoices" element={<Invoices />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/support" element={<Support />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/licenses" element={<Licenses />} />
+                <Route path="/form-builder" element={<FormBuilder />} />
+                <Route path="/domains" element={<Domains />} />
+                <Route path="/servers" element={<Servers />} />
+                <Route path="/gateways" element={<PaymentGateways />} />
+                <Route path="/coupons" element={<Coupons />} />
+                <Route path="/currencies" element={<Currencies />} />
+                <Route path="/pages" element={<Pages />} />
+                <Route path="/news" element={<News />} />
+                <Route path="/mass-mail" element={<MassMail />} />
+                <Route path="/email-templates" element={<EmailTemplates />} />
+                <Route path="/seo" element={<SeoSettings />} />
+                <Route path="/embed-widgets" element={<EmbedWidgets />} />
+                <Route path="/company" element={<Company />} />
+                <Route path="/themes" element={<Themes />} />
+                <Route path="/extensions" element={<Extensions />} />
+                <Route path="/staff-security" element={<StaffSecurity />} />
+                <Route path="/antispam" element={<AntiSpam />} />
+                <Route path="/webhooks" element={<Webhooks />} />
+                <Route path="/cookie-consent" element={<CookieConsent />} />
+                <Route path="/redirects" element={<Redirects />} />
+                <Route path="/system" element={<SystemHealth />} />
+                <Route path="/audit-logs" element={<AuditLogs />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-    </I18nProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+      </I18nProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 };
 

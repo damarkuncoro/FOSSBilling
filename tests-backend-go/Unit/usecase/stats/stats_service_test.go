@@ -7,6 +7,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
@@ -18,7 +19,7 @@ func TestStatsService_CalculateDashboard(t *testing.T) {
 	invoiceRepo := memory.NewMockInvoiceRepository()
 	supportRepo := memory.NewMockSupportRepository()
 
-	statsService := stats.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
+	statsService := stats.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo, cache.NewMemoryCache())
 
 	// 1. Add Clients
 	_ = clientRepo.Create(ctx, &domain.Client{Email: "c1@example.com"})
@@ -122,7 +123,7 @@ func TestStatsService_GetFinancialReports(t *testing.T) {
 	invoiceRepo := memory.NewMockInvoiceRepository()
 	supportRepo := memory.NewMockSupportRepository()
 
-	statsService := stats.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo)
+	statsService := stats.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo, cache.NewMemoryCache())
 
 	_ = clientRepo.Create(ctx, &domain.Client{ID: 1, Email: "reporting@example.com", Currency: "USD"})
 

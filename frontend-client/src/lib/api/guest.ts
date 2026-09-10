@@ -46,7 +46,7 @@ export const guestApi = {
     promo_code?: string;
     gateway?: string;
   }) =>
-    request<{ invoice_id: number; order_ids: number[]; total: number }>(
+    request<{ invoice?: { id: number }; invoice_id: number; order_ids: number[]; total: number }>(
       '/guest/cart/checkout',
       {
         method: 'POST',

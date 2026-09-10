@@ -66,8 +66,43 @@
           }
         },
         "responses": {
-          "200": { "description": "Authentication successful" },
+          "200": { "description": "Authentication successful. If two_factor_required is true, proceed to /verify-2fa" },
           "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/guest/auth/verify-2fa": {
+      "post": {
+        "tags": ["Guest Auth"],
+        "summary": "Verify 2FA TOTP code for client login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "code"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "code": { "type": "string", "example": "123456" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "2FA verified, token granted" },
+          "401": { "description": "Invalid code" }
+        }
+      }
+    },
+    "/guest/system/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Get system health status",
+        "responses": {
+          "200": { "description": "System is healthy" },
+          "503": { "description": "System is degraded" }
         }
       }
     },

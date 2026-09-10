@@ -12,10 +12,10 @@ import (
 )
 
 func TestTDD_AllInteractiveButtonActions(t *testing.T) {
-	ts, promoRepo, staffRepo := setupTestServer()
+	ts, promoRepo, staffRepo, productRepo := setupTestServer()
 	defer ts.Close()
 	ctx := context.Background()
-	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo)
+	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo, productRepo)
 
 	// 1. Client Register Action
 	regBody, _ := json.Marshal(map[string]interface{}{

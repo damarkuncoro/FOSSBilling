@@ -12,7 +12,6 @@ export const Orders: React.FC = () => {
     orders,
     loading,
     actionLoading,
-    message,
     fetchOrders,
     handleActivate,
     handleSuspend,
@@ -28,18 +27,11 @@ export const Orders: React.FC = () => {
             Manage customer service subscriptions, automated server provisioning, and lifecycle states.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchOrders} disabled={loading} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => fetchOrders()} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
-
-      {message && (
-        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{message}</span>
-        </div>
-      )}
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>

@@ -11,176 +11,68 @@ import (
 )
 
 type EmailService struct {
-	mailer    mailer.Mailer
-	fromEmail string
-	appName   string
+	mailer       mailer.Mailer
+	templateRepo domain.EmailTemplateRepository
+	from, app    string
 }
 
-func NewEmailService(m mailer.Mailer, fromEmail, appName string) *EmailService {
-	if fromEmail == "" {
-		fromEmail = "no-reply@fossbilling.org"
-	}
-	if appName == "" {
-		appName = "FOSSBilling"
-	}
-	return &EmailService{mailer: m, fromEmail: fromEmail, appName: appName}
+func NewEmailService(m mailer.Mailer, tr domain.EmailTemplateRepository, f, a string) *EmailService {
+	return &EmailService{m, tr, f, a}
 }
 
-func (s *EmailService) GetMailer() mailer.Mailer {
-	return s.mailer
+func (s *EmailService) GetMailer() mailer.Mailer { return s.mailer }
+
+func (s *EmailService) send(ctx context.Context, to, sub, body string) error {
+	return s.mailer.Send(ctx, mailer.Message{From: fmt.Sprintf("%s <%s>", s.app, s.from), To: []string{to}, Subject: sub, HTMLBody: body})
 }
 
-func (s *EmailService) SendWelcomeEmail(ctx context.Context, client *domain.Client) error {
-	tmpl, err := template.New("welcome").Parse(welcomeTemplate)
-	if err != nil {
-		return err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":   s.appName,
-		"FirstName": client.FirstName,
-		"Email":     client.Email,
-	}); err != nil {
-		return err
-	}
-
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s <%s>", s.appName, s.fromEmail),
-		To:       []string{client.Email},
-		Subject:  fmt.Sprintf("Selamat Datang di %s!", s.appName),
-		HTMLBody: buf.String(),
-	})
+func (s *EmailService) exec(tmplStr string, data any) string {
+	t, _ := template.New("e").Parse(tmplStr); var b bytes.Buffer; _ = t.Execute(&b, data); return b.String()
 }
 
-func (s *EmailService) SendInvoiceCreated(ctx context.Context, client *domain.Client, invoice *domain.Invoice) error {
-	tmpl, err := template.New("invoiceCreated").Parse(invoiceCreatedTemplate)
-	if err != nil {
-		return err
+func (s *EmailService) getTmpl(ctx context.Context, code, defSub, defBody string) (string, string) {
+	if s.templateRepo != nil {
+		t, err := s.templateRepo.GetByCode(ctx, code)
+		if err == nil && t != nil {
+			return t.Subject, t.Content
+		}
 	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":   s.appName,
-		"FirstName": client.FirstName,
-		"InvoiceNr": invoice.Nr,
-		"Currency":  invoice.Currency,
-		"Total":     invoice.Total.String(),
-		"DueAt":     invoice.DueAt.Format("02 Jan 2006"),
-	}); err != nil {
-		return err
-	}
-
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s Billing <%s>", s.appName, s.fromEmail),
-		To:       []string{client.Email},
-		Subject:  fmt.Sprintf("Tagihan Baru #%s Diterbitkan", invoice.Nr),
-		HTMLBody: buf.String(),
-	})
+	return defSub, defBody
 }
 
-func (s *EmailService) SendPaymentReceipt(ctx context.Context, client *domain.Client, invoice *domain.Invoice, txn *domain.Transaction) error {
-	tmpl, err := template.New("paymentReceipt").Parse(paymentReceiptTemplate)
-	if err != nil {
-		return err
-	}
-
-	gateway, txnID := "Online Payment", "-"
-	if txn != nil {
-		gateway = txn.GatewayID
-		txnID = txn.TxnID
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":   s.appName,
-		"FirstName": client.FirstName,
-		"InvoiceNr": invoice.Nr,
-		"Currency":  invoice.Currency,
-		"Total":     invoice.Total.String(),
-		"GatewayID": gateway,
-		"TxnID":     txnID,
-	}); err != nil {
-		return err
-	}
-
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s Billing <%s>", s.appName, s.fromEmail),
-		To:       []string{client.Email},
-		Subject:  fmt.Sprintf("Bukti Pembayaran Lunas - Invoice #%s", invoice.Nr),
-		HTMLBody: buf.String(),
-	})
+func (s *EmailService) SendWelcomeEmail(ctx context.Context, c *domain.Client) error {
+	sub, body := s.getTmpl(ctx, "welcome", "Selamat Datang di {{.AppName}}", welcomeTemplate)
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "Email": c.Email}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
 }
 
-func (s *EmailService) SendTicketReply(ctx context.Context, client *domain.Client, ticket *domain.Ticket, messageContent string) error {
-	tmpl, err := template.New("ticketReply").Parse(ticketReplyTemplate)
-	if err != nil {
-		return err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":   s.appName,
-		"FirstName": client.FirstName,
-		"TicketID":  ticket.ID,
-		"Subject":   ticket.Subject,
-		"Message":   messageContent,
-	}); err != nil {
-		return err
-	}
-
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s Support <%s>", s.appName, s.fromEmail),
-		To:       []string{client.Email},
-		Subject:  fmt.Sprintf("[#%d] Balasan Baru: %s", ticket.ID, ticket.Subject),
-		HTMLBody: buf.String(),
-	})
+func (s *EmailService) SendInvoiceCreated(ctx context.Context, c *domain.Client, i *domain.Invoice) error {
+	sub, body := s.getTmpl(ctx, "invoice_created", "Tagihan Baru #{{.InvoiceNr}}", invoiceCreatedTemplate)
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "InvoiceNr": i.Nr, "Currency": i.Currency, "Total": i.Total.String(), "DueAt": i.DueAt.Format("02 Jan 2006")}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
 }
 
-func (s *EmailService) SendServiceActivatedEmail(ctx context.Context, client *domain.Client, order *domain.Order) error {
-	tmpl, err := template.New("serviceActivated").Parse(serviceActivatedTemplate)
-	if err != nil {
-		return err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":   s.appName,
-		"FirstName": client.FirstName,
-		"OrderID":   order.ID,
-		"Title":     order.Title,
-	}); err != nil {
-		return err
-	}
-
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s Support <%s>", s.appName, s.fromEmail),
-		To:       []string{client.Email},
-		Subject:  fmt.Sprintf("Layanan Anda Telah Aktif: %s", order.Title),
-		HTMLBody: buf.String(),
-	})
+func (s *EmailService) SendPaymentReceipt(ctx context.Context, c *domain.Client, i *domain.Invoice, t *domain.Transaction) error {
+	sub, body := s.getTmpl(ctx, "payment_receipt", "Bukti Pembayaran - #{{.InvoiceNr}}", paymentReceiptTemplate)
+	gw, tid := "Pembayaran Online", "-"; if t != nil { gw, tid = t.GatewayID, t.TxnID }
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "InvoiceNr": i.Nr, "Currency": i.Currency, "Total": i.Total.String(), "GatewayID": gw, "TxnID": tid}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
 }
 
-func (s *EmailService) SendLowStockWarning(ctx context.Context, adminEmail string, productID int64, name string, currentStock int) error {
-	tmpl, err := template.New("lowStock").Parse(lowStockTemplate)
-	if err != nil {
-		return err
-	}
+func (s *EmailService) SendTicketReply(ctx context.Context, c *domain.Client, t *domain.Ticket, msg string) error {
+	sub, body := s.getTmpl(ctx, "ticket_reply", "[#{{.TicketID}}] New Reply: {{.Subject}}", ticketReplyTemplate)
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "TicketID": t.ID, "Subject": t.Subject, "Message": msg}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
+}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]interface{}{
-		"AppName":      s.appName,
-		"ProductID":    productID,
-		"ProductName":  name,
-		"CurrentStock": currentStock,
-	}); err != nil {
-		return err
-	}
+func (s *EmailService) SendServiceActivatedEmail(ctx context.Context, c *domain.Client, o *domain.Order) error {
+	sub, body := s.getTmpl(ctx, "service_activated", "Service Activated: {{.Title}}", serviceActivatedTemplate)
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "OrderID": o.ID, "Title": o.Title}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
+}
 
-	return s.mailer.Send(ctx, mailer.Message{
-		From:     fmt.Sprintf("%s System <%s>", s.appName, s.fromEmail),
-		To:       []string{adminEmail},
-		Subject:  fmt.Sprintf("⚠️ PERINGATAN STOK: %s sisa %d", name, currentStock),
-		HTMLBody: buf.String(),
-	})
+func (s *EmailService) SendLowStockWarning(ctx context.Context, adm string, pid int64, nm string, st int) error {
+	sub, body := s.getTmpl(ctx, "low_stock", "Low Stock Warning: {{.ProductName}}", lowStockTemplate)
+	data := map[string]any{"AppName": s.app, "ProductID": pid, "ProductName": nm, "CurrentStock": st}
+	return s.send(ctx, adm, s.exec(sub, data), s.exec(body, data))
 }

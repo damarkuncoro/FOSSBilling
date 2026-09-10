@@ -8,89 +8,34 @@ import (
 	"time"
 )
 
-var (
-	ErrCacheMiss = errors.New("cache: key not found")
-)
+var ErrMiss = errors.New("cache miss")
 
-type item struct {
-	Value      []byte
-	Expiration int64
-}
-
-type MemoryCache struct {
-	mu    sync.RWMutex
-	items map[string]item
-}
+type itm struct { Val []byte; Exp int64 }
+type MemoryCache struct { mu sync.RWMutex; its map[string]itm }
 
 func NewMemoryCache() *MemoryCache {
-	c := &MemoryCache{
-		items: make(map[string]item),
-	}
-	go c.cleanupLoop()
+	c := &MemoryCache{its: make(map[string]itm)}
+	go func() {
+		for range time.Tick(5 * time.Minute) {
+			c.mu.Lock(); now := time.Now().UnixNano()
+			for k, v := range c.its { if v.Exp > 0 && now > v.Exp { delete(c.its, k) } }
+			c.mu.Unlock()
+		}
+	}()
 	return c
 }
 
-func (c *MemoryCache) Get(ctx context.Context, key string, dest interface{}) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	it, ok := c.items[key]
-	if !ok {
-		return ErrCacheMiss
-	}
-
-	if it.Expiration > 0 && time.Now().UnixNano() > it.Expiration {
-		return ErrCacheMiss
-	}
-
-	return json.Unmarshal(it.Value, dest)
+func (c *MemoryCache) Get(_ context.Context, k string, d any) error {
+	c.mu.RLock(); defer c.mu.RUnlock()
+	v, ok := c.its[k]; if !ok || (v.Exp > 0 && time.Now().UnixNano() > v.Exp) { return ErrMiss }
+	return json.Unmarshal(v.Val, d)
 }
 
-func (c *MemoryCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-
-	var exp int64
-	if expiration > 0 {
-		exp = time.Now().Add(expiration).UnixNano()
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.items[key] = item{
-		Value:      data,
-		Expiration: exp,
-	}
-	return nil
+func (c *MemoryCache) Set(_ context.Context, k string, v any, e time.Duration) error {
+	b, err := json.Marshal(v); if err != nil { return err }
+	exp := int64(0); if e > 0 { exp = time.Now().Add(e).UnixNano() }
+	c.mu.Lock(); defer c.mu.Unlock(); c.its[k] = itm{b, exp}; return nil
 }
 
-func (c *MemoryCache) Delete(ctx context.Context, key string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.items, key)
-	return nil
-}
-
-func (c *MemoryCache) Flush(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.items = make(map[string]item)
-	return nil
-}
-
-func (c *MemoryCache) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	for range ticker.C {
-		c.mu.Lock()
-		now := time.Now().UnixNano()
-		for k, it := range c.items {
-			if it.Expiration > 0 && now > it.Expiration {
-				delete(c.items, k)
-			}
-		}
-		c.mu.Unlock()
-	}
-}
+func (c *MemoryCache) Delete(_ context.Context, k string) error { c.mu.Lock(); defer c.mu.Unlock(); delete(c.its, k); return nil }
+func (c *MemoryCache) Flush(_ context.Context) error { c.mu.Lock(); defer c.mu.Unlock(); c.its = make(map[string]itm); return nil }

@@ -145,7 +145,7 @@ func (r *MockExtensionRepository) Create(ctx context.Context, ext *domain.Extens
 	defer r.mu.Unlock()
 
 	if _, exists := r.extensions[ext.ID]; exists {
-		return appErrors.ErrDuplicateEntry
+		return appErrors.ErrDuplicate
 	}
 
 	if ext.CreatedAt.IsZero() {

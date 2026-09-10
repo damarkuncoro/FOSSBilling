@@ -1,72 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoiceService } from '@/services/invoice.service';
 import { useClientAuth } from '@/lib/auth';
-import { Invoice } from '@/types/api';
+import type { Invoice } from '@/types/api';
 
 export function useClientInvoices() {
+  const queryClient = useQueryClient();
   const { user, balance, refreshProfile } = useClientAuth();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [payModal, setPayModal] = useState<Invoice | null>(null);
-  const [paying, setPaying] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await invoiceService.listClientInvoices();
-      setInvoices(data || []);
-    } catch (err) {
-      console.error('Failed to fetch invoices:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: invoices = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['client', 'invoices'],
+    queryFn: () => invoiceService.listClientInvoices(),
+  });
 
-  useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
+  const pBM = useMutation({
+    mutationFn: (id: number) => invoiceService.payWithBalance(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'invoices'] }); refreshProfile(); setPayModal(null); setMessage('Invoice paid successfully!'); setTimeout(() => setMessage(null), 5000); },
+    onError: (err: any) => alert(err.message),
+  });
 
-  const handlePayBalance = async (id: number) => {
-    setPaying(true);
-    setMessage(null);
-    try {
-      await invoiceService.payWithBalance(id);
-      setMessage(`Invoice #${id} successfully paid with account balance!`);
-      setPayModal(null);
-      await Promise.all([fetchInvoices(), refreshProfile()]);
-    } catch (err: any) {
-      alert(`Payment failed: ${err.message}`);
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  const handlePayGateway = async (id: number, gateway = 'midtrans') => {
-    setPaying(true);
-    try {
-      const res = await invoiceService.payWithGateway(id, gateway);
-      if (res.redirect_url) {
-        window.location.href = res.redirect_url;
-      }
-    } catch (err: any) {
-      alert(`Payment initiation failed: ${err.message}`);
-    } finally {
-      setPaying(false);
-    }
-  };
+  const pGM = useMutation({
+    mutationFn: ({ id, gateway }: { id: number; gateway: string }) => invoiceService.payWithGateway(id, gateway),
+    onSuccess: (res) => { if (res.redirect_url) window.location.href = res.redirect_url; },
+    onError: (err: any) => alert(err.message),
+  });
 
   return {
-    user,
-    balance,
-    invoices,
-    loading,
-    payModal,
-    setPayModal,
-    paying,
-    message,
-    fetchInvoices,
-    handlePayBalance,
-    handlePayGateway,
+    user, balance, invoices, loading, payModal, setPayModal, message,
+    paying: pBM.isPending || pGM.isPending,
+    fetchInvoices: () => refetch(),
+    handlePayBalance: (id: number) => pBM.mutateAsync(id),
+    handlePayGateway: (id: number, gateway = 'midtrans') => pGM.mutateAsync({ id, gateway }),
   };
 }

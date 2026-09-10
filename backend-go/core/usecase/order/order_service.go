@@ -13,323 +13,131 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
-var (
-	ErrInvalidStatusTransition = errors.New("invalid order status transition")
-)
-
 type OrderService struct {
-	orderRepo           domain.OrderRepository
-	productRepo         domain.ProductRepository
-	provisionerRegistry *provisioning.ProvisionerRegistry
-	registrarRegistry   *provisioning.RegistrarRegistry
-	eventBus            *events.EventBus
+	orderRepo   domain.OrderRepository
+	productRepo domain.ProductRepository
+	provReg     *provisioning.ProvisionerRegistry
+	regReg      *provisioning.RegistrarRegistry
+	eventBus    *events.EventBus
 }
 
-func NewOrderService(
-	orderRepo domain.OrderRepository,
-	productRepo domain.ProductRepository,
-	provisionerRegistry *provisioning.ProvisionerRegistry,
-	registrarRegistry *provisioning.RegistrarRegistry,
-	eventBus ...*events.EventBus,
-) *OrderService {
+func NewOrderService(or domain.OrderRepository, pr domain.ProductRepository, prv *provisioning.ProvisionerRegistry, reg *provisioning.RegistrarRegistry, eb ...*events.EventBus) *OrderService {
 	var bus *events.EventBus
-	if len(eventBus) > 0 {
-		bus = eventBus[0]
-	}
-	return &OrderService{
-		orderRepo:           orderRepo,
-		productRepo:         productRepo,
-		provisionerRegistry: provisionerRegistry,
-		registrarRegistry:   registrarRegistry,
-		eventBus:            bus,
-	}
+	if len(eb) > 0 { bus = eb[0] }
+	return &OrderService{or, pr, prv, reg, bus}
 }
 
-// Activate transitions order from PendingSetup/Suspended to Active and calculates expiry & due date
-func (s *OrderService) Activate(ctx context.Context, orderID int64, fromDate time.Time) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	if order.Status == domain.OrderStatusActive {
-		return order, nil
-	}
-
-	if order.Status != domain.OrderStatusPendingSetup && order.Status != domain.OrderStatusSuspended {
-		return nil, ErrInvalidStatusTransition
-	}
-
-	period, err := decimal.ParsePeriod(order.Period)
-	if err != nil {
-		return nil, err
-	}
-
-	now := time.Now().UTC()
-	if fromDate.IsZero() {
-		fromDate = now
-	}
-
-	expiresAt := period.CalculateNextDueDate(fromDate)
-	nextDueDate := expiresAt
-
-	order.Status = domain.OrderStatusActive
-	order.ActivatedAt = &now
-	order.ExpiresAt = &expiresAt
-	order.NextDueDate = &nextDueDate
-	order.SuspendedAt = nil
-	order.SuspensionReason = nil
-
-	if err := s.orderRepo.Update(ctx, order); err != nil {
-		return nil, err
-	}
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventOrderActivated,
-			Payload: domain.OrderActivatedPayload{
-				OrderID:     order.ID,
-				ClientID:    order.ClientID,
-				ProductID:   order.ProductID,
-				Title:       order.Title,
-				ActivatedAt: now,
-			},
-		})
-	}
-
-	return order, nil
+func (s *OrderService) callProv(ctx context.Context, o *domain.Order, fn func(domain.ServiceProvisioner) error) error {
+	p, _ := s.productRepo.GetByID(ctx, o.ProductID)
+	if p == nil || p.Type != domain.ProductTypeHosting || s.provReg == nil { return nil }
+	var cfg map[string]interface{}; _ = json.Unmarshal(o.Config, &cfg)
+	drv, _ := cfg["server_type"].(string)
+	if drv == "" { drv = "cpanel" }
+	prov, err := s.provReg.Get(drv)
+	if err != nil { return nil }
+	return fn(prov)
 }
 
-// Suspend transitions order from Active to Suspended with a reason
-func (s *OrderService) Suspend(ctx context.Context, orderID int64, reason string) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
+func (s *OrderService) Activate(ctx context.Context, id int64, from time.Time) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil || o.Status == domain.OrderStatusActive { return o, err }
+	if o.Status != domain.OrderStatusPendingSetup && o.Status != domain.OrderStatusSuspended { return nil, errors.New("invalid transition") }
 
-	if order.Status != domain.OrderStatusActive {
-		return nil, ErrInvalidStatusTransition
-	}
+	per, err := decimal.ParsePeriod(o.Period)
+	if err != nil { return nil, err }
+	if from.IsZero() { from = time.Now().UTC() }
+	exp := per.CalculateNextDueDate(from)
 
-	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.OrderStatusSuspended, &reason); err != nil {
-		return nil, err
-	}
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventOrderSuspended,
-			Payload: domain.OrderSuspendedPayload{
-				OrderID:     order.ID,
-				ClientID:    order.ClientID,
-				Reason:      reason,
-				SuspendedAt: time.Now().UTC(),
-			},
-		})
-	}
-
-	return s.orderRepo.GetByID(ctx, orderID)
-}
-
-// Unsuspend transitions order from Suspended back to Active
-func (s *OrderService) Unsuspend(ctx context.Context, orderID int64) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	if order.Status != domain.OrderStatusSuspended {
-		return nil, ErrInvalidStatusTransition
-	}
-
-	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.OrderStatusActive, nil); err != nil {
-		return nil, err
-	}
-
-	return s.orderRepo.GetByID(ctx, orderID)
-}
-
-// Renew extends order expiry date and next due date by its billing period
-func (s *OrderService) Renew(ctx context.Context, orderID int64) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	if order.Status == domain.OrderStatusTerminated || order.Status == domain.OrderStatusCanceled {
-		return nil, appErrors.ErrOrderExpired
-	}
-
-	period, err := decimal.ParsePeriod(order.Period)
-	if err != nil {
-		return nil, err
-	}
-
-	baseDate := time.Now().UTC()
-	if order.ExpiresAt != nil {
-		baseDate = *order.ExpiresAt
-	}
-
-	newExpiry := period.CalculateNextDueDate(baseDate)
-	order.ExpiresAt = &newExpiry
-	order.NextDueDate = &newExpiry
-	order.Status = domain.OrderStatusActive
-	order.SuspendedAt = nil
-	order.SuspensionReason = nil
-
-	if err := s.orderRepo.Update(ctx, order); err != nil {
-		return nil, err
-	}
-
-	return order, nil
-}
-
-// CheckGracePeriodOverdue returns true if order expiration + gracePeriodDays is before now
-func (s *OrderService) CheckGracePeriodOverdue(order *domain.Order, gracePeriodDays int, now time.Time) bool {
-	if order.Status != domain.OrderStatusActive || order.ExpiresAt == nil {
-		return false
-	}
-	graceDeadline := order.ExpiresAt.AddDate(0, 0, gracePeriodDays)
-	return now.After(graceDeadline)
-}
-
-// ListByClientID retrieves orders belonging to a specific client with pagination
-func (s *OrderService) ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Order, int, error) {
-	return s.orderRepo.ListByClientID(ctx, clientID, limit, offset)
-}
-
-// GetByIDForClient retrieves an order ensuring ownership matches clientID
-func (s *OrderService) GetByIDForClient(ctx context.Context, clientID, orderID int64) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if order.ClientID != clientID {
-		return nil, appErrors.ErrNotFound
-	}
-	return order, nil
-}
-
-// Cancel transitions order to Canceled status with a reason
-func (s *OrderService) Cancel(ctx context.Context, orderID int64, reason string) (*domain.Order, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	if order.Status == domain.OrderStatusTerminated || order.Status == domain.OrderStatusCanceled {
-		return order, nil
-	}
-
-	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.OrderStatusCanceled, &reason); err != nil {
-		return nil, err
-	}
-
-	return s.orderRepo.GetByID(ctx, orderID)
-}
-
-// CancelForClient cancels an order ensuring ownership matches clientID
-func (s *OrderService) CancelForClient(ctx context.Context, clientID, orderID int64, reason string) (*domain.Order, error) {
-	order, err := s.GetByIDForClient(ctx, clientID, orderID)
-	if err != nil {
-		return nil, err
-	}
-	return s.Cancel(ctx, order.ID, reason)
-}
-
-// ActivateOrdersByInvoiceID activates all orders linked to the given invoice
-func (s *OrderService) ActivateOrdersByInvoiceID(ctx context.Context, invoiceID int64) error {
-	orders, err := s.orderRepo.ListByInvoiceID(ctx, invoiceID)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now().UTC()
-	for _, ord := range orders {
-		if ord.Status == domain.OrderStatusPendingSetup || ord.Status == domain.OrderStatusSuspended {
-			_, _ = s.Activate(ctx, ord.ID, now)
-		} else if ord.Status == domain.OrderStatusActive {
-			_, _ = s.Renew(ctx, ord.ID)
+	o.Status, o.ActivatedAt, o.ExpiresAt, o.NextDueDate = domain.OrderStatusActive, pointer(time.Now().UTC()), &exp, &exp
+	_ = s.callProv(ctx, o, func(p domain.ServiceProvisioner) error {
+		res, err := p.Create(ctx, o)
+		if err == nil && res != nil && res.Success {
+			var cfg, det map[string]interface{}
+			_ = json.Unmarshal(o.Config, &cfg); _ = json.Unmarshal(res.AccountDetails, &det)
+			for k, v := range det { cfg[k] = v }
+			o.Config, _ = json.Marshal(cfg)
 		}
+		return err
+	})
+
+	if err := s.orderRepo.Update(ctx, o); err != nil { return nil, err }
+	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventOrderActivated, Payload: domain.OrderActivatedPayload{OrderID: o.ID, ClientID: o.ClientID, ProductID: o.ProductID, Title: o.Title, ActivatedAt: *o.ActivatedAt}}) }
+	return o, nil
+}
+
+func (s *OrderService) Suspend(ctx context.Context, id int64, reason string) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil || o.Status != domain.OrderStatusActive { return nil, errors.New("cannot suspend") }
+	_ = s.callProv(ctx, o, func(p domain.ServiceProvisioner) error { return p.Suspend(ctx, o, reason) })
+	if err := s.orderRepo.UpdateStatus(ctx, id, domain.OrderStatusSuspended, &reason); err != nil { return nil, err }
+	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventOrderSuspended, Payload: domain.OrderSuspendedPayload{OrderID: o.ID, ClientID: o.ClientID, Reason: reason, SuspendedAt: time.Now().UTC()}}) }
+	return s.orderRepo.GetByID(ctx, id)
+}
+
+func (s *OrderService) Unsuspend(ctx context.Context, id int64) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil || o.Status != domain.OrderStatusSuspended { return nil, errors.New("cannot unsuspend") }
+	_ = s.callProv(ctx, o, func(p domain.ServiceProvisioner) error { return p.Unsuspend(ctx, o) })
+	if err := s.orderRepo.UpdateStatus(ctx, id, domain.OrderStatusActive, nil); err != nil { return nil, err }
+	return s.orderRepo.GetByID(ctx, id)
+}
+
+func (s *OrderService) Renew(ctx context.Context, id int64) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil || o.Status == domain.OrderStatusTerminated { return nil, appErrors.ErrExpired }
+	per, err := decimal.ParsePeriod(o.Period)
+	if err != nil { return nil, err }
+	base := time.Now().UTC(); if o.ExpiresAt != nil { base = *o.ExpiresAt }
+	exp := per.CalculateNextDueDate(base)
+	o.ExpiresAt, o.NextDueDate, o.Status, o.SuspendedAt = &exp, &exp, domain.OrderStatusActive, nil
+	if err := s.orderRepo.Update(ctx, o); err != nil { return nil, err }
+	return o, nil
+}
+
+func (s *OrderService) Cancel(ctx context.Context, id int64, reason string) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil || o.Status == domain.OrderStatusTerminated { return o, err }
+	_ = s.callProv(ctx, o, func(p domain.ServiceProvisioner) error { return p.Terminate(ctx, o) })
+	if err := s.orderRepo.UpdateStatus(ctx, id, domain.OrderStatusCanceled, &reason); err != nil { return nil, err }
+	return s.orderRepo.GetByID(ctx, id)
+}
+
+func (s *OrderService) GetByIDForClient(ctx context.Context, cID, oID int64) (*domain.Order, error) {
+	o, err := s.orderRepo.GetByID(ctx, oID)
+	if err != nil || o.ClientID != cID { return nil, appErrors.ErrNotFound }
+	return o, nil
+}
+
+func (s *OrderService) SyncRemote(ctx context.Context, o *domain.Order) (*domain.ServiceStatus, error) {
+	var res *domain.ServiceStatus
+	err := s.callProv(ctx, o, func(p domain.ServiceProvisioner) error {
+		r, e := p.Sync(ctx, o); res = r; return e
+	})
+	if res != nil { return res, err }
+	return &domain.ServiceStatus{IsActive: o.Status == domain.OrderStatusActive, RemoteState: string(o.Status)}, nil
+}
+
+func (s *OrderService) ChangePasswordRemote(ctx context.Context, o *domain.Order, pw string) error {
+	return s.callProv(ctx, o, func(p domain.ServiceProvisioner) error {
+		if err := p.ChangePassword(ctx, o, pw); err != nil { return err }
+		var cfg map[string]interface{}; _ = json.Unmarshal(o.Config, &cfg); cfg["password"] = pw; o.Config, _ = json.Marshal(cfg)
+		return s.orderRepo.Update(ctx, o)
+	})
+}
+
+func (s *OrderService) ActivateOrdersByInvoiceID(ctx context.Context, invID int64) error {
+	ords, err := s.orderRepo.ListByInvoiceID(ctx, invID)
+	if err != nil { return err }
+	for _, o := range ords {
+		if o.Status == domain.OrderStatusPendingSetup || o.Status == domain.OrderStatusSuspended { s.Activate(ctx, o.ID, time.Now().UTC()) } else { s.Renew(ctx, o.ID) }
 	}
 	return nil
 }
 
-// SyncServiceStatus fetches the latest status and resource usage from remote provider
-func (s *OrderService) SyncServiceStatus(ctx context.Context, clientID, orderID int64) (*domain.ServiceStatus, error) {
-	order, err := s.GetByIDForClient(ctx, clientID, orderID)
-	if err != nil {
-		return nil, err
-	}
-	return s.SyncRemote(ctx, order)
+func (s *OrderService) CheckGracePeriodOverdue(o *domain.Order, grace int, now time.Time) bool {
+	if o.Status != domain.OrderStatusActive || o.ExpiresAt == nil { return false }
+	return now.After(o.ExpiresAt.AddDate(0, 0, grace))
 }
 
-// SyncRemote performs the actual sync for a given order object
-func (s *OrderService) SyncRemote(ctx context.Context, order *domain.Order) (*domain.ServiceStatus, error) {
-	product, err := s.productRepo.GetByID(ctx, order.ProductID)
-	if err != nil {
-		return nil, err
-	}
-
-	if product.Type == domain.ProductTypeHosting && s.provisionerRegistry != nil {
-		var cfg map[string]interface{}
-		_ = json.Unmarshal(order.Config, &cfg)
-		driverID, _ := cfg["server_type"].(string)
-		if driverID == "" {
-			driverID = "cpanel"
-		}
-
-		prov, err := s.provisionerRegistry.Get(driverID)
-		if err == nil {
-			return prov.Sync(ctx, order)
-		}
-	}
-
-	return &domain.ServiceStatus{
-		IsActive:    order.Status == domain.OrderStatusActive,
-		RemoteState: string(order.Status),
-	}, nil
-}
-
-// ChangeServicePassword updates the service login password on remote provider
-func (s *OrderService) ChangeServicePassword(ctx context.Context, clientID, orderID int64, newPassword string) error {
-	order, err := s.GetByIDForClient(ctx, clientID, orderID)
-	if err != nil {
-		return err
-	}
-	return s.ChangePasswordRemote(ctx, order, newPassword)
-}
-
-// ChangePasswordRemote performs the actual password change for a given order object
-func (s *OrderService) ChangePasswordRemote(ctx context.Context, order *domain.Order, newPassword string) error {
-	product, err := s.productRepo.GetByID(ctx, order.ProductID)
-	if err != nil {
-		return err
-	}
-
-	if product.Type == domain.ProductTypeHosting && s.provisionerRegistry != nil {
-		var cfg map[string]interface{}
-		_ = json.Unmarshal(order.Config, &cfg)
-		driverID, _ := cfg["server_type"].(string)
-		if driverID == "" {
-			driverID = "cpanel"
-		}
-
-		prov, err := s.provisionerRegistry.Get(driverID)
-		if err == nil {
-			err = prov.ChangePassword(ctx, order, newPassword)
-			if err != nil {
-				return err
-			}
-
-			// Update password in local config if successful
-			cfg["password"] = newPassword
-			newCfg, _ := json.Marshal(cfg)
-			order.Config = newCfg
-			return s.orderRepo.Update(ctx, order)
-		}
-	}
-
-	return errors.New("service does not support remote password change")
-}
+func (s *OrderService) ListByClientID(ctx context.Context, cID int64, l, o int) ([]*domain.Order, int, error) { return s.orderRepo.ListByClientID(ctx, cID, l, o) }
+func pointer[T any](v T) *T { return &v }

@@ -10,86 +10,33 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type TransactionRepository struct {
-	pool *pgxpool.Pool
-}
+const txnCols = `id, invoice_id, gateway_id, txn_id, type, amount, currency, status, raw_payload, created_at`
 
-func NewTransactionRepository(pool *pgxpool.Pool) *TransactionRepository {
-	return &TransactionRepository{pool: pool}
+type TransactionRepository struct{ pool *pgxpool.Pool }
+
+func NewTransactionRepository(p *pgxpool.Pool) *TransactionRepository { return &TransactionRepository{p} }
+
+func scanTx(r pgx.Row) (*domain.Transaction, error) {
+	var t domain.Transaction; err := r.Scan(&t.ID, &t.InvoiceID, &t.GatewayID, &t.TxnID, &t.Type, &t.Amount, &t.Currency, &t.Status, &t.RawPayload, &t.CreatedAt); return &t, err
 }
 
 func (r *TransactionRepository) GetByID(ctx context.Context, id int64) (*domain.Transaction, error) {
-	query := `
-		SELECT id, invoice_id, gateway_id, txn_id, type, amount, currency, status, raw_payload, created_at
-		FROM transactions
-		WHERE id = $1
-	`
-	var t domain.Transaction
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&t.ID, &t.InvoiceID, &t.GatewayID, &t.TxnID, &t.Type, &t.Amount, &t.Currency, &t.Status, &t.RawPayload, &t.CreatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, appErrors.ErrNotFound
-		}
-		return nil, err
-	}
-	return &t, nil
+	tx, err := scanTx(r.pool.QueryRow(ctx, "SELECT "+txnCols+" FROM transactions WHERE id = $1", id))
+	if err != nil && errors.Is(err, pgx.ErrNoRows) { return nil, appErrors.ErrNotFound }; return tx, err
 }
 
-func (r *TransactionRepository) GetByTxnID(ctx context.Context, gatewayID, txnID string) (*domain.Transaction, error) {
-	query := `
-		SELECT id, invoice_id, gateway_id, txn_id, type, amount, currency, status, raw_payload, created_at
-		FROM transactions
-		WHERE gateway_id = $1 AND txn_id = $2
-	`
-	var t domain.Transaction
-	err := r.pool.QueryRow(ctx, query, gatewayID, txnID).Scan(
-		&t.ID, &t.InvoiceID, &t.GatewayID, &t.TxnID, &t.Type, &t.Amount, &t.Currency, &t.Status, &t.RawPayload, &t.CreatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, appErrors.ErrNotFound
-		}
-		return nil, err
-	}
-	return &t, nil
+func (r *TransactionRepository) GetByTxnID(ctx context.Context, gid, tid string) (*domain.Transaction, error) {
+	tx, err := scanTx(r.pool.QueryRow(ctx, "SELECT "+txnCols+" FROM transactions WHERE gateway_id = $1 AND txn_id = $2", gid, tid))
+	if err != nil && errors.Is(err, pgx.ErrNoRows) { return nil, appErrors.ErrNotFound }; return tx, err
 }
 
-func (r *TransactionRepository) Create(ctx context.Context, txn *domain.Transaction) error {
-	query := `
-		INSERT INTO transactions (invoice_id, gateway_id, txn_id, type, amount, currency, status, raw_payload, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-		RETURNING id, created_at
-	`
-	if txn.Type == "" {
-		txn.Type = domain.TransactionTypePayment
-	}
-	if txn.Status == "" {
-		txn.Status = domain.TransactionStatusPending
-	}
-	if txn.Currency == "" {
-		txn.Currency = "USD"
-	}
-
-	raw := txn.RawPayload
-	if len(raw) == 0 {
-		raw = []byte("{}")
-	}
-
-	return r.pool.QueryRow(ctx, query,
-		txn.InvoiceID, txn.GatewayID, txn.TxnID, txn.Type, txn.Amount, txn.Currency, txn.Status, raw,
-	).Scan(&txn.ID, &txn.CreatedAt)
+func (r *TransactionRepository) Create(ctx context.Context, t *domain.Transaction) error {
+	if t.Type == "" { t.Type = domain.TransactionTypePayment }; if t.Status == "" { t.Status = domain.TransactionStatusPending }; if t.Currency == "" { t.Currency = "USD" }
+	raw := t.RawPayload; if len(raw) == 0 { raw = []byte("{}") }
+	return r.pool.QueryRow(ctx, `INSERT INTO transactions (invoice_id, gateway_id, txn_id, type, amount, currency, status, raw_payload, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING id, created_at`, t.InvoiceID, t.GatewayID, t.TxnID, t.Type, t.Amount, t.Currency, t.Status, raw).Scan(&t.ID, &t.CreatedAt)
 }
 
-func (r *TransactionRepository) UpdateStatus(ctx context.Context, id int64, status domain.TransactionStatus) error {
-	query := `UPDATE transactions SET status = $1 WHERE id = $2`
-	tag, err := r.pool.Exec(ctx, query, status, id)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return appErrors.ErrNotFound
-	}
-	return nil
+func (r *TransactionRepository) UpdateStatus(ctx context.Context, id int64, st domain.TransactionStatus) error {
+	t, err := r.pool.Exec(ctx, `UPDATE transactions SET status = $1 WHERE id = $2`, st, id)
+	if err == nil && t.RowsAffected() == 0 { return appErrors.ErrNotFound }; return err
 }

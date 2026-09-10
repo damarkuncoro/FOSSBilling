@@ -5,18 +5,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
-func setupTestAdminsAndPromos(ctx context.Context, promoRepo domain.PromoRepository, staffRepo domain.StaffRepository) {
+func setupTestAdminsAndPromos(ctx context.Context, promoRepo domain.PromoRepository, staffRepo domain.StaffRepository, productRepo domain.ProductRepository) {
+	_ = productRepo.Create(ctx, &domain.Product{ID: 1, Title: "Cloud Hosting Pro", PriceMonthly: decimal.FromFloat(100.0)})
+	desc := "20% discount"
 	_ = promoRepo.Create(ctx, &domain.Promo{
 		Code:        "MERDEKA20",
-		Description: "20% discount",
+		Description: &desc,
 		Type:        domain.PromoTypePercentage,
 		Value:       200000,
 		Active:      true,
@@ -41,10 +45,10 @@ func setupTestAdminsAndPromos(ctx context.Context, promoRepo domain.PromoReposit
 }
 
 func TestHTTP_RegistrationAndCheckoutLifecycle(t *testing.T) {
-	ts, promoRepo, staffRepo := setupTestServer()
+	ts, promoRepo, staffRepo, productRepo := setupTestServer()
 	defer ts.Close()
 	ctx := context.Background()
-	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo)
+	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo, productRepo)
 
 	res, err := http.Get(ts.URL + "/health")
 	if err != nil || res.StatusCode != http.StatusOK {
@@ -100,15 +104,17 @@ func TestHTTP_RegistrationAndCheckoutLifecycle(t *testing.T) {
 	}
 
 	webhookBody, _ := json.Marshal(map[string]interface{}{
-		"gateway_id": "midtrans",
-		"txn_id":     fmt.Sprintf("TRX-%d", time.Now().UnixNano()),
-		"invoice_id": invoiceID,
-		"amount":     checkoutData.Data.Invoice.Total,
-		"currency":   "USD",
+		"transaction_status": "settlement",
+		"order_id":           fmt.Sprintf("INV-%d", invoiceID),
+		"gross_amount":      fmt.Sprintf("%.2f", checkoutData.Data.Invoice.Total.ToFloat()),
+		"transaction_id":    fmt.Sprintf("MID-TXN-%d", time.Now().UnixNano()),
+		"status_code":       "200",
+		"currency":           "USD",
 	})
 	webhookResp, err := http.Post(ts.URL+"/api/v1/guest/gateways/midtrans/webhook", "application/json", bytes.NewBuffer(webhookBody))
 	if err != nil || webhookResp.StatusCode != http.StatusOK {
-		t.Fatalf("Webhook failed: %v, status: %d", err, webhookResp.StatusCode)
+		var b []byte; if webhookResp != nil { b, _ = io.ReadAll(webhookResp.Body) }
+		t.Fatalf("Webhook failed: %v, status: %d. Body: %s", err, webhookResp.StatusCode, string(b))
 	}
 
 	req, _ = http.NewRequest("GET", fmt.Sprintf("%s/api/v1/client/orders/%d", ts.URL, orderID), nil)

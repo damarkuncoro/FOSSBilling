@@ -43,7 +43,7 @@ export const AdminNotificationDropdown: React.FC = () => {
            <h3 className="text-sm font-black tracking-tight">System Alerts</h3>
            {unreadCount > 0 && (
              <button
-               onClick={markAllRead}
+               onClick={() => markAllRead()}
                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 uppercase tracking-wider"
              >
                 <CheckCheck className="h-3 w-3" /> Mark all read

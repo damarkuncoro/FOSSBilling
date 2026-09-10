@@ -18,7 +18,6 @@ export const MassMail: React.FC = () => {
     setForm,
     saving,
     sendingId,
-    message,
     fetchCampaigns,
     handleCreate,
     handleSend,
@@ -34,7 +33,7 @@ export const MassMail: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchCampaigns} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchCampaigns()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -49,13 +48,6 @@ export const MassMail: React.FC = () => {
           />
         </div>
       </div>
-
-      {message && (
-        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{message}</span>
-        </div>
-      )}
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>

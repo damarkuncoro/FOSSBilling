@@ -110,38 +110,28 @@ func (g *MidtransGateway) InitiatePayment(ctx context.Context, req payment.Payme
 }
 
 func (g *MidtransGateway) ParseWebhook(r *http.Request) (*payment.WebhookResult, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var payload struct {
+	b, err := io.ReadAll(r.Body); if err != nil { fmt.Println("DEBUG: io.ReadAll error:", err); return nil, err }
+	var p struct {
 		TransactionStatus string `json:"transaction_status"`
 		OrderID           string `json:"order_id"`
-		GrossAmount       string `json:"gross_amount"`
+		GrossAmount       any    `json:"gross_amount"`
 		TransactionID     string `json:"transaction_id"`
 		StatusCode        string `json:"status_code"`
 		Currency          string `json:"currency"`
 	}
+	if err := json.Unmarshal(b, &p); err != nil { fmt.Println("DEBUG: json.Unmarshal error:", err, string(b)); return nil, err }
 
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, err
+	invIDStr := strings.TrimPrefix(p.OrderID, "INV-")
+	invID, _ := strconv.ParseInt(invIDStr, 10, 64)
+	var amt float64
+	switch v := p.GrossAmount.(type) {
+	case string: amt, _ = strconv.ParseFloat(v, 64)
+	case float64: amt = v
+	case json.Number: amt, _ = v.Float64()
 	}
 
-	// Extract invoice ID from order_id (e.g., "INV-101" or "101")
-	invIDStr := strings.TrimPrefix(payload.OrderID, "INV-")
-	invID, _ := strconv.ParseInt(invIDStr, 10, 64)
-
-	amtFloat, _ := strconv.ParseFloat(payload.GrossAmount, 64)
-	isPaid := payload.TransactionStatus == "settlement" || payload.TransactionStatus == "capture"
-
 	return &payment.WebhookResult{
-		GatewayID:     g.ID(),
-		TransactionID: payload.TransactionID,
-		InvoiceID:     invID,
-		Amount:        decimal.FromFloat(amtFloat),
-		Currency:      payload.Currency,
-		IsPaid:        isPaid,
-		RawPayload:    body,
+		GatewayID: g.ID(), TransactionID: p.TransactionID, InvoiceID: invID, Amount: decimal.FromFloat(amt), Currency: p.Currency,
+		IsPaid: p.TransactionStatus == "settlement" || p.TransactionStatus == "capture", RawPayload: b,
 	}, nil
 }

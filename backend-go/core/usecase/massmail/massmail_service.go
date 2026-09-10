@@ -2,6 +2,7 @@ package massmail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,109 +20,40 @@ type Service interface {
 }
 
 type MassMailService struct {
-	repo       domain.MassMailRepository
-	clientRepo domain.ClientRepository
-	mailer     mailer.Mailer
-	fromEmail  string
-	appName    string
+	repo domain.MassMailRepository; clientRepo domain.ClientRepository; mailer mailer.Mailer; from, app string
 }
 
-func NewMassMailService(
-	repo domain.MassMailRepository,
-	clientRepo domain.ClientRepository,
-	m mailer.Mailer,
-	fromEmail, appName string,
-) *MassMailService {
-	if fromEmail == "" {
-		fromEmail = "no-reply@fossbilling.org"
-	}
-	if appName == "" {
-		appName = "FOSSBilling"
-	}
-	return &MassMailService{
-		repo:       repo,
-		clientRepo: clientRepo,
-		mailer:     m,
-		fromEmail:  fromEmail,
-		appName:    appName,
-	}
+func NewMassMailService(r domain.MassMailRepository, cr domain.ClientRepository, m mailer.Mailer, from, app string) *MassMailService {
+	return &MassMailService{r, cr, m, from, app}
 }
 
-func (s *MassMailService) Create(ctx context.Context, adminID int64, subject, content string) (*domain.MassMailCampaign, error) {
-	if subject == "" {
-		return nil, fmt.Errorf("%w: subject is required", appErrors.ErrInvalidInput)
-	}
-	if content == "" {
-		return nil, fmt.Errorf("%w: content is required", appErrors.ErrInvalidInput)
-	}
-
-	campaign := &domain.MassMailCampaign{
-		AdminID: adminID,
-		Subject: security.SanitizeAlphaNumeric(subject),
-		Content: security.SanitizeHTML(content),
-		Status:  domain.CampaignStatusDraft,
-	}
-
-	if err := s.repo.Create(ctx, campaign); err != nil {
-		return nil, err
-	}
-	return campaign, nil
+func (s *MassMailService) Create(ctx context.Context, aID int64, sub, cont string) (*domain.MassMailCampaign, error) {
+	if sub == "" || cont == "" { return nil, appErrors.ErrInvalidInput }
+	c := &domain.MassMailCampaign{AdminID: aID, Subject: security.SanitizeAlphaNumeric(sub), Content: security.SanitizeHTML(cont), Status: domain.CampaignStatusDraft}
+	return c, s.repo.Create(ctx, c)
 }
 
-func (s *MassMailService) GetByID(ctx context.Context, id int64) (*domain.MassMailCampaign, error) {
-	return s.repo.GetByID(ctx, id)
-}
+func (s *MassMailService) Send(ctx context.Context, id int64) (*domain.MassMailCampaign, error) {
+	cp, err := s.repo.GetByID(ctx, id)
+	if err != nil { return nil, err }
+	if cp.Status == domain.CampaignStatusCompleted { return nil, errors.New("already completed") }
+	cls, _, _ := s.clientRepo.List(ctx, 5000, 0)
+	cp.Status = domain.CampaignStatusSending; _ = s.repo.Update(ctx, cp)
 
-func (s *MassMailService) List(ctx context.Context, limit, offset int) ([]*domain.MassMailCampaign, int, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	return s.repo.List(ctx, limit, offset)
-}
-
-func (s *MassMailService) Send(ctx context.Context, campaignID int64) (*domain.MassMailCampaign, error) {
-	campaign, err := s.repo.GetByID(ctx, campaignID)
-	if err != nil {
-		return nil, err
-	}
-
-	if campaign.Status == domain.CampaignStatusCompleted {
-		return nil, fmt.Errorf("%w: campaign already completed", appErrors.ErrInvalidInput)
-	}
-
-	// Fetch all active clients
-	clients, _, err := s.clientRepo.List(ctx, 1000, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	campaign.Status = domain.CampaignStatusSending
-	_ = s.repo.Update(ctx, campaign)
-
-	sentCount := 0
-	for _, c := range clients {
-		if c.Email == "" {
-			continue
-		}
-		msg := mailer.Message{
-			From:     fmt.Sprintf("%s <%s>", s.appName, s.fromEmail),
-			To:       []string{c.Email},
-			Subject:  campaign.Subject,
-			HTMLBody: campaign.Content,
-		}
-		if err := s.mailer.Send(ctx, msg); err == nil {
-			sentCount++
+	sent := 0
+	for _, c := range cls {
+		if c.Email != "" && s.mailer.Send(ctx, mailer.Message{From: fmt.Sprintf("%s <%s>", s.app, s.from), To: []string{c.Email}, Subject: cp.Subject, HTMLBody: cp.Content}) == nil {
+			sent++
 		}
 	}
-
-	now := time.Now().UTC()
-	campaign.SentCount = sentCount
-	campaign.Status = domain.CampaignStatusCompleted
-	campaign.SentAt = &now
-
-	if err := s.repo.Update(ctx, campaign); err != nil {
-		return nil, err
-	}
-
-	return campaign, nil
+	cp.SentCount, cp.Status, cp.SentAt = sent, domain.CampaignStatusCompleted, pointer(time.Now().UTC())
+	return cp, s.repo.Update(ctx, cp)
 }
+
+func (s *MassMailService) GetByID(ctx context.Context, id int64) (*domain.MassMailCampaign, error) { return s.repo.GetByID(ctx, id) }
+
+func (s *MassMailService) List(ctx context.Context, l, o int) ([]*domain.MassMailCampaign, int, error) {
+	if l <= 0 { l = 20 }; return s.repo.List(ctx, l, o)
+}
+
+func pointer[T any](v T) *T { return &v }

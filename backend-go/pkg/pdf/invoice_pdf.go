@@ -107,7 +107,11 @@ func GenerateInvoicePDF(inv *domain.Invoice, client *domain.Client, compName, co
 	stream.WriteString(fmt.Sprintf("BT\n/F1 9 Tf\n327 %d Td\n(Subtotal:) Tj\nET\n", boxY+55))
 	stream.WriteString(fmt.Sprintf("BT\n/F1 9 Tf\n450 %d Td\n(%s %s) Tj\nET\n", boxY+55, inv.Currency, inv.Subtotal.String()))
 
-	stream.WriteString(fmt.Sprintf("BT\n/F1 9 Tf\n327 %d Td\n(PPN / Tax (11%%):) Tj\nET\n", boxY+38))
+	taxLabel := "Tax (0%):"
+	if inv.TaxRate > 0 {
+		taxLabel = fmt.Sprintf("Tax (%.1f%%):", inv.TaxRate)
+	}
+	stream.WriteString(fmt.Sprintf("BT\n/F1 9 Tf\n327 %d Td\n(%s) Tj\nET\n", boxY+38, taxLabel))
 	stream.WriteString(fmt.Sprintf("BT\n/F1 9 Tf\n450 %d Td\n(%s %s) Tj\nET\n", boxY+38, inv.Currency, inv.Tax.String()))
 
 	// Grand Total Highlight

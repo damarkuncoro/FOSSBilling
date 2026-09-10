@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 )
 
 func TestEmailService_TransactionalEmails(t *testing.T) {
 	mockMailer := mailer.NewMockMailer()
-	service := notification.NewEmailService(mockMailer, "noreply@fossbilling.org", "Nusantara Cloud")
+	tplRepo := memory.NewMockEmailTemplateRepository()
+	service := notification.NewEmailService(mockMailer, tplRepo, "noreply@fossbilling.org", "Nusantara Cloud")
 	ctx := context.Background()
 
 	client := &domain.Client{

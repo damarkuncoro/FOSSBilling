@@ -1,51 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminSystemService } from '@/services/admin_system.service';
 
 export function useNews() {
-  const [articles, setArticles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
   const [form, setForm] = useState({ title: '', content: '' });
-  const [saving, setSaving] = useState(false);
 
-  const fetchNews = async () => {
-    setLoading(true);
-    try {
-      const data = await adminSystemService.listNewsArticles();
-      setArticles(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: articles = [], isLoading: loading, refetch: fetchNews } = useQuery({
+    queryKey: ['admin', 'news'],
+    queryFn: () => adminSystemService.listNewsArticles(),
+  });
 
-  useEffect(() => {
-    fetchNews();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await adminSystemService.createNewsArticle(form.title, form.content);
+  const createMutation = useMutation({
+    mutationFn: () => adminSystemService.createNewsArticle(form.title, form.content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'news'] });
       setOpenModal(false);
       setForm({ title: '', content: '' });
-      await fetchNews();
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this announcement?')) return;
-    try {
-      await adminSystemService.deleteNewsArticle(id);
-      await fetchNews();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminSystemService.deleteNewsArticle(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'news'] }),
+  });
 
   return {
     articles,
@@ -54,9 +33,14 @@ export function useNews() {
     setOpenModal,
     form,
     setForm,
-    saving,
+    saving: createMutation.isPending || deleteMutation.isPending,
     fetchNews,
-    handleCreate,
-    handleDelete,
+    handleCreate: (e: React.FormEvent) => {
+      e.preventDefault();
+      createMutation.mutate();
+    },
+    handleDelete: (id: number) => {
+      if (confirm('Delete announcement?')) deleteMutation.mutate(id);
+    },
   };
 }

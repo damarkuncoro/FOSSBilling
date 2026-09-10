@@ -1,58 +1,26 @@
-import { AdminClientRepository, adminClientRepository, IAdminClientRepository } from '../repositories/admin_client.repository';
+import { adminClientRepository, AdminClientRepository } from '../repositories/admin_client.repository';
 import type { ClientProfile } from '@/types/api';
 
 export class AdminClientService {
-  constructor(private repo: IAdminClientRepository = adminClientRepository) {}
+  constructor(private repo: AdminClientRepository = adminClientRepository) {}
 
-  async listClients(): Promise<ClientProfile[]> {
-    return this.repo.listClients();
-  }
+  listClients = () => this.repo.list();
+  getClientDetail = (id: number) => {
+    if (!id || id <= 0) throw new Error('Valid client ID is required');
+    return this.repo.get(id);
+  };
+  createClient = (d: any) => this.repo.create(d);
+  updateClient = (id: number, d: any) => this.repo.update(id, d);
+  deleteClient = (id: number) => this.repo.delete(id);
+  impersonateClient = async (id: number) => (await this.repo.impersonate(id)).token;
 
-  async getClientDetail(id: number): Promise<ClientProfile> {
-    if (!id || id <= 0) {
-      throw new Error('Valid client ID is required');
-    }
-    return this.repo.getClient(id);
-  }
-
-  async createClient(dto: Partial<ClientProfile>): Promise<ClientProfile> {
-    if (!dto.email || !dto.email.includes('@')) {
-      throw new Error('A valid email address is required');
-    }
-    return this.repo.createClient(dto);
-  }
-
-  async updateClient(id: number, dto: Partial<ClientProfile>): Promise<ClientProfile> {
-    if (!id || id <= 0) {
-      throw new Error('Valid client ID is required');
-    }
-    return this.repo.updateClient(id, dto);
-  }
-
-  async deleteClient(id: number): Promise<any> {
-    if (!id || id <= 0) {
-      throw new Error('Valid client ID is required');
-    }
-    return this.repo.deleteClient(id);
-  }
-
-  async impersonateClient(id: number): Promise<string> {
-    if (!id || id <= 0) {
-      throw new Error('Valid client ID is required');
-    }
-    const { token } = await this.repo.impersonateClient(id);
-    return token;
-  }
-
-  filterClients(clients: ClientProfile[], query: string): ClientProfile[] {
-    if (!query.trim()) return clients;
-    const q = query.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.email?.toLowerCase().includes(q) ||
-        c.first_name?.toLowerCase().includes(q) ||
-        c.last_name?.toLowerCase().includes(q) ||
-        c.company?.toLowerCase().includes(q)
+  filterClients(cls: ClientProfile[], q: string) {
+    if (!q.trim()) return cls;
+    const lq = q.toLowerCase();
+    return cls.filter(c =>
+      (c.email || '').toLowerCase().includes(lq) ||
+      (c.first_name || '').toLowerCase().includes(lq) ||
+      (c.last_name || '').toLowerCase().includes(lq)
     );
   }
 }

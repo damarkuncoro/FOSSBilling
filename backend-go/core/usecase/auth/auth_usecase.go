@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/activity"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
@@ -17,283 +18,84 @@ type AuthUsecase struct {
 	clientRepo      domain.ClientRepository
 	antispamService *antispam.AntispamService
 	jwtSecret       string
+	issuer          string
+	activityService *activity.ActivityService
 }
 
-func NewAuthUsecase(clientRepo domain.ClientRepository, antispamService *antispam.AntispamService, jwtSecret string) *AuthUsecase {
-	return &AuthUsecase{
-		clientRepo:      clientRepo,
-		antispamService: antispamService,
-		jwtSecret:       jwtSecret,
-	}
+func NewAuthUsecase(cr domain.ClientRepository, as *antispam.AntispamService, s string, issuer string, act *activity.ActivityService) *AuthUsecase {
+	return &AuthUsecase{cr, as, s, issuer, act}
 }
 
-func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO, remoteIP string) (*AuthResponse, validator.ValidationErrors, error) {
-	v := validator.New()
-	v.CheckEmail("email", req.Email)
-	v.CheckRequired("first_name", req.FirstName)
-	v.CheckRequired("last_name", req.LastName)
-	v.CheckPasswordStrength("password", req.Password, 8)
+func (u *AuthUsecase) res(c *domain.Client) *AuthResponse {
+	t, _ := auth.GenerateToken(u.jwtSecret, c.ID, c.Email, "client", 24*time.Hour)
+	return &AuthResponse{Token: t, Client: ClientBrief{ID: c.ID, Email: c.Email, FirstName: c.FirstName, LastName: c.LastName, Currency: c.Currency}}
+}
 
-	if !v.IsValid() {
-		return nil, v, appErrors.ErrInvalidInput
-	}
-
-	// Anti-spam validation
-	if u.antispamService != nil {
-		if err := u.antispamService.ValidateSignup(ctx, req.Email, remoteIP, req.Honeypot, req.CaptchaToken); err != nil {
-			v.Add("email", err.Error())
-			return nil, v, appErrors.ErrInvalidInput
-		}
-	}
-
-	// Check if email is already taken
-	existing, err := u.clientRepo.GetByEmail(ctx, req.Email)
-	if err == nil && existing != nil {
-		v.Add("email", "Email is already registered")
-		return nil, v, appErrors.ErrDuplicateEntry
-	}
-
-	hashedPassword, err := auth.HashPassword(req.Password)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	client := &domain.Client{
-		Email:        req.Email,
-		PasswordHash: hashedPassword,
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		Company:      req.Company,
-		Address1:     req.Address1,
-		City:         req.City,
-		Country:      req.Country,
-		Phone:        req.Phone,
-		Currency:     req.Currency,
-		Status:       domain.ClientStatusActive,
-	}
-
-	if err := u.clientRepo.Create(ctx, client); err != nil {
-		return nil, nil, err
-	}
-
-	token, err := auth.GenerateToken(u.jwtSecret, client.ID, client.Email, "client", 24*time.Hour)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &AuthResponse{
-		Token: token,
-		Client: ClientBrief{
-			ID:        client.ID,
-			Email:     client.Email,
-			FirstName: client.FirstName,
-			LastName:  client.LastName,
-			Currency:  client.Currency,
-		},
-	}, nil, nil
+func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO, ip string) (*AuthResponse, validator.ValidationErrors, error) {
+	v := validator.New(); v.CheckEmail("email", req.Email); v.CheckRequired("first_name", req.FirstName); v.CheckRequired("last_name", req.LastName); v.CheckPasswordStrength("password", req.Password, 8)
+	if !v.IsValid() { return nil, v, appErrors.ErrInvalidInput }
+	if u.antispamService != nil { if err := u.antispamService.ValidateSignup(ctx, req.Email, ip, req.Honeypot, req.CaptchaToken); err != nil { v.Add("email", err.Error()); return nil, v, appErrors.ErrInvalidInput } }
+	if ex, _ := u.clientRepo.GetByEmail(ctx, req.Email); ex != nil { return nil, nil, appErrors.ErrDuplicate }
+	hp, _ := auth.HashPassword(req.Password); c := &domain.Client{Email: req.Email, PasswordHash: hp, FirstName: req.FirstName, LastName: req.LastName, Company: req.Company, Address1: req.Address1, City: req.City, Country: req.Country, Phone: req.Phone, Currency: req.Currency, Status: domain.ClientStatusActive}
+	if err := u.clientRepo.Create(ctx, c); err != nil { return nil, nil, err }
+	return u.res(c), nil, nil
 }
 
 func (u *AuthUsecase) Login(ctx context.Context, req LoginDTO) (*AuthResponse, error) {
-	if req.Email == "" || req.Password == "" {
-		return nil, appErrors.ErrInvalidInput
+	c, err := u.clientRepo.GetByEmail(ctx, req.Email); if err != nil || !auth.CheckPassword(req.Password, c.PasswordHash) { return nil, appErrors.ErrUnauthorized }
+	if c.Status != domain.ClientStatusActive { return nil, errors.New("inactive") }
+	if c.TwoFactorEnabled { return &AuthResponse{TwoFactorRequired: true, Client: ClientBrief{ID: c.ID, Email: c.Email, FirstName: c.FirstName}}, nil }
+
+	if u.activityService != nil {
+		_ = u.activityService.LogClientEvent(ctx, c.ID, "login", "Client logged into portal", "")
 	}
 
-	client, err := u.clientRepo.GetByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, appErrors.ErrUnauthorized
-	}
-
-	if !auth.CheckPassword(req.Password, client.PasswordHash) {
-		return nil, appErrors.ErrUnauthorized
-	}
-
-	if client.Status != domain.ClientStatusActive {
-		return nil, errors.New("account is not active")
-	}
-
-	if client.TwoFactorEnabled {
-		return &AuthResponse{
-			TwoFactorRequired: true,
-			Client: ClientBrief{
-				ID:        client.ID,
-				Email:     client.Email,
-				FirstName: client.FirstName,
-			},
-		}, nil
-	}
-
-	token, err := auth.GenerateToken(u.jwtSecret, client.ID, client.Email, "client", 24*time.Hour)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AuthResponse{
-		Token: token,
-		Client: ClientBrief{
-			ID:        client.ID,
-			Email:     client.Email,
-			FirstName: client.FirstName,
-			LastName:  client.LastName,
-			Currency:  client.Currency,
-		},
-	}, nil
+	return u.res(c), nil
 }
 
-func (u *AuthUsecase) GetProfile(ctx context.Context, clientID int64) (*ProfileResponse, error) {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return nil, err
-	}
-
-	balance, err := u.clientRepo.GetBalance(ctx, clientID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ProfileResponse{
-		Client: ClientDetail{
-			ID:        client.ID,
-			Email:     client.Email,
-			FirstName: client.FirstName,
-			LastName:  client.LastName,
-			Company:   client.Company,
-			Address1:  client.Address1,
-			Address2:  client.Address2,
-			City:      client.City,
-			State:     client.State,
-			Postcode:  client.Postcode,
-			Country:   client.Country,
-			PhoneCC:   client.PhoneCC,
-			Phone:     client.Phone,
-			Currency:  client.Currency,
-			Status:    string(client.Status),
-		},
-		Balance: balance,
-	}, nil
+func (u *AuthUsecase) GetProfile(ctx context.Context, id int64) (*ProfileResponse, error) {
+	c, err := u.clientRepo.GetByID(ctx, id); if err != nil { return nil, err }
+	b, _ := u.clientRepo.GetBalance(ctx, id); bd := ""; if c.Birthday != nil { bd = c.Birthday.Format("2006-01-02") }
+	cd := ClientDetail{ID: c.ID, AID: c.AID, Email: c.Email, FirstName: c.FirstName, LastName: c.LastName, Gender: c.Gender, Birthday: bd, Company: c.Company, CompanyVat: c.CompanyVat, CompanyNumber: c.CompanyNumber, Type: c.Type, Address1: c.Address1, Address2: c.Address2, City: c.City, State: c.State, Postcode: c.Postcode, Country: c.Country, PhoneCC: c.PhoneCC, Phone: c.Phone, Currency: c.Currency, BillingEmail: c.BillingEmail, Status: string(c.Status)}
+	cd.Custom1, cd.Custom2, cd.Custom3, cd.Custom4, cd.Custom5, cd.Custom6, cd.Custom7, cd.Custom8, cd.Custom9, cd.Custom10 = c.Custom1, c.Custom2, c.Custom3, c.Custom4, c.Custom5, c.Custom6, c.Custom7, c.Custom8, c.Custom9, c.Custom10
+	cd.Custom11, cd.Custom12, cd.Custom13, cd.Custom14, cd.Custom15, cd.Custom16, cd.Custom17, cd.Custom18, cd.Custom19, cd.Custom20 = c.Custom11, c.Custom12, c.Custom13, c.Custom14, c.Custom15, c.Custom16, c.Custom17, c.Custom18, c.Custom19, c.Custom20
+	return &ProfileResponse{Client: cd, Balance: b}, nil
 }
 
-func (u *AuthUsecase) UpdateProfile(ctx context.Context, clientID int64, req UpdateProfileDTO) (*ProfileResponse, error) {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.FirstName != "" {
-		client.FirstName = security.SanitizeAlphaNumeric(req.FirstName)
-	}
-	if req.LastName != "" {
-		client.LastName = security.SanitizeAlphaNumeric(req.LastName)
-	}
-	client.Company = security.SanitizeHTML(req.Company)
-	client.Address1 = security.SanitizeHTML(req.Address1)
-	client.Address2 = security.SanitizeHTML(req.Address2)
-	client.City = security.SanitizeAlphaNumeric(req.City)
-	client.State = security.SanitizeAlphaNumeric(req.State)
-	client.Postcode = security.SanitizeAlphaNumeric(req.Postcode)
-	if req.Country != "" {
-		client.Country = security.SanitizeAlphaNumeric(req.Country)
-	}
-	client.PhoneCC = security.SanitizeAlphaNumeric(req.PhoneCC)
-	client.Phone = security.SanitizeAlphaNumeric(req.Phone)
-	if req.Currency != "" {
-		client.Currency = security.SanitizeAlphaNumeric(req.Currency)
-	}
-
-	if err := u.clientRepo.Update(ctx, client); err != nil {
-		return nil, err
-	}
-
-	return u.GetProfile(ctx, clientID)
+func (u *AuthUsecase) UpdateProfile(ctx context.Context, id int64, req UpdateProfileDTO) (*ProfileResponse, error) {
+	c, err := u.clientRepo.GetByID(ctx, id); if err != nil { return nil, err }
+	if req.FirstName != "" { c.FirstName = security.SanitizeAlphaNumeric(req.FirstName) }
+	if req.LastName != "" { c.LastName = security.SanitizeAlphaNumeric(req.LastName) }
+	c.Gender = security.SanitizeAlphaNumeric(req.Gender); if t, err := time.Parse("2006-01-02", req.Birthday); err == nil { c.Birthday = &t }
+	c.Company, c.CompanyVat, c.CompanyNumber, c.Type = security.SanitizeHTML(req.Company), req.CompanyVat, req.CompanyNumber, req.Type
+	c.Address1, c.Address2, c.City, c.State, c.Postcode, c.Country = req.Address1, req.Address2, req.City, req.State, req.Postcode, req.Country
+	c.PhoneCC, c.Phone, c.Currency, c.BillingEmail = req.PhoneCC, req.Phone, req.Currency, req.BillingEmail
+	c.Custom1, c.Custom2, c.Custom3, c.Custom4, c.Custom5, c.Custom6, c.Custom7, c.Custom8, c.Custom9, c.Custom10 = req.Custom1, req.Custom2, req.Custom3, req.Custom4, req.Custom5, req.Custom6, req.Custom7, req.Custom8, req.Custom9, req.Custom10
+	c.Custom11, c.Custom12, c.Custom13, c.Custom14, c.Custom15, c.Custom16, c.Custom17, c.Custom18, c.Custom19, c.Custom20 = req.Custom11, req.Custom12, req.Custom13, req.Custom14, req.Custom15, req.Custom16, req.Custom17, req.Custom18, req.Custom19, req.Custom20
+	if err := u.clientRepo.Update(ctx, c); err != nil { return nil, err }
+	return u.GetProfile(ctx, id)
 }
 
-func (u *AuthUsecase) VerifyTwoFactor(ctx context.Context, email, code string) (*AuthResponse, error) {
-	client, err := u.clientRepo.GetByEmail(ctx, email)
-	if err != nil {
-		return nil, appErrors.ErrUnauthorized
-	}
-
-	if client.TwoFactorSecret == nil || !security.VerifyTOTP(*client.TwoFactorSecret, code) {
-		return nil, errors.New("invalid two-factor code")
-	}
-
-	token, err := auth.GenerateToken(u.jwtSecret, client.ID, client.Email, "client", 24*time.Hour)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AuthResponse{
-		Token: token,
-		Client: ClientBrief{
-			ID:        client.ID,
-			Email:     client.Email,
-			FirstName: client.FirstName,
-			LastName:  client.LastName,
-			Currency:  client.Currency,
-		},
-	}, nil
+func (u *AuthUsecase) VerifyTwoFactor(ctx context.Context, em, co string) (*AuthResponse, error) {
+	c, err := u.clientRepo.GetByEmail(ctx, em); if err != nil || c.TwoFactorSecret == nil || !security.VerifyTOTP(*c.TwoFactorSecret, co) { return nil, appErrors.ErrUnauthorized }
+	return u.res(c), nil
 }
 
-func (u *AuthUsecase) SetupTwoFactor(ctx context.Context, clientID int64) (*TwoFactorSetupResponse, error) {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return nil, err
-	}
-
-	secret := security.GenerateTOTPSecret()
-	qrURL := security.GenerateTOTPURL(client.Email, "FOSSBilling", secret)
-
-	// Save secret temporarily but don't enable yet
-	client.TwoFactorSecret = &secret
-	if err := u.clientRepo.Update(ctx, client); err != nil {
-		return nil, err
-	}
-
-	return &TwoFactorSetupResponse{
-		Secret: secret,
-		QRURL:  qrURL,
-	}, nil
+func (u *AuthUsecase) SetupTwoFactor(ctx context.Context, id int64) (*TwoFactorSetupResponse, error) {
+	c, _ := u.clientRepo.GetByID(ctx, id); s := security.GenerateTOTPSecret(); c.TwoFactorSecret = &s; _ = u.clientRepo.Update(ctx, c)
+	return &TwoFactorSetupResponse{Secret: s, QRURL: security.GenerateTOTPURL(c.Email, u.issuer, s)}, nil
 }
 
-func (u *AuthUsecase) EnableTwoFactor(ctx context.Context, clientID int64, code string) error {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return err
-	}
-
-	if client.TwoFactorSecret == nil {
-		return errors.New("2FA secret not generated")
-	}
-
-	if !security.VerifyTOTP(*client.TwoFactorSecret, code) {
-		return errors.New("invalid verification code")
-	}
-
-	client.TwoFactorEnabled = true
-	return u.clientRepo.Update(ctx, client)
+func (u *AuthUsecase) EnableTwoFactor(ctx context.Context, id int64, co string) error {
+	c, _ := u.clientRepo.GetByID(ctx, id); if c.TwoFactorSecret == nil || !security.VerifyTOTP(*c.TwoFactorSecret, co) { return errors.New("invalid") }
+	c.TwoFactorEnabled = true; return u.clientRepo.Update(ctx, c)
 }
 
-func (u *AuthUsecase) DisableTwoFactor(ctx context.Context, clientID int64) error {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return err
-	}
-
-	client.TwoFactorEnabled = false
-	client.TwoFactorSecret = nil
-	return u.clientRepo.Update(ctx, client)
+func (u *AuthUsecase) DisableTwoFactor(ctx context.Context, id int64) error {
+	c, _ := u.clientRepo.GetByID(ctx, id); c.TwoFactorEnabled, c.TwoFactorSecret = false, nil; return u.clientRepo.Update(ctx, c)
 }
 
-func (u *AuthUsecase) AdminImpersonateClient(ctx context.Context, clientID int64) (string, error) {
-	client, err := u.clientRepo.GetByID(ctx, clientID)
-	if err != nil {
-		return "", err
-	}
-
-	// Generate token as Client with impersonation flag
-	token, err := auth.GenerateTokenExt(u.jwtSecret, client.ID, client.Email, "client", 1*time.Hour, true)
-	if err != nil {
-		return "", err
-	}
-
-	return token, nil
+func (u *AuthUsecase) AdminImpersonateClient(ctx context.Context, id int64) (string, error) {
+	c, err := u.clientRepo.GetByID(ctx, id); if err != nil { return "", err }
+	return auth.GenerateTokenExt(u.jwtSecret, c.ID, c.Email, "client", time.Hour, true)
 }

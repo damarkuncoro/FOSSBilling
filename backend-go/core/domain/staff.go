@@ -51,6 +51,7 @@ type AuditLog struct {
 type StaffRepository interface {
 	GetByID(ctx context.Context, id int64) (*Staff, error)
 	GetByEmail(ctx context.Context, email string) (*Staff, error)
+	List(ctx context.Context, limit, offset int) ([]*Staff, int, error)
 	Create(ctx context.Context, staff *Staff) error
 	Update(ctx context.Context, staff *Staff) error
 	GetGroupByID(ctx context.Context, groupID int64) (*AdminGroup, error)

@@ -1,108 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { CustomPageItem, KnowledgebaseArticle } from '@/types/modules';
 
 export function usePages() {
-  const [pages, setPages] = useState<CustomPageItem[]>([]);
-  const [articles, setArticles] = useState<KnowledgebaseArticle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPage, setSelectedPage] = useState<CustomPageItem | null>(null);
+  const queryClient = useQueryClient();
   const [openPageModal, setOpenPageModal] = useState(false);
   const [openKBModal, setOpenKBModal] = useState(false);
-  const [pageForm, setPageForm] = useState<Partial<CustomPageItem>>({
-    title: '',
-    slug: '',
-    content: '',
-    published: true,
-  });
-  const [kbForm, setKBForm] = useState<Partial<KnowledgebaseArticle>>({
-    title: '',
-    slug: '',
-    content: '',
-    category: '',
-    published: true,
+  const [pageForm, setPageForm] = useState<any>({ title: '', slug: '', content: '', published: true });
+  const [kbForm, setKBForm] = useState<any>({ title: '', slug: '', content: '', category: '', published: true });
+
+  const { data: pages = [], isLoading: pLoading, refetch: refetchPages } = useQuery({ queryKey: ['admin', 'pages'], queryFn: () => api.getPages().catch(() => []) });
+  const { data: articles = [], isLoading: kLoading, refetch: refetchKB } = useQuery({ queryKey: ['admin', 'kb'], queryFn: () => api.getKnowledgebase().catch(() => []) });
+
+  const pageMutation = useMutation({
+    mutationFn: (d: any) => api.savePage(d),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'pages'] }); setOpenPageModal(false); },
   });
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [pagesData, kbData] = await Promise.all([
-        api.getPages().catch(() => []),
-        api.getKnowledgebase().catch(() => []),
-      ]);
-      setPages(pagesData || []);
-      setArticles(kbData || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const kbMutation = useMutation({
+    mutationFn: (d: any) => api.saveKnowledgebase(d),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin', 'kb'] }); setOpenKBModal(false); },
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const deletePageMutation = useMutation({
+    mutationFn: (id: number) => api.deletePage(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'pages'] }),
+  });
 
-  const handleSavePage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.savePage(pageForm);
-      setOpenPageModal(false);
-      await fetchData();
-    } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
-    }
-  };
+  const deleteKBMutation = useMutation({
+    mutationFn: (id: number) => api.deleteKnowledgebase(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'kb'] }),
+  });
 
-  const handleSaveKB = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await api.saveKnowledgebase(kbForm);
-      setOpenKBModal(false);
-      await fetchData();
-    } catch (err: any) {
-      alert(`Save failed: ${err.message}`);
-    }
-  };
-
-  const handleDeletePage = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this custom page?')) return;
-    try {
-      await api.deletePage(id);
-      await fetchData();
-    } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
-    }
-  };
-
-  const handleDeleteKB = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this KB article?')) return;
-    try {
-      await api.deleteKnowledgebase(id);
-      await fetchData();
-    } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
-    }
+  const fetchData = async () => {
+    await Promise.all([refetchPages(), refetchKB()]);
   };
 
   return {
-    pages,
-    articles,
-    loading,
-    selectedPage,
-    setSelectedPage,
-    openPageModal,
-    setOpenPageModal,
-    openKBModal,
-    setOpenKBModal,
-    pageForm,
-    setPageForm,
-    kbForm,
-    setKBForm,
+    pages, articles, loading: pLoading || kLoading,
     fetchData,
-    handleSavePage,
-    handleSaveKB,
-    handleDeletePage,
-    handleDeleteKB,
+    openPageModal, setOpenPageModal, openKBModal, setOpenKBModal,
+    pageForm, setPageForm, kbForm, setKBForm,
+    handleSavePage: (e: any) => { e.preventDefault(); pageMutation.mutate(pageForm); },
+    handleSaveKB: (e: any) => { e.preventDefault(); kbMutation.mutate(kbForm); },
+    handleDeletePage: (id: number) => { if (confirm('Delete?')) deletePageMutation.mutate(id); },
+    handleDeleteKB: (id: number) => { if (confirm('Delete?')) deleteKBMutation.mutate(id); },
   };
 }

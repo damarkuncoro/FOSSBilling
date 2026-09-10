@@ -27,6 +27,37 @@ Authorization: Bearer <jwt_or_session_token>
 
 ---
 
+## ⚡ Live Notification Stream (WebSocket)
+
+Admin portal uses a persistent WebSocket connection for real-time alerts.
+
+- **Endpoint:** `GET /api/v1/admin/system/ws?token=<token>`
+- **Events:**
+  - `invoice_paid`: Triggered on new revenue.
+  - `ticket_opened`: Alert for new support requests.
+
+---
+
+## 🩺 System Health & Monitoring
+
+Standard health check endpoint for DevOps orchestrators (Kubernetes, Docker).
+
+- **Endpoint:** `GET /api/v1/guest/system/health`
+- **JSON Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-09-10T...",
+  "services": {
+    "api": "running",
+    "cache": "active",
+    "database": "healthy"
+  }
+}
+```
+
+---
+
 ## 📦 Standard API Response Format
 
 ```json

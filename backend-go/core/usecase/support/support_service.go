@@ -19,244 +19,79 @@ var (
 )
 
 type CreateTicketDTO struct {
-	ClientID   int64                 `json:"client_id"`
-	HelpdeskID int64                 `json:"helpdesk_id"`
-	Subject    string                `json:"subject"`
-	Message    string                `json:"message"`
-	Priority   domain.TicketPriority `json:"priority"`
-	RelType    *string               `json:"rel_type,omitempty"`
-	RelID      *int64                `json:"rel_id,omitempty"`
-	IPAddress  string                `json:"ip_address,omitempty"`
+	ClientID int64; HelpdeskID int64; Subject string; Message string; Priority domain.TicketPriority; RelType *string; RelID *int64; IPAddress string
 }
 
 type SupportService struct {
-	supportRepo domain.SupportRepository
-	clientRepo  domain.ClientRepository
-	eventBus    *events.EventBus
+	supportRepo domain.SupportRepository; clientRepo domain.ClientRepository; eventBus *events.EventBus
 }
 
-func NewSupportService(
-	supportRepo domain.SupportRepository,
-	clientRepo domain.ClientRepository,
-	eventBus ...*events.EventBus,
-) *SupportService {
+func NewSupportService(sr domain.SupportRepository, cr domain.ClientRepository, eb ...*events.EventBus) *SupportService {
 	var bus *events.EventBus
-	if len(eventBus) > 0 {
-		bus = eventBus[0]
-	}
-	return &SupportService{
-		supportRepo: supportRepo,
-		clientRepo:  clientRepo,
-		eventBus:    bus,
-	}
+	if len(eb) > 0 { bus = eb[0] }
+	return &SupportService{sr, cr, bus}
 }
 
-// OpenTicket creates a new support ticket with initial message
 func (s *SupportService) OpenTicket(ctx context.Context, dto CreateTicketDTO) (*domain.Ticket, error) {
-	if strings.TrimSpace(dto.Subject) == "" {
-		return nil, ErrEmptyTicketSubject
-	}
-	if strings.TrimSpace(dto.Message) == "" {
-		return nil, ErrEmptyTicketMessage
-	}
+	if strings.TrimSpace(dto.Subject) == "" { return nil, ErrEmptyTicketSubject }
+	if strings.TrimSpace(dto.Message) == "" { return nil, ErrEmptyTicketMessage }
+	if _, err := s.clientRepo.GetByID(ctx, dto.ClientID); err != nil { return nil, err }
+	if dto.Priority == "" { dto.Priority = domain.PriorityMedium }
 
-	if _, err := s.clientRepo.GetByID(ctx, dto.ClientID); err != nil {
-		return nil, err
-	}
+	t := &domain.Ticket{ClientID: dto.ClientID, HelpdeskID: dto.HelpdeskID, Subject: security.SanitizeHTML(dto.Subject), Status: domain.TicketStatusOpen, Priority: dto.Priority, RelType: dto.RelType, RelID: dto.RelID}
+	m := &domain.TicketMessage{ClientID: &dto.ClientID, Content: security.SanitizeHTML(dto.Message), IPAddress: dto.IPAddress}
+	if err := s.supportRepo.CreateTicket(ctx, t, m); err != nil { return nil, err }
 
-	if dto.Priority == "" {
-		dto.Priority = domain.PriorityMedium
-	}
-
-	ticket := &domain.Ticket{
-		ClientID:   dto.ClientID,
-		HelpdeskID: dto.HelpdeskID,
-		Subject:    security.SanitizeHTML(dto.Subject),
-		Status:     domain.TicketStatusOpen,
-		Priority:   dto.Priority,
-		RelType:    dto.RelType,
-		RelID:      dto.RelID,
-	}
-
-	initialMsg := &domain.TicketMessage{
-		ClientID:  &dto.ClientID,
-		Content:   security.SanitizeHTML(dto.Message),
-		IPAddress: dto.IPAddress,
-	}
-
-	if err := s.supportRepo.CreateTicket(ctx, ticket, initialMsg); err != nil {
-		return nil, err
-	}
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventTicketOpened,
-			Payload: domain.TicketOpenedPayload{
-				TicketID:  ticket.ID,
-				ClientID:  ticket.ClientID,
-				Subject:   ticket.Subject,
-				Priority:  string(ticket.Priority),
-				CreatedAt: time.Now().UTC(),
-			},
-		})
-	}
-
-	return s.supportRepo.GetTicketByID(ctx, ticket.ID)
+	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventTicketOpened, Payload: domain.TicketOpenedPayload{TicketID: t.ID, ClientID: t.ClientID, Subject: t.Subject, Priority: string(t.Priority), CreatedAt: time.Now().UTC()}}) }
+	return s.supportRepo.GetTicketByID(ctx, t.ID)
 }
 
-// ClientReply posts a reply from client and changes status to awaiting_staff
-func (s *SupportService) ClientReply(ctx context.Context, ticketID, clientID int64, message, ipAddress string) (*domain.TicketMessage, error) {
-	if strings.TrimSpace(message) == "" {
-		return nil, ErrEmptyTicketMessage
-	}
+func (s *SupportService) reply(ctx context.Context, tID, cID, aID int64, msg, ip, status, author string) (*domain.TicketMessage, error) {
+	if strings.TrimSpace(msg) == "" { return nil, ErrEmptyTicketMessage }
+	t, err := s.supportRepo.GetTicketByID(ctx, tID)
+	if err != nil { return nil, err }
+	if cID > 0 && t.ClientID != cID { return nil, appErrors.ErrForbidden }
+	if t.Status == domain.TicketStatusClosed { return nil, ErrTicketClosed }
 
-	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
-	if err != nil {
-		return nil, err
-	}
+	m := &domain.TicketMessage{TicketID: tID, Content: security.SanitizeHTML(msg), IPAddress: ip}
+	if cID > 0 { m.ClientID = &cID } else if aID > 0 { m.AdminID = &aID }
 
-	if ticket.ClientID != clientID {
-		return nil, appErrors.ErrForbidden
-	}
+	if err := s.supportRepo.AddMessage(ctx, m); err != nil { return nil, err }
+	_ = s.supportRepo.UpdateTicketStatus(ctx, tID, domain.TicketStatus(status))
 
-	if ticket.Status == domain.TicketStatusClosed {
-		return nil, ErrTicketClosed
-	}
-
-	msg := &domain.TicketMessage{
-		TicketID:  ticketID,
-		ClientID:  &clientID,
-		Content:   security.SanitizeHTML(message),
-		IPAddress: ipAddress,
-	}
-
-	if err := s.supportRepo.AddMessage(ctx, msg); err != nil {
-		return nil, err
-	}
-
-	_ = s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusAwaitingStaff)
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventTicketReplied,
-			Payload: map[string]interface{}{
-				"ticket_id": ticketID,
-				"client_id": clientID,
-				"author":    "client",
-			},
-		})
-	}
-
-	return msg, nil
+	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventTicketReplied, Payload: map[string]interface{}{"ticket_id": tID, "author": author}}) }
+	return m, nil
 }
 
-// StaffReply posts a reply from staff and changes status to awaiting_client
-func (s *SupportService) StaffReply(ctx context.Context, ticketID, adminID int64, message string) (*domain.TicketMessage, error) {
-	if strings.TrimSpace(message) == "" {
-		return nil, ErrEmptyTicketMessage
-	}
-
-	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
-	if err != nil {
-		return nil, err
-	}
-
-	if ticket.Status == domain.TicketStatusClosed {
-		return nil, ErrTicketClosed
-	}
-
-	msg := &domain.TicketMessage{
-		TicketID: ticketID,
-		AdminID:  &adminID,
-		Content:  security.SanitizeHTML(message),
-	}
-
-	if err := s.supportRepo.AddMessage(ctx, msg); err != nil {
-		return nil, err
-	}
-
-	_ = s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusAwaitingClient)
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventTicketReplied,
-			Payload: map[string]interface{}{
-				"ticket_id": ticketID,
-				"admin_id":  adminID,
-				"author":    "staff",
-			},
-		})
-	}
-
-	return msg, nil
+func (s *SupportService) ClientReply(ctx context.Context, tID, cID int64, msg, ip string) (*domain.TicketMessage, error) {
+	return s.reply(ctx, tID, cID, 0, msg, ip, string(domain.TicketStatusAwaitingStaff), "client")
 }
 
-// CloseTicket sets status to closed
-func (s *SupportService) CloseTicket(ctx context.Context, ticketID int64, clientID int64) error {
-	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
-	if err != nil {
-		return err
-	}
-	if clientID > 0 && ticket.ClientID != clientID {
-		return appErrors.ErrForbidden
-	}
+func (s *SupportService) StaffReply(ctx context.Context, tID, aID int64, msg string) (*domain.TicketMessage, error) {
+	return s.reply(ctx, tID, 0, aID, msg, "", string(domain.TicketStatusAwaitingClient), "staff")
+}
 
-	if err := s.supportRepo.UpdateTicketStatus(ctx, ticketID, domain.TicketStatusClosed); err != nil {
-		return err
-	}
-
-	// Publish Event
-	if s.eventBus != nil {
-		s.eventBus.PublishAsync(ctx, events.Event{
-			Type: events.EventTicketClosed,
-			Payload: map[string]interface{}{
-				"ticket_id": ticketID,
-				"closed_by": clientID,
-			},
-		})
-	}
-
+func (s *SupportService) CloseTicket(ctx context.Context, tID, cID int64) error {
+	t, err := s.supportRepo.GetTicketByID(ctx, tID)
+	if err != nil || (cID > 0 && t.ClientID != cID) { return appErrors.ErrForbidden }
+	if err := s.supportRepo.UpdateTicketStatus(ctx, tID, domain.TicketStatusClosed); err != nil { return err }
+	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventTicketClosed, Payload: map[string]interface{}{"ticket_id": tID, "closed_by": cID}}) }
 	return nil
 }
 
-type TicketDetails struct {
-	Ticket   *domain.Ticket          `json:"ticket"`
-	Messages []*domain.TicketMessage `json:"messages"`
+type TicketDetails struct { Ticket *domain.Ticket `json:"ticket"`; Messages []*domain.TicketMessage `json:"messages"` }
+
+func (s *SupportService) GetTicket(ctx context.Context, tID, cID int64) (*TicketDetails, error) {
+	t, err := s.supportRepo.GetTicketByID(ctx, tID)
+	if err != nil || (cID > 0 && t.ClientID != cID) { return nil, appErrors.ErrForbidden }
+	msgs, err := s.supportRepo.GetMessages(ctx, tID)
+	return &TicketDetails{Ticket: t, Messages: msgs}, err
 }
 
-func (s *SupportService) GetTicket(ctx context.Context, ticketID, clientID int64) (*TicketDetails, error) {
-	ticket, err := s.supportRepo.GetTicketByID(ctx, ticketID)
-	if err != nil {
-		return nil, err
-	}
-	if clientID > 0 && ticket.ClientID != clientID {
-		return nil, appErrors.ErrForbidden
-	}
-
-	messages, err := s.supportRepo.GetMessages(ctx, ticketID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &TicketDetails{
-		Ticket:   ticket,
-		Messages: messages,
-	}, nil
+func (s *SupportService) ListClientTickets(ctx context.Context, cID int64, l, o int) ([]*domain.Ticket, int, error) {
+	if l <= 0 { l = 20 }; return s.supportRepo.ListTicketsByClientID(ctx, cID, l, o)
 }
 
-func (s *SupportService) ListClientTickets(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Ticket, int, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	return s.supportRepo.ListTicketsByClientID(ctx, clientID, limit, offset)
-}
-
-func (s *SupportService) ListAllTickets(ctx context.Context, limit, offset int) ([]*domain.Ticket, int, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	return s.supportRepo.ListTickets(ctx, limit, offset)
+func (s *SupportService) ListAllTickets(ctx context.Context, l, o int) ([]*domain.Ticket, int, error) {
+	if l <= 0 { l = 20 }; return s.supportRepo.ListTickets(ctx, l, o)
 }

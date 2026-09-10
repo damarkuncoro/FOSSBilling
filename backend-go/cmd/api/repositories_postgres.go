@@ -8,36 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// NewPostgresRepositories instantiates real database repositories backed by PostgreSQL
-func NewPostgresRepositories(pool *pgxpool.Pool) *Repositories {
-	log.Println("📦 [Real Data] Initializing PostgreSQL database repositories...")
+func NewPostgresRepositories(p *pgxpool.Pool) *Repositories {
+	log.Println("📦 Initializing PostgreSQL repositories...")
 	return &Repositories{
-		Client:       postgres.NewClientRepository(pool),
-		Order:        postgres.NewOrderRepository(pool),
-		Invoice:      postgres.NewInvoiceRepository(pool),
-		Transaction:  postgres.NewTransactionRepository(pool),
-		Promo:        postgres.NewPromoRepository(pool),
-		Support:      postgres.NewSupportRepository(pool),
-		Staff:        postgres.NewStaffRepository(pool),
-		Currency:     postgres.NewCurrencyRepository(pool),
-		News:         postgres.NewNewsRepository(pool),
-		Downloadable: postgres.NewDownloadableRepository(pool),
-		APIKey:       postgres.NewAPIKeyRepository(pool),
-		MassMail:     postgres.NewMassMailRepository(pool),
-		Company:      postgres.NewCompanyRepository(pool),
-		Product:      postgres.NewProductRepository(pool),
-		Catalog:      postgres.NewCatalogRepository(pool),
-		System:       postgres.NewSystemRepository(pool),
-		Activity:          postgres.NewActivityRepository(pool),
-		Notification:      postgres.NewNotificationRepository(pool),
-		AdminNotification: postgres.NewNotificationRepository(pool),
-		Page:              postgres.NewPageRepository(pool),
-		KB:           postgres.NewKBRepository(pool),
-		Antispam:     postgres.NewAntispamRepository(pool),
-		Formbuilder:  postgres.NewFormbuilderRepository(pool),
-		Extension:    postgres.NewExtensionRepository(pool),
-		Redirect:     postgres.NewRedirectRepository(pool),
-		Theme:        memory.NewThemeRepository(),
-		Tax:          postgres.NewTaxRepository(pool),
+		Client: postgres.NewClientRepository(p), Order: postgres.NewOrderRepository(p), Invoice: postgres.NewInvoiceRepository(p),
+		Transaction: postgres.NewTransactionRepository(p), Promo: postgres.NewPromoRepository(p), Support: postgres.NewSupportRepository(p),
+		Staff: postgres.NewStaffRepository(p), Currency: postgres.NewCurrencyRepository(p), News: postgres.NewNewsRepository(p),
+		Downloadable: postgres.NewDownloadableRepository(p), APIKey: postgres.NewAPIKeyRepository(p), MassMail: postgres.NewMassMailRepository(p),
+		Company: postgres.NewCompanyRepository(p), Product: postgres.NewProductRepository(p), Catalog: postgres.NewCatalogRepository(p),
+		System: postgres.NewSystemRepository(p), Activity: postgres.NewActivityRepository(p), Notification: postgres.NewNotificationRepository(p),
+		AdminNotification: postgres.NewNotificationRepository(p), Page: postgres.NewPageRepository(p), KB: postgres.NewKBRepository(p),
+		Antispam: postgres.NewAntispamRepository(p), Formbuilder: postgres.NewFormbuilderRepository(p), Extension: postgres.NewExtensionRepository(p),
+		Redirect: postgres.NewRedirectRepository(p), Theme: memory.NewThemeRepository(), Tax: postgres.NewTaxRepository(p),
+		EmailTemplate: postgres.NewEmailTemplateRepository(p),
 	}
 }

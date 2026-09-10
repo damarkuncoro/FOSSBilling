@@ -1,128 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminCouponService } from '@/services/admin_coupon.service';
 import type { CouponItem } from '@/types/api';
 
 export const defaultCoupons: CouponItem[] = [
-  {
-    id: 1,
-    code: 'WELCOME50',
-    type: 'percentage',
-    value: 50,
-    max_uses: 500,
-    used_count: 142,
-    expires_at: '2026-12-31',
-    is_active: true,
-  },
-  {
-    id: 2,
-    code: 'HOSTING10OFF',
-    type: 'fixed',
-    value: 10,
-    max_uses: 200,
-    used_count: 65,
-    expires_at: '2026-10-15',
-    is_active: true,
-  },
-  {
-    id: 3,
-    code: 'FLASH2026',
-    type: 'percentage',
-    value: 25,
-    max_uses: 100,
-    used_count: 100,
-    expires_at: '2026-06-01',
-    is_active: false,
-  },
+  { id: 1, code: 'WELCOME50', type: 'percentage', value: 50, max_uses: 500, used_count: 142, expires_at: '2026-12-31', is_active: true },
+  { id: 2, code: 'HOSTING10OFF', type: 'fixed', value: 10, max_uses: 200, used_count: 65, expires_at: '2026-10-15', is_active: true },
 ];
 
-export const initialCouponForm: Partial<CouponItem> = {
-  code: '',
-  type: 'percentage',
-  value: 20,
-  max_uses: 100,
-  expires_at: '',
-  is_active: true,
-};
+export const initialCouponForm: Partial<CouponItem> = { code: '', type: 'percentage', value: 20, max_uses: 100, expires_at: '', is_active: true };
 
 export function useCoupons() {
-  const [coupons, setCoupons] = useState<CouponItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(initialCouponForm);
 
-  const fetchCoupons = async () => {
-    setLoading(true);
-    try {
-      const data = await adminCouponService.listCoupons().catch(() => null);
-      setCoupons(data && data.length > 0 ? data : defaultCoupons);
-    } catch {
-      setCoupons(defaultCoupons);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: coupons = [], isLoading: loading, refetch: fetchCoupons } = useQuery({
+    queryKey: ['admin', 'coupons'],
+    queryFn: async () => {
+      const data = await adminCouponService.listCoupons();
+      return data && data.length > 0 ? data : defaultCoupons;
+    },
+  });
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
-  const generateRandomCode = () => {
-    const code = adminCouponService.generateRandomCode();
-    setForm((prev) => ({ ...prev, code }));
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const newCoupon = await adminCouponService.createCoupon(form).catch(() => ({
-        id: Date.now(),
-        code: (form.code || 'COUPON').toUpperCase(),
-        type: form.type || 'percentage',
-        value: Number(form.value) || 0,
-        max_uses: Number(form.max_uses) || 0,
-        used_count: 0,
-        expires_at: form.expires_at || undefined,
-        is_active: form.is_active ?? true,
-      } as CouponItem));
-
-      setCoupons((prev) => [newCoupon, ...prev]);
+  const createMutation = useMutation({
+    mutationFn: (input: Partial<CouponItem>) => adminCouponService.createCoupon(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] });
       setOpenModal(false);
       setForm(initialCouponForm);
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this coupon?')) return;
-    try {
-      await adminCouponService.deleteCoupon(id).catch(() => null);
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const toggleStatus = (id: number) => {
-    setCoupons((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, is_active: !c.is_active } : c))
-    );
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminCouponService.deleteCoupon(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] }),
+  });
 
   return {
     coupons,
     loading,
+    fetchCoupons,
     openModal,
     setOpenModal,
-    saving,
+    saving: createMutation.isPending || deleteMutation.isPending,
     form,
     setForm,
-    fetchCoupons,
-    generateRandomCode,
-    handleCreate,
-    handleDelete,
-    toggleStatus,
+    generateRandomCode: () => setForm((p) => ({ ...p, code: adminCouponService.generateRandomCode() })),
+    handleCreate: (e: React.FormEvent) => { e.preventDefault(); createMutation.mutate(form); },
+    handleDelete: (id: number) => { if (confirm('Delete coupon?')) deleteMutation.mutate(id); },
+    toggleStatus: (id: number) => { console.log('Toggle status for', id); },
   };
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,67 +10,43 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
-	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
-	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	billing "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
+	order "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	system "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/logger"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
 func main() {
-	cfg := config.Load()
-	log.Printf("⚙️ Starting FOSSBilling Background Worker & Scheduler (%s)...", cfg.AppEnv)
+	cfg := config.Load(); logger.Init(cfg.AppEnv); logger.Info("Worker Start")
+	ctx, cancel := context.WithCancel(context.Background()); defer cancel()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// 1. Database Connection Pool
-	pgPool, err := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
-	if err != nil {
-		log.Printf("⚠️ Database connection failed (%v). Worker running with pool handle.", err)
-	} else {
-		defer pgPool.Close()
-		log.Println("✅ Connected to PostgreSQL database pool.")
+	pool, _ := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if pool != nil {
+		defer pool.Close()
+		_ = postgres.RunMigrations(ctx, pool, "migrations")
 	}
 
-	// 2. Repositories & Domain Services
-	orderRepo := postgres.NewOrderRepository(pgPool)
-	productRepo := postgres.NewProductRepository(pgPool)
-	clientRepo := postgres.NewClientRepository(pgPool)
-	invoiceRepo := postgres.NewInvoiceRepository(pgPool)
-	supportRepo := postgres.NewSupportRepository(pgPool)
-	taxRepo := postgres.NewTaxRepository(pgPool)
+	eb, hm := events.NewEventBus(), plugins.NewHookManager()
+	or, pr, cr, ir, sr, mr, tr, sysR := postgres.NewOrderRepository(pool), postgres.NewProductRepository(pool), postgres.NewClientRepository(pool), postgres.NewInvoiceRepository(pool), postgres.NewSupportRepository(pool), postgres.NewMassMailRepository(pool), postgres.NewTaxRepository(pool), postgres.NewSystemRepository(pool)
+	cor := postgres.NewCompanyRepository(pool)
+	ordSvc := order.NewOrderService(or, pr, nil, nil, eb)
+	is := billing.NewInvoiceService(ir, cr, cor, billing.NewTaxCalculator(tr), hm, eb)
+	sysSvc := system.NewSystemService(sysR)
+	cs := scheduler.NewCronService(or, ordSvc, is, sysSvc, sr, mr, cr, nil, cfg.DatabaseURL)
 
-	taxCalculator := billingUsecase.NewTaxCalculator(taxRepo)
-	orderService := orderUsecase.NewOrderService(orderRepo, productRepo, nil, nil, nil)
-	hookManager := plugins.NewHookManager()
-	eventBus := events.NewEventBus()
-	invoiceService := billingUsecase.NewInvoiceService(invoiceRepo, clientRepo, taxCalculator, hookManager, eventBus)
-
-	cronService := scheduler.NewCronService(orderRepo, orderService, invoiceService, supportRepo)
-	cronService.SetConcurrency(cfg.WorkerConcurrency)
-
-	// 3. Periodic Scheduler Loop
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	// Execute initial job batch on startup
-	go ExecuteCronBatch(cronService)
-
+	tick := time.NewTicker(time.Minute); defer tick.Stop()
+	go ExecuteCronBatch(cs)
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
-				ExecuteCronBatch(cronService)
-			case <-ctx.Done():
-				return
+			case <-tick.C: ExecuteCronBatch(cs)
+			case <-ctx.Done(): return
 			}
 		}
 	}()
 
-	// 4. Graceful Shutdown
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
-
-	<-stopChan
-	log.Println("🛑 Shutting down background worker gracefully...")
+	sig := make(chan os.Signal, 1); signal.Notify(sig, os.Interrupt, syscall.SIGTERM); <-sig
+	logger.Warn("Worker Stop")
 }

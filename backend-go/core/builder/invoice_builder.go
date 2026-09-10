@@ -10,127 +10,33 @@ import (
 )
 
 type InvoiceBuilder struct {
-	clientID     int64
-	serie        string
-	nr           string
-	currency     string
-	currencyRate float64
-	dueDays      int
-	taxRate      float64
-	promo        *domain.Promo
-	items        []domain.InvoiceItem
+	cid int64; ser, nr, cur string; crate, trate float64; due int; pr *domain.Promo; its []domain.InvoiceItem
 }
 
 func NewInvoiceBuilder() *InvoiceBuilder {
-	return &InvoiceBuilder{
-		serie:        "INV",
-		currency:     "USD",
-		currencyRate: 1.0,
-		dueDays:      14,
-		items:        make([]domain.InvoiceItem, 0),
-	}
+	return &InvoiceBuilder{ser: "INV", cur: "USD", crate: 1.0, due: 14, its: []domain.InvoiceItem{}}
 }
 
-func (b *InvoiceBuilder) ForClient(clientID int64) *InvoiceBuilder {
-	b.clientID = clientID
-	return b
-}
-
-func (b *InvoiceBuilder) WithSerieAndNr(serie, nr string) *InvoiceBuilder {
-	b.serie = serie
-	b.nr = nr
-	return b
-}
-
-func (b *InvoiceBuilder) WithCurrency(currency string, rate float64) *InvoiceBuilder {
-	b.currency = currency
-	b.currencyRate = rate
-	return b
-}
-
-func (b *InvoiceBuilder) WithDueDays(days int) *InvoiceBuilder {
-	b.dueDays = days
-	return b
-}
-
-func (b *InvoiceBuilder) WithTaxRate(taxRate float64) *InvoiceBuilder {
-	b.taxRate = taxRate
-	return b
-}
-
-func (b *InvoiceBuilder) ApplyPromo(promo *domain.Promo) *InvoiceBuilder {
-	b.promo = promo
-	return b
-}
-
-func (b *InvoiceBuilder) AddItem(title string, price decimal.Money, quantity int, taxable bool) *InvoiceBuilder {
-	b.items = append(b.items, domain.InvoiceItem{
-		Title:    title,
-		Price:    price,
-		Quantity: quantity,
-		Taxable:  taxable,
-	})
-	return b
+func (b *InvoiceBuilder) ForClient(id int64) *InvoiceBuilder { b.cid = id; return b }
+func (b *InvoiceBuilder) WithSerieAndNr(s, n string) *InvoiceBuilder { b.ser, b.nr = s, n; return b }
+func (b *InvoiceBuilder) WithCurrency(c string, r float64) *InvoiceBuilder { b.cur, b.crate = c, r; return b }
+func (b *InvoiceBuilder) WithDueDays(d int) *InvoiceBuilder { b.due = d; return b }
+func (b *InvoiceBuilder) WithTaxRate(r float64) *InvoiceBuilder { b.trate = r; return b }
+func (b *InvoiceBuilder) ApplyPromo(p *domain.Promo) *InvoiceBuilder { b.pr = p; return b }
+func (b *InvoiceBuilder) AddItem(t string, p decimal.Money, q int, tx bool) *InvoiceBuilder {
+	b.its = append(b.its, domain.InvoiceItem{Title: t, Price: p, Quantity: q, Taxable: tx}); return b
 }
 
 func (b *InvoiceBuilder) Build() (*domain.Invoice, []domain.InvoiceItem, error) {
-	if b.clientID == 0 {
-		return nil, nil, errors.New("invoice requires a valid client ID")
+	if b.cid == 0 || len(b.its) == 0 { return nil, nil, errors.New("missing fields") }
+	var sub, txSub decimal.Money
+	for _, it := range b.its { lt := it.Price * decimal.Money(it.Quantity); sub += lt; if it.Taxable { txSub += lt } }
+	var dis decimal.Money
+	if b.pr != nil && b.pr.Active {
+		if b.pr.Type == domain.PromoTypePercentage { dis = decimal.FromFloat(sub.ToFloat() * (float64(b.pr.Value) / 1000000.0)) } else { dis = decimal.FromFloat(float64(b.pr.Value) / 10000.0) }
+		if dis > sub { dis = sub }
 	}
-	if len(b.items) == 0 {
-		return nil, nil, errors.New("invoice must have at least one line item")
-	}
-
-	var subtotal decimal.Money
-	var taxableSubtotal decimal.Money
-
-	for _, item := range b.items {
-		itemTotal := item.Price * decimal.Money(item.Quantity)
-		subtotal += itemTotal
-		if item.Taxable {
-			taxableSubtotal += itemTotal
-		}
-	}
-
-	// Apply discount if promo voucher present
-	var discount decimal.Money
-	if b.promo != nil && b.promo.Active {
-		if b.promo.Type == domain.PromoTypePercentage {
-			discount = decimal.FromFloat(subtotal.ToFloat() * (float64(b.promo.Value) / 1000000.0))
-		} else {
-			discount = decimal.FromFloat(float64(b.promo.Value) / 10000.0)
-		}
-		if discount > subtotal {
-			discount = subtotal
-		}
-	}
-
-	afterDiscount := subtotal - discount
-	taxAmount := decimal.FromFloat(taxableSubtotal.ToFloat() * (b.taxRate / 100.0))
-	total := afterDiscount + taxAmount
-
-	now := time.Now().UTC()
-	dueDate := now.Add(time.Duration(b.dueDays) * 24 * time.Hour)
-
-	if b.nr == "" {
-		b.nr = fmt.Sprintf("%d-%04d", now.Year(), now.Unix()%10000)
-	}
-
-	invoice := &domain.Invoice{
-		Serie:        b.serie,
-		Nr:           b.nr,
-		ClientID:     b.clientID,
-		Status:       domain.InvoiceStatusUnpaid,
-		Currency:     b.currency,
-		CurrencyRate: b.currencyRate,
-		Subtotal:     subtotal,
-		Tax:          taxAmount,
-		Total:        total,
-		TaxRate:      b.taxRate,
-		DueAt:        dueDate,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-
-	return invoice, b.items, nil
+	tax := decimal.FromFloat(txSub.ToFloat() * (b.trate / 100.0))
+	now := time.Now().UTC(); if b.nr == "" { b.nr = fmt.Sprintf("%d-%04d", now.Year(), now.Unix()%10000) }
+	return &domain.Invoice{Serie: b.ser, Nr: b.nr, ClientID: b.cid, Status: domain.InvoiceStatusUnpaid, Currency: b.cur, CurrencyRate: b.crate, Subtotal: sub, Tax: tax, Total: sub - dis + tax, TaxRate: b.trate, DueAt: now.AddDate(0, 0, b.due), CreatedAt: now, UpdatedAt: now}, b.its, nil
 }

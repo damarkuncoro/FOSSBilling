@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -17,6 +18,7 @@ import (
 type AppHandlers struct {
 	GuestAuth          *guest.AuthHandler
 	GuestCart          *guest.CartHandler
+	GuestProduct       *guest.ProductHandler
 	GuestWebhook       *guest.WebhookHandler
 	GuestCurrency      *guest.CurrencyHandler
 	GuestNews          *guest.NewsHandler
@@ -30,6 +32,7 @@ type AppHandlers struct {
 	GuestTheme         *guest.ThemeHandler
 	GuestSEO           *guest.SEOHandler
 	GuestWidget        *guest.WidgetHandler
+	GuestSystem        *guest.SystemHandler
 	ClientProfile      *client.ProfileHandler
 	ClientOrder        *client.OrderHandler
 	ClientDomain       *client.DomainHandler
@@ -64,6 +67,7 @@ type AppHandlers struct {
 	AdminTheme         *admin.ThemeHandler
 	AdminSEO           *admin.SEOHandler
 	AdminWidget        *admin.WidgetHandler
+	AdminEmailTemplate *admin.EmailTemplateHandler
 }
 
 // setupRoutes initializes system routes and dispatches to role-scoped routers
@@ -101,13 +105,12 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 	})
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		html := `<!doctype html>
+		html := fmt.Sprintf(`<!doctype html>
 <html>
   <head>
-    <title>FOSSBilling Next-Gen API Documentation</title>
+    <title>%s API Documentation</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="https://fossbilling.org/favicon.ico" />
   </head>
   <body>
     <script
@@ -115,7 +118,7 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
       data-url="/openapi.json"
       src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
   </body>
-</html>`
+</html>`, cfg.CompanyName)
 		_, _ = w.Write([]byte(html))
 	})
 	mux.HandleFunc("GET /sitemap.xml", h.GuestSEO.GetSitemap)
@@ -128,6 +131,11 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 	registerGuestRoutes(mux, h, rateLimiter, authRateLimiter)
 	registerClientRoutes(mux, h, clientAuth)
 	registerAdminRoutes(mux, h, adminAuth, rateLimiter, authRateLimiter)
+
+	// 4. Dev/Simulation Routes (Only in non-prod)
+	if cfg.AppEnv != "production" {
+		registerDevRoutes(mux, h)
+	}
 
 	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux)))))
 }

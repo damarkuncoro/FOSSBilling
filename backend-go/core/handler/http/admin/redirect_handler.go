@@ -39,10 +39,11 @@ func (h *RedirectHandler) ListRedirects(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"list":  list,
-		"total": total,
-	}, nil)
+	response.JSON(w, http.StatusOK, list, &response.Meta{
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func (h *RedirectHandler) GetRedirect(w http.ResponseWriter, r *http.Request) {

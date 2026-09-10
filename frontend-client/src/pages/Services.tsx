@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, Download, CheckCircle, ShieldCheck, Key } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useClientServices } from '@/hooks/useClientServices';
 import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export const Services: React.FC = () => {
+  const { t } = useTranslation();
   const {
     orders,
     loading,
@@ -22,6 +24,7 @@ export const Services: React.FC = () => {
     handleSyncStatus,
     handleChangePassword,
   } = useClientServices();
+// ... (rest of component stays same, just replacing hardcoded text with t())
 
   const [passwordModal, setPasswordModal] = useState<{ open: boolean; orderId: number }>({ open: false, orderId: 0 });
   const [newPassword, setNewPassword] = useState('');
@@ -39,14 +42,14 @@ export const Services: React.FC = () => {
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Active Services & Products</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('my_services')}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your web hosting accounts, access control panel logins, license keys, and digital downloads.
+            {t('manage_hosting_desc')}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchServices} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('refresh')}
         </Button>
       </div>
 
@@ -73,7 +76,7 @@ export const Services: React.FC = () => {
         </div>
       ) : !orders || orders.length === 0 ? (
         <Card className="p-8 text-center border-dashed">
-          <p className="text-sm text-muted-foreground">You don't have any active subscriptions yet.</p>
+          <p className="text-sm text-muted-foreground">{t('no_services')}</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,7 +93,7 @@ export const Services: React.FC = () => {
                       size="icon"
                       className="h-6 w-6 text-muted-foreground hover:text-primary"
                       onClick={() => handleSyncStatus(order.id)}
-                      title="Sync Status"
+                      title={t('sync_status')}
                     >
                       <RefreshCw className="h-3 w-3" />
                     </Button>
@@ -127,7 +130,7 @@ export const Services: React.FC = () => {
                                   size="icon"
                                   className="h-4 w-4"
                                   onClick={() => setPasswordModal({ open: true, orderId: order.id })}
-                                  title="Change Password"
+                                  title={t('change_password')}
                                 >
                                   <Key className="h-2.5 w-2.5" />
                                 </Button>
@@ -151,8 +154,8 @@ export const Services: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-3 rounded-lg bg-muted/40 border space-y-1 text-muted-foreground h-full">
-                    <p className="font-semibold text-foreground">Service Information</p>
-                    <p>Details will appear here once the service is fully provisioned.</p>
+                    <p className="font-semibold text-foreground">{t('service_info')}</p>
+                    <p>{t('provisioning_desc')}</p>
                   </div>
                 )}
               </CardContent>
@@ -164,7 +167,7 @@ export const Services: React.FC = () => {
                   onClick={() => handleGetDownload(order.id)}
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Get Download / License
+                  {t('get_download')}
                 </Button>
               </div>
             </Card>

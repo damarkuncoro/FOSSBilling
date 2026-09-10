@@ -55,6 +55,29 @@ func (r *MockStaffRepository) GetByEmail(ctx context.Context, email string) (*do
 	return nil, appErrors.ErrNotFound
 }
 
+func (r *MockStaffRepository) List(ctx context.Context, limit, offset int) ([]*domain.Staff, int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var list []*domain.Staff
+	for _, s := range r.staffs {
+		cp := *s
+		list = append(list, &cp)
+	}
+
+	total := len(list)
+	if offset >= total {
+		return []*domain.Staff{}, total, nil
+	}
+
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+
+	return list[offset:end], total, nil
+}
+
 func (r *MockStaffRepository) Create(ctx context.Context, staff *domain.Staff) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

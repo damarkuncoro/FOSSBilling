@@ -14,142 +14,55 @@ import (
 )
 
 var (
-	ErrLicenseNotFound     = errors.New("license order not found")
-	ErrUnauthorizedLicense = errors.New("unauthorized license access")
+	ErrNotFound = errors.New("license not found")
+	ErrForbidden = errors.New("unauthorized")
 )
 
-type LicenseRecordDTO struct {
+type LicenseDTO struct {
 	ID             int64     `json:"id"`
-	ProductName    string    `json:"product_title"`
+	ProductName    string    `json:"product_name"`
 	LicenseKey     string    `json:"license_key"`
 	Status         string    `json:"status"`
-	MaxInstances   int       `json:"max_instances"`
 	LicensedDomain string    `json:"licensed_domain"`
 	LicensedIP     string    `json:"licensed_ip"`
+	MaxInstances   int       `json:"max_instances"`
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 type LicenseConfig struct {
 	LicenseKey     string `json:"license_key"`
-	MaxInstances   int    `json:"max_instances"`
 	LicensedDomain string `json:"licensed_domain"`
 	LicensedIP     string `json:"licensed_ip"`
+	MaxInstances   int    `json:"max_instances"`
 }
 
-type LicenseService struct {
-	orderRepo domain.OrderRepository
-}
+type LicenseService struct{ repo domain.OrderRepository }
 
-func NewLicenseService(orderRepo domain.OrderRepository) *LicenseService {
-	return &LicenseService{
-		orderRepo: orderRepo,
-	}
-}
+func NewLicenseService(r domain.OrderRepository) *LicenseService { return &LicenseService{r} }
 
-// ListClientLicenses returns all software licenses owned by a client
-func (s *LicenseService) ListClientLicenses(ctx context.Context, clientID int64) ([]LicenseRecordDTO, error) {
-	orders, _, err := s.orderRepo.ListByClientID(ctx, clientID, 100, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	list := make([]LicenseRecordDTO, 0)
-	for _, ord := range orders {
-		var cfg LicenseConfig
-		if len(ord.Config) > 0 {
-			_ = json.Unmarshal(ord.Config, &cfg)
-		}
-
-		if cfg.LicenseKey != "" || strings.Contains(strings.ToLower(ord.Title), "license") || strings.Contains(strings.ToLower(ord.Title), "edition") {
-			key := cfg.LicenseKey
-			if key == "" {
-				key = fmt.Sprintf("FB-ENT-%X-%X", ord.ID*48271%65535, ord.ID*12345%65535)
-			}
-
-			max := cfg.MaxInstances
-			if max <= 0 {
-				max = 5
-			}
-
-			exp := time.Now().AddDate(1, 0, 0)
-			if ord.ExpiresAt != nil {
-				exp = *ord.ExpiresAt
-			}
-
-			list = append(list, LicenseRecordDTO{
-				ID:             ord.ID,
-				ProductName:    ord.Title,
-				LicenseKey:     key,
-				Status:         string(ord.Status),
-				MaxInstances:   max,
-				LicensedDomain: cfg.LicensedDomain,
-				LicensedIP:     cfg.LicensedIP,
-				ExpiresAt:      exp,
-			})
+func (s *LicenseService) ListClientLicenses(ctx context.Context, cid int64) ([]LicenseDTO, error) {
+	os, _, err := s.repo.ListByClientID(ctx, cid, 100, 0); if err != nil { return nil, err }
+	res := make([]LicenseDTO, 0)
+	for _, o := range os {
+		var c LicenseConfig; _ = json.Unmarshal(o.Config, &c)
+		if c.LicenseKey != "" || strings.Contains(strings.ToLower(o.Title), "license") {
+			k, m, e := c.LicenseKey, c.MaxInstances, time.Now().AddDate(1, 0, 0)
+			if k == "" { k = fmt.Sprintf("FB-ENT-%X", o.ID*48271%65535) }; if m <= 0 { m = 5 }; if o.ExpiresAt != nil { e = *o.ExpiresAt }
+			res = append(res, LicenseDTO{ID: o.ID, ProductName: o.Title, LicenseKey: k, Status: string(o.Status), MaxInstances: m, LicensedDomain: c.LicensedDomain, LicensedIP: c.LicensedIP, ExpiresAt: e})
 		}
 	}
-
-	return list, nil
+	return res, nil
 }
 
-// ResetLicenseKey generates and assigns a new cryptographically secure license key
-func (s *LicenseService) ResetLicenseKey(ctx context.Context, clientID int64, orderID int64) (string, error) {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return "", ErrLicenseNotFound
-	}
-
-	if order.ClientID != clientID {
-		return "", ErrUnauthorizedLicense
-	}
-
-	var cfg LicenseConfig
-	if len(order.Config) > 0 {
-		_ = json.Unmarshal(order.Config, &cfg)
-	}
-
-	b := make([]byte, 8)
-	_, _ = rand.Read(b)
-	newKey := fmt.Sprintf("FB-ENT-%s-%s", strings.ToUpper(hex.EncodeToString(b[:4])), strings.ToUpper(hex.EncodeToString(b[4:])))
-	cfg.LicenseKey = newKey
-
-	cfgBytes, err := json.Marshal(cfg)
-	if err != nil {
-		return "", err
-	}
-
-	order.Config = cfgBytes
-	if err := s.orderRepo.Update(ctx, order); err != nil {
-		return "", err
-	}
-
-	return newKey, nil
+func (s *LicenseService) ResetLicenseLock(ctx context.Context, cid, oid int64) error {
+	o, err := s.repo.GetByID(ctx, oid); if err != nil || o.ClientID != cid { return ErrForbidden }
+	var c LicenseConfig; _ = json.Unmarshal(o.Config, &c); c.LicensedDomain, c.LicensedIP = "", ""
+	o.Config, _ = json.Marshal(c); return s.repo.Update(ctx, o)
 }
 
-// ResetLicenseLock resets the domain and IP lock for a license order
-func (s *LicenseService) ResetLicenseLock(ctx context.Context, clientID int64, orderID int64) error {
-	order, err := s.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return ErrLicenseNotFound
-	}
-
-	if order.ClientID != clientID {
-		return ErrUnauthorizedLicense
-	}
-
-	var cfg LicenseConfig
-	if len(order.Config) > 0 {
-		_ = json.Unmarshal(order.Config, &cfg)
-	}
-
-	cfg.LicensedDomain = ""
-	cfg.LicensedIP = ""
-
-	cfgBytes, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	order.Config = cfgBytes
-	return s.orderRepo.Update(ctx, order)
+func (s *LicenseService) ResetLicenseKey(ctx context.Context, cid, oid int64) (string, error) {
+	o, err := s.repo.GetByID(ctx, oid); if err != nil || o.ClientID != cid { return "", ErrForbidden }
+	var c LicenseConfig; _ = json.Unmarshal(o.Config, &c)
+	b := make([]byte, 8); _, _ = rand.Read(b); k := "FB-ENT-" + strings.ToUpper(hex.EncodeToString(b)); c.LicenseKey = k
+	o.Config, _ = json.Marshal(c); return k, s.repo.Update(ctx, o)
 }

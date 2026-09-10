@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 
 interface GatewaysListTabProps {
   gateways: PaymentGatewayItem[];
-  onToggleEnabled: (id: string) => void;
+  onToggleEnabled: (id: string, current: boolean) => void;
   onConfigure: (gw: PaymentGatewayItem) => void;
 }
 
@@ -32,7 +32,7 @@ export const GatewaysListTab: React.FC<GatewaysListTabProps> = ({
                 </div>
               </div>
               <button
-                onClick={() => onToggleEnabled(gw.id)}
+                onClick={() => onToggleEnabled(gw.id, gw.enabled)}
                 className="cursor-pointer focus:outline-none"
                 title="Toggle Gateway Status"
               >

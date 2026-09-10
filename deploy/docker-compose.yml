@@ -40,12 +40,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - APP_ENV=production
+      - APP_ENV=${APP_ENV:-production}
       - PORT=8080
-      - DATABASE_URL=postgres://fossbilling:secretpassword123@postgres:5432/fossbilling?sslmode=disable
+      - DATABASE_URL=postgres://${POSTGRES_USER:-fossbilling}:${POSTGRES_PASSWORD:-fossbilling}@postgres:5432/${POSTGRES_DB:-fossbilling}?sslmode=disable
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=production-ready-super-secret-jwt-key-32-chars
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://admin.fossbilling.test,http://billing.fossbilling.test
+      - JWT_SECRET=${JWT_SECRET:-production-ready-super-secret-jwt-key}
+      - COMPANY_NAME=${COMPANY_NAME:-FOSSBilling}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - MAIL_DRIVER=${MAIL_DRIVER:-mock}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-noreply@fossbilling.org}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-FOSSBilling}
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,10 +66,11 @@ services:
     restart: unless-stopped
     command: ["/app/worker"]
     environment:
-      - APP_ENV=production
-      - DATABASE_URL=postgres://fossbilling:secretpassword123@postgres:5432/fossbilling?sslmode=disable
+      - APP_ENV=${APP_ENV:-production}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-fossbilling}:${POSTGRES_PASSWORD:-fossbilling}@postgres:5432/${POSTGRES_DB:-fossbilling}?sslmode=disable
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=production-ready-super-secret-jwt-key-32-chars
+      - JWT_SECRET=${JWT_SECRET:-production-ready-super-secret-jwt-key}
+      - COMPANY_NAME=${COMPANY_NAME:-FOSSBilling}
     depends_on:
       postgres:
         condition: service_healthy

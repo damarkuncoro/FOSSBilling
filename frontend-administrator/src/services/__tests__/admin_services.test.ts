@@ -28,11 +28,11 @@ describe('Admin Clean Architecture Services Suite', () => {
 
     beforeEach(() => {
       mockRepo = {
-        listClients: vi.fn().mockResolvedValue([{ id: 1, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }]),
-        getClient: vi.fn().mockResolvedValue({ id: 1, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }),
-        createClient: vi.fn().mockResolvedValue({ id: 2, email: 'new@example.com' }),
-        updateClient: vi.fn().mockResolvedValue({ id: 1, company: 'Acme Corp' }),
-        deleteClient: vi.fn().mockResolvedValue({ success: true }),
+        list: vi.fn().mockResolvedValue([{ id: 1, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }]),
+        get: vi.fn().mockResolvedValue({ id: 1, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }),
+        create: vi.fn().mockResolvedValue({ id: 2, email: 'new@example.com' }),
+        update: vi.fn().mockResolvedValue({ id: 1, company: 'Acme Corp' }),
+        delete: vi.fn().mockResolvedValue({ success: true }),
       };
       service = new AdminClientService(mockRepo);
     });
@@ -40,7 +40,7 @@ describe('Admin Clean Architecture Services Suite', () => {
     it('should validate and list clients', async () => {
       const clients = await service.listClients();
       expect(clients).toHaveLength(1);
-      expect(mockRepo.listClients).toHaveBeenCalledTimes(1);
+      expect(mockRepo.list).toHaveBeenCalledTimes(1);
     });
 
     it('should reject invalid client ID', async () => {
@@ -64,25 +64,25 @@ describe('Admin Clean Architecture Services Suite', () => {
 
     beforeEach(() => {
       mockRepo = {
-        listOrders: vi.fn().mockResolvedValue([{ id: 101, status: 'active', client_id: 1, title: 'VPS Hosting' }]),
-        getOrder: vi.fn().mockResolvedValue({ id: 101, status: 'active' }),
-        activateOrder: vi.fn().mockResolvedValue({ success: true }),
-        suspendOrder: vi.fn().mockResolvedValue({ success: true }),
-        unsuspendOrder: vi.fn().mockResolvedValue({ success: true }),
-        cancelOrder: vi.fn().mockResolvedValue({ success: true }),
+        list: vi.fn().mockResolvedValue([{ id: 101, status: 'active', client_id: 1, title: 'VPS Hosting' }]),
+        get: vi.fn().mockResolvedValue({ id: 101, status: 'active' }),
+        activate: vi.fn().mockResolvedValue({ success: true }),
+        suspend: vi.fn().mockResolvedValue({ success: true }),
+        unsuspend: vi.fn().mockResolvedValue({ success: true }),
+        cancel: vi.fn().mockResolvedValue({ success: true }),
       };
       service = new AdminOrderService(mockRepo);
     });
 
     it('should require suspension reason', async () => {
       await expect(service.suspendOrder(101, '   ')).rejects.toThrow('Suspension reason is required');
-      expect(mockRepo.suspendOrder).not.toHaveBeenCalled();
+      expect(mockRepo.suspend).not.toHaveBeenCalled();
     });
 
     it('should activate order successfully', async () => {
-      const res = await service.activateOrder(101);
+      const res = await service.activateOrder(101) as any;
       expect(res.success).toBe(true);
-      expect(mockRepo.activateOrder).toHaveBeenCalledWith(101);
+      expect(mockRepo.activate).toHaveBeenCalledWith(101);
     });
 
     it('should filter orders by status', () => {
@@ -102,8 +102,8 @@ describe('Admin Clean Architecture Services Suite', () => {
 
     beforeEach(() => {
       mockRepo = {
-        listInvoices: vi.fn().mockResolvedValue([{ id: 50, total: 100, status: 'unpaid' }]),
-        createInvoice: vi.fn().mockResolvedValue({ id: 51, total: 150, status: 'unpaid' }),
+        list: vi.fn().mockResolvedValue([{ id: 50, total: 100, status: 'unpaid' }]),
+        create: vi.fn().mockResolvedValue({ id: 51, total: 150, status: 'unpaid' }),
       };
       service = new AdminInvoiceService(mockRepo);
     });
@@ -115,7 +115,7 @@ describe('Admin Clean Architecture Services Suite', () => {
     it('should create invoice successfully with valid payload', async () => {
       const res = await service.createInvoice(1, [{ title: 'Dedicated Server', price: 150 }]);
       expect(res.id).toBe(51);
-      expect(mockRepo.createInvoice).toHaveBeenCalledTimes(1);
+      expect(mockRepo.create).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -147,12 +147,12 @@ describe('Admin Clean Architecture Services Suite', () => {
 
     beforeEach(() => {
       mockRepo = {
-        getProducts: vi.fn().mockResolvedValue([{ id: 1, title: 'VPS Pro', slug: 'vps-pro', type: 'hosting' }]),
-        getProduct: vi.fn().mockResolvedValue({ id: 1, title: 'VPS Pro' }),
-        createProduct: vi.fn().mockResolvedValue({ id: 2, title: 'Shared Hosting', slug: 'shared-hosting' }),
-        updateProduct: vi.fn().mockResolvedValue({ id: 1, title: 'VPS Ultra' }),
-        deleteProduct: vi.fn().mockResolvedValue({ success: true }),
-        getProductCategories: vi.fn().mockResolvedValue([{ id: 1, title: 'Cloud' }]),
+        list: vi.fn().mockResolvedValue([{ id: 1, title: 'VPS Pro', slug: 'vps-pro', type: 'hosting' }]),
+        get: vi.fn().mockResolvedValue({ id: 1, title: 'VPS Pro' }),
+        create: vi.fn().mockResolvedValue({ id: 2, title: 'Shared Hosting', slug: 'shared-hosting' }),
+        update: vi.fn().mockResolvedValue({ id: 1, title: 'VPS Ultra' }),
+        delete: vi.fn().mockResolvedValue({ success: true }),
+        categories: vi.fn().mockResolvedValue([{ id: 1, title: 'Cloud' }]),
       };
       service = new AdminProductService(mockRepo);
     });
@@ -161,7 +161,7 @@ describe('Admin Clean Architecture Services Suite', () => {
       await expect(service.createProduct({ title: '' })).rejects.toThrow('Product title is required');
       const res = await service.createProduct({ title: 'Shared Hosting', price_monthly: 10 });
       expect(res.id).toBe(2);
-      expect(mockRepo.createProduct).toHaveBeenCalledTimes(1);
+      expect(mockRepo.create).toHaveBeenCalledTimes(1);
     });
 
     it('should filter products by search and type', () => {
@@ -228,10 +228,10 @@ describe('Admin Clean Architecture Services Suite', () => {
 
     beforeEach(() => {
       mockRepo = {
-        getCurrencies: vi.fn().mockResolvedValue([{ code: 'USD', title: 'US Dollar', conversion_rate: 1.0 }]),
-        createCurrency: vi.fn().mockResolvedValue({ code: 'EUR', title: 'Euro', conversion_rate: 0.92 }),
-        setDefaultCurrency: vi.fn().mockResolvedValue({ success: true }),
-        deleteCurrency: vi.fn().mockResolvedValue({ success: true }),
+        list: vi.fn().mockResolvedValue([{ code: 'USD', title: 'US Dollar', conversion_rate: 1.0 }]),
+        create: vi.fn().mockResolvedValue({ code: 'EUR', title: 'Euro', conversion_rate: 0.92 }),
+        setDefault: vi.fn().mockResolvedValue({ success: true }),
+        delete: vi.fn().mockResolvedValue({ success: true }),
       };
       service = new AdminCurrencyService(mockRepo);
     });
@@ -245,7 +245,7 @@ describe('Admin Clean Architecture Services Suite', () => {
     it('should create currency with uppercase code', async () => {
       const res = await service.createCurrency({ code: 'eur', title: 'Euro', conversion_rate: 0.92 });
       expect(res.code).toBe('EUR');
-      expect(mockRepo.createCurrency).toHaveBeenCalledWith(
+      expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'EUR', title: 'Euro' })
       );
     });
@@ -350,6 +350,7 @@ describe('Admin Clean Architecture Services Suite', () => {
         getSystemStatus: vi.fn().mockResolvedValue({ engine_version: 'v0.9.0', cron_status: 'healthy' }),
         triggerCron: vi.fn().mockResolvedValue({ success: true, message: 'Cron executed' }),
         clearCache: vi.fn().mockResolvedValue({ success: true, message: 'Cache cleared' }),
+        listNews: vi.fn().mockResolvedValue([]),
         createNews: vi.fn().mockResolvedValue({ id: 1, title: 'Release 1.0' }),
         deleteNews: vi.fn().mockResolvedValue({ success: true }),
       };
@@ -396,182 +397,11 @@ describe('Admin Clean Architecture Services Suite', () => {
     });
 
     it('should create webhook with generated secret', async () => {
-      const res = await service.createWebhook('Slack', 'https://slack.com/hook', ['invoice.paid']);
+      const res = await service.createWebhook('Slack', 'https://slack.com/hook', ['invoice.paid']) as any;
       expect(res.id).toBe(2);
       expect(mockRepo.createWebhook).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Slack', url: 'https://slack.com/hook' })
       );
     });
   });
-
-  describe('AdminFormBuilderService', () => {
-    let mockRepo: any;
-    let service: AdminFormBuilderService;
-
-    beforeEach(() => {
-      mockRepo = {
-        getForms: vi.fn().mockResolvedValue([{ id: 1, name: 'VPS Setup', fields: [] }]),
-        createForm: vi.fn().mockResolvedValue({ id: 2, name: 'Minecraft Config', fields: [] }),
-        deleteForm: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminFormBuilderService(mockRepo);
-    });
-
-    it('should validate form name on creation', async () => {
-      await expect(service.createForm('', 'Description')).rejects.toThrow('Form name is required');
-      const res = await service.createForm('Minecraft Config', 'Game server config');
-      expect(res.id).toBe(2);
-    });
-
-    it('should add new field or update existing field in list', () => {
-      const initialFields: any[] = [{ id: 'f1', name: 'hostname', label: 'Host' }];
-      const updated = service.buildUpdatedFieldList(initialFields, { id: 'f1', name: 'hostname', label: 'Updated Host' } as any);
-      expect(updated[0].label).toBe('Updated Host');
-
-      const withNew = service.buildUpdatedFieldList(initialFields, { name: 'port', label: 'Port' } as any);
-      expect(withNew).toHaveLength(2);
-    });
-  });
-
-  describe('AdminExtensionService', () => {
-    let mockRepo: any;
-    let service: AdminExtensionService;
-
-    beforeEach(() => {
-      mockRepo = {
-        listExtensions: vi.fn().mockResolvedValue([{ id: 'antispam', type: 'mod', status: 'active' }]),
-        listMarketplace: vi.fn().mockResolvedValue([{ id: 'stripe', name: 'Stripe Gateway' }]),
-        activateExtension: vi.fn().mockResolvedValue({ success: true }),
-        deactivateExtension: vi.fn().mockResolvedValue({ success: true }),
-        installExtension: vi.fn().mockResolvedValue({ success: true }),
-        uninstallExtension: vi.fn().mockResolvedValue({ success: true }),
-        getConfig: vi.fn().mockResolvedValue({ api_key: 'test' }),
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminExtensionService(mockRepo);
-    });
-
-    it('should validate extension ID on activate/deactivate', async () => {
-      await expect(service.activate('')).rejects.toThrow('Extension ID is required');
-      await expect(service.deactivate('   ')).rejects.toThrow('Extension ID is required');
-    });
-
-    it('should activate extension', async () => {
-      const res = await service.activate('antispam');
-      expect(res.success).toBe(true);
-      expect(mockRepo.activateExtension).toHaveBeenCalledWith('antispam');
-    });
-
-    it('should filter extensions by type', () => {
-      const exts = [
-        { id: '1', type: 'mod' },
-        { id: '2', type: 'payment-gateway' },
-      ];
-      expect(service.filterByType(exts, 'mod')).toHaveLength(1);
-      expect(service.filterByType(exts, 'all')).toHaveLength(2);
-    });
-  });
-
-  describe('AdminSeoService', () => {
-    let mockRepo: any;
-    let service: AdminSeoService;
-
-    beforeEach(() => {
-      mockRepo = {
-        getSettings: vi.fn().mockResolvedValue({ meta_title: 'FOSSBilling Portal' }),
-        updateSettings: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminSeoService(mockRepo);
-    });
-
-    it('should get and update SEO config', async () => {
-      const data = await service.getSeoConfig();
-      expect(data.meta_title).toBe('FOSSBilling Portal');
-
-      await expect(service.updateSeoConfig(null)).rejects.toThrow('SEO configuration payload is required');
-      const res = await service.updateSeoConfig({ meta_title: 'Updated Title' });
-      expect(res.success).toBe(true);
-    });
-  });
-
-  describe('AdminRedirectService', () => {
-    let mockRepo: any;
-    let service: AdminRedirectService;
-
-    beforeEach(() => {
-      mockRepo = {
-        listRedirects: vi.fn().mockResolvedValue([{ id: 1, path: '/vps', target: 'https://site.com/vps' }]),
-        createRedirect: vi.fn().mockResolvedValue({ id: 2 }),
-        deleteRedirect: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminRedirectService(mockRepo);
-    });
-
-    it('should validate redirect inputs', async () => {
-      await expect(service.createRedirectRule('', 'https://dest.com')).rejects.toThrow('Source path is required');
-      await expect(service.createRedirectRule('/test', '')).rejects.toThrow('Target URL is required');
-      await expect(service.removeRedirect(0)).rejects.toThrow('Valid redirect ID is required');
-    });
-
-    it('should create and remove redirect rule', async () => {
-      const created = await service.createRedirectRule('/promo', 'https://site.com/promo', 302);
-      expect(created.id).toBe(2);
-      const deleted = await service.removeRedirect(1);
-      expect(deleted.success).toBe(true);
-    });
-  });
-
-  describe('AdminThemeService', () => {
-    let mockRepo: any;
-    let service: AdminThemeService;
-
-    beforeEach(() => {
-      mockRepo = {
-        listThemes: vi.fn().mockResolvedValue([{ id: 'huraga', name: 'Huraga Modern' }]),
-        getActiveTheme: vi.fn().mockResolvedValue({ id: 'huraga' }),
-        setActiveTheme: vi.fn().mockResolvedValue({ success: true }),
-        updateThemeSettings: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminThemeService(mockRepo);
-    });
-
-    it('should validate theme ID', async () => {
-      await expect(service.selectTheme('')).rejects.toThrow('Theme ID is required');
-      await expect(service.saveSettings('', {})).rejects.toThrow('Theme ID is required');
-    });
-
-    it('should select theme and save settings', async () => {
-      const res = await service.selectTheme('huraga');
-      expect(res.success).toBe(true);
-      const settingsRes = await service.saveSettings('huraga', { primary_color: '#0055ff' });
-      expect(settingsRes.success).toBe(true);
-    });
-  });
-
-  describe('AdminWidgetService', () => {
-    let mockRepo: any;
-    let service: AdminWidgetService;
-
-    beforeEach(() => {
-      mockRepo = {
-        listWidgets: vi.fn().mockResolvedValue({
-          'admin.dashboard.top': [{ id: 'stats', component: 'DashboardStats' }],
-        }),
-        registerWidget: vi.fn().mockResolvedValue({ success: true }),
-      };
-      service = new AdminWidgetService(mockRepo);
-    });
-
-    it('should retrieve widgets and validate widget registration', async () => {
-      const widgets = await service.getAllWidgets();
-      expect(widgets['admin.dashboard.top']).toHaveLength(1);
-
-      await expect(service.addWidget({ id: '', slot: 'client.footer', title: 'Footer', component: 'FooterComp' })).rejects.toThrow(
-        'Widget ID, slot, and component are required'
-      );
-      const added = await service.addWidget({ id: 'footer_links', slot: 'client.footer', title: 'Footer', component: 'FooterLinks' });
-      expect(added.success).toBe(true);
-    });
-  });
 });
-

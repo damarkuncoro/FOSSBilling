@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, TrendingUp, Users, Package, ArrowUpRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +11,7 @@ interface DashboardKpiGridProps {
 }
 
 export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loading }) => {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -35,7 +37,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
       <Card className="border-border/60 shadow-sm relative overflow-hidden bg-gradient-to-br from-card to-muted/20">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Total Revenue
+            {t('total_revenue')}
           </CardTitle>
           <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
             <DollarSign className="h-4 w-4" />
@@ -58,7 +60,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
       <Card className="border-border/60 shadow-sm relative overflow-hidden bg-gradient-to-br from-card to-muted/20">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Monthly Recurring (MRR)
+            {t('mrr')}
           </CardTitle>
           <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
             <TrendingUp className="h-4 w-4" />
@@ -81,7 +83,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
       <Card className="border-border/60 shadow-sm relative overflow-hidden bg-gradient-to-br from-card to-muted/20">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Total Clients
+            {t('total_clients')}
           </CardTitle>
           <div className="h-8 w-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
             <Users className="h-4 w-4" />
@@ -99,7 +101,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
       <Card className="border-border/60 shadow-sm relative overflow-hidden bg-gradient-to-br from-card to-muted/20">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Active Services
+            {t('active_services')}
           </CardTitle>
           <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
             <Package className="h-4 w-4" />

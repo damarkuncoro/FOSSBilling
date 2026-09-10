@@ -19,12 +19,15 @@ func setupCronService() (*scheduler.CronService, *memory.MockOrderRepository, *m
 	productRepo := memory.NewMockProductRepository()
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
+	supportRepo := memory.NewMockSupportRepository()
+	massMailRepo := memory.NewMockMassMailRepository()
+	companyRepo := memory.NewMockCompanyRepository()
 
 	taxCalc := billing.NewTaxCalculator(nil)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, plugins.NewHookManager())
+	invService := billing.NewInvoiceService(invRepo, clientRepo, companyRepo, taxCalc, plugins.NewHookManager())
 	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil)
 
-	cronService := scheduler.NewCronService(orderRepo, orderService, invService)
+	cronService := scheduler.NewCronService(orderRepo, orderService, invService, nil, supportRepo, massMailRepo, clientRepo, nil, "")
 	return cronService, orderRepo, invRepo, clientRepo
 }
 

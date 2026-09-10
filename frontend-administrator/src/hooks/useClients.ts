@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminClientService } from '@/services/admin_client.service';
 import type { ClientProfile } from '@/types/api';
 
@@ -14,79 +15,39 @@ export interface CreateClientInput {
 }
 
 export function useClients() {
-  const [clients, setClients] = useState<ClientProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
-  const fetchClients = async () => {
-    setLoading(true);
-    try {
-      const data = await adminClientService.listClients();
-      setClients(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: clients = [], isLoading: loading, refetch: fetchClients } = useQuery({
+    queryKey: ['admin', 'clients'],
+    queryFn: () => adminClientService.listClients(),
+  });
 
-  const createClient = async (input: CreateClientInput): Promise<boolean> => {
-    setSaving(true);
-    try {
-      const newClient = await adminClientService.createClient(input as any);
-      setClients((prev) => [newClient, ...prev]);
-      return true;
-    } catch (err) {
-      console.error('Failed to create client:', err);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  const createMutation = useMutation({
+    mutationFn: (input: CreateClientInput) => adminClientService.createClient(input as any),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'clients'] }),
+  });
 
-  const updateClient = async (id: number, input: Partial<CreateClientInput>): Promise<boolean> => {
-    setSaving(true);
-    try {
-      const updated = await adminClientService.updateClient(id, input as any);
-      setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
-      return true;
-    } catch (err) {
-      console.error('Failed to update client:', err);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  const updateMutation = useMutation({
+    mutationFn: ({ id, input }: { id: number; input: Partial<CreateClientInput> }) =>
+      adminClientService.updateClient(id, input as any),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'clients'] }),
+  });
 
-  const deleteClient = async (id: number): Promise<boolean> => {
-    setSaving(true);
-    try {
-      await adminClientService.deleteClient(id);
-      setClients((prev) => prev.filter((c) => c.id !== id));
-      return true;
-    } catch (err) {
-      console.error('Failed to delete client:', err);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminClientService.deleteClient(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'clients'] }),
+  });
 
   const impersonateClient = async (id: number) => {
     try {
       const token = await adminClientService.impersonateClient(id);
-      // Open client portal with token in query string
-      window.open(`http://localhost:3001/login?token=${token}`, '_blank');
+      window.open(`/login?token=${token}`, '_blank');
     } catch (err) {
       console.error('Impersonation failed:', err);
-      alert('Could not impersonate client. Check permissions.');
+      alert('Could not impersonate client.');
     }
   };
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
 
   const filtered = useMemo(() => {
     return adminClientService.filterClients(clients, search);
@@ -95,14 +56,28 @@ export function useClients() {
   return {
     clients,
     loading,
-    saving,
+    saving: createMutation.isPending || updateMutation.isPending || deleteMutation.isPending,
     search,
     setSearch,
     filtered,
     fetchClients,
-    createClient,
-    updateClient,
-    deleteClient,
+    createClient: async (input: CreateClientInput) => {
+      try {
+        await createMutation.mutateAsync(input as any);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    updateClient: async (id: number, input: Partial<CreateClientInput>) => {
+      try {
+        await updateMutation.mutateAsync({ id, input: input as any });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    deleteClient: deleteMutation.mutateAsync,
     impersonateClient,
   };
 }

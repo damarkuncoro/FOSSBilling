@@ -14,7 +14,7 @@ import (
 
 func setupAuthUsecase() (*auth.AuthUsecase, *memory.MockClientRepository) {
 	repo := memory.NewMockClientRepository()
-	uc := auth.NewAuthUsecase(repo, nil, "test-jwt-secret-key-32-bytes-long")
+	uc := auth.NewAuthUsecase(repo, nil, "test-jwt-secret-key-32-bytes-long", "FOSSBilling", nil)
 	return uc, repo
 }
 
@@ -55,8 +55,8 @@ func TestAuthUsecase_Register(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error on duplicate email registration, got nil")
 	}
-	if !errors.Is(err, appErrors.ErrDuplicateEntry) {
-		t.Errorf("Expected ErrDuplicateEntry, got %v", err)
+	if !errors.Is(err, appErrors.ErrDuplicate) {
+		t.Errorf("Expected ErrDuplicate, got %v", err)
 	}
 
 	// 3. Validation Failure (invalid email, short password)
@@ -142,7 +142,7 @@ func TestAuthUsecase_Profile(t *testing.T) {
 
 	regRes, _, err := uc.Register(ctx, auth.RegisterDTO{
 		Email:     "profile.test@example.com",
-		Password:  "password123",
+		Password:  "StrongPass123!",
 		FirstName: "Alice",
 		LastName:  "Wonder",
 	}, "127.0.0.1")

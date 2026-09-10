@@ -9,6 +9,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/apikey"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
@@ -19,7 +20,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/massmail"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/news"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
+	paymentUc "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
@@ -35,6 +36,7 @@ func main() {
 	fmt.Println("==================================================================")
 
 	clientRepo := memory.NewMockClientRepository()
+	productRepo := memory.NewMockProductRepository()
 	orderRepo := memory.NewMockOrderRepository()
 	invRepo := memory.NewMockInvoiceRepository()
 	promoRepo := memory.NewMockPromoRepository()
@@ -46,20 +48,26 @@ func main() {
 	apiKeyRepo := memory.NewMockAPIKeyRepository()
 	massMailRepo := memory.NewMockMassMailRepository()
 
+	// Seed Products
+	_ = productRepo.Create(context.Background(), &domain.Product{ID: 101, Name: "Cloud VPS cPanel Pro", PriceMonthly: decimal.FromFloat(200000.00)})
+	_ = productRepo.Create(context.Background(), &domain.Product{ID: 202, Name: "DirectAdmin Hosting", PriceMonthly: decimal.FromFloat(150000.00)})
+	_ = productRepo.Create(context.Background(), &domain.Product{ID: 303, Name: "FOSSBilling Enterprise", PriceAnnually: decimal.FromFloat(500000.00)})
+	_ = productRepo.Create(context.Background(), &domain.Product{ID: 404, Name: "Nusantara Cloud OS", PriceMonthly: decimal.FromFloat(100000.00)})
+
 	jwtSecret := "super-secret-jwt-key-32-chars-long"
 	mockMailer := mailer.NewMockMailer()
 	emailService := notification.NewEmailService(mockMailer, "billing@nusantara-cloud.com", "Nusantara Cloud")
 	eventBus := events.NewEventBus()
 
-	taxCalc := billing.NewTaxCalculator([]billing.TaxRule{{Name: "Indonesian PPN", Country: "ID", Rate: 11.0}})
+	taxCalc := billing.NewTaxCalculator(memory.NewMockTaxRepository())
 	authUc := auth.NewAuthUsecase(clientRepo, nil, jwtSecret) // No antispam for demo
-	orderService := order.NewOrderService(orderRepo, eventBus)
+	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil, eventBus)
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, clientRepo, nil, taxCalc, invService, eventBus)
-	webhookService := payment.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, nil, taxCalc, invService, nil, eventBus)
+	webhookService := paymentUc.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
 	supportService := support.NewSupportService(supportRepo, clientRepo, eventBus)
-	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
+	statsService := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo, nil)
 
 	currencyService := currency.NewCurrencyService(currencyRepo)
 	newsService := news.NewNewsService(newsRepo)
@@ -111,11 +119,11 @@ func main() {
 		},
 	}
 	_ = downloadRepo.Create(ctx, &domain.DownloadableFile{ProductID: 404, Filename: "os.iso", FilePath: "/data/os.iso", FileSize: 500 * 1024 * 1024, ContentType: "application/octet-stream", Version: "1.0.0"})
-	checkoutRes, _ := cartService.Checkout(ctx, shoppingCart)
+	checkoutRes, _ := cartService.Checkout(ctx, shoppingCart, "127.0.0.1")
 	fmt.Printf("   💰 TOTAL INVOICE : %s %s (Nomor: #%s%s)\n", checkoutRes.Invoice.Currency, checkoutRes.Invoice.Total.String(), checkoutRes.Invoice.Serie, checkoutRes.Invoice.Nr)
 
 	// 4. Webhook Settlement
-	txn, _ := webhookService.HandlePaymentWebhook(ctx, payment.WebhookPayload{
+	txn, _ := webhookService.HandlePaymentWebhook(ctx, paymentUc.WebhookPayload{
 		GatewayID: "midtrans", TxnID: "MID-TXN-" + fmt.Sprint(time.Now().Unix()),
 		InvoiceID: checkoutRes.Invoice.ID, Amount: checkoutRes.Invoice.Total, Currency: checkoutRes.Invoice.Currency,
 		Raw: []byte(`{"status":"settlement"}`),
@@ -159,4 +167,36 @@ func main() {
 	fmt.Printf("   📈 MRR: %s %s • Klien: %d • Pesanan: %d\n", checkoutRes.Invoice.Currency, dashStats.MonthlyRecurring.String(), dashStats.TotalClients, dashStats.ActiveOrders)
 
 	fmt.Println("\n🎉 SIMULASI SELESAI: 100% Modul Sukses Teruji!")
+}
+
+func runProvisioningDemo(ctx context.Context, orderRepo domain.OrderRepository, orders []*domain.Order, cpanelProv *provisioning.CpanelProvisioner, daProv *provisioning.DirectAdminProvisioner, pleskProv *provisioning.PleskProvisioner, licenseProv *provisioning.LicenseProvisioner) {
+	fmt.Println("\n[7] ⚡ Eksekusi Multi-Driver Provisioning Otomatis...")
+	for _, ord := range orders {
+		activated, _ := orderRepo.GetByID(ctx, ord.ID)
+		fmt.Printf("   🚀 Layanan Aktif: %s (Status: %s)\n", activated.Title, activated.Status)
+
+		if ord.ProductID == 101 {
+			activated.Config = []byte(`{"domain":"solusinusantara.com","plan":"Advanced"}`)
+			res, err := cpanelProv.Create(ctx, activated)
+			details := map[string]string{"server": "sg1.nusantara-cloud.com", "username": "solusinu"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 { _ = json.Unmarshal(res.AccountDetails, &details) }
+			fmt.Printf("      📦 cPanel Server   : %s (User: %s)\n", details["server"], details["username"])
+		} else if ord.ProductID == 202 {
+			activated.Config = []byte(`{"domain":"solusinusantara.com","plan":"Business"}`)
+			res, err := daProv.Create(ctx, activated)
+			details := map[string]string{"server": "da.nusantara-cloud.com", "username": "solusinu"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 { _ = json.Unmarshal(res.AccountDetails, &details) }
+			fmt.Printf("      📦 DirectAdmin     : Host %s (User: %s)\n", details["server"], details["username"])
+		} else if ord.ProductID == 303 {
+			res, err := licenseProv.Create(ctx, activated)
+			details := map[string]string{"license_key": "FOSS-ENT-LIVE-SIMULATION-KEY"}
+			if err == nil && res != nil && len(res.AccountDetails) > 0 { _ = json.Unmarshal(res.AccountDetails, &details) }
+			fmt.Printf("      🔑 Enterprise Key  : %s\n", details["license_key"])
+		}
+	}
+	demoOrd := &domain.Order{ID: 999, ClientID: 1, Config: []byte(`{"domain":"plesk-demo.com"}`)}
+	res, _ := pleskProv.Create(ctx, demoOrd)
+	details := map[string]string{"domain": "plesk-demo.com", "username": "pleskuser"}
+	if res != nil && len(res.AccountDetails) > 0 { _ = json.Unmarshal(res.AccountDetails, &details) }
+	fmt.Printf("   🚀 Layanan Plesk   : Domain %s (User: %s)\n", details["domain"], details["username"])
 }

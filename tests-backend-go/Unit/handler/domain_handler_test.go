@@ -63,6 +63,9 @@ func (m *mockOrderRepoForDomain) Update(ctx context.Context, order *domain.Order
 func (m *mockOrderRepoForDomain) UpdateStatus(ctx context.Context, id int64, status domain.OrderStatus, reason *string) error {
 	return nil
 }
+func (m *mockOrderRepoForDomain) ListPendingProvisioning(ctx context.Context) ([]*domain.Order, error) {
+	return nil, nil
+}
 
 func TestGuestDomainHandler_CheckAvailability(t *testing.T) {
 	regRegistry := provisioning.NewRegistrarRegistry()

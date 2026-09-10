@@ -1,104 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCart } from '@/lib/cart';
 import { useClientAuth } from '@/lib/auth';
 
 export function useClientCartPage() {
-  const {
-    items,
-    removeItem,
-    clearCart,
-    updateItemConfig,
-    promoCode,
-    applyPromo,
-    subtotal,
-    discount,
-    tax,
-    total,
-  } = useCart();
+  const { items, removeItem, clearCart, updateItemConfig, promoCode, applyPromo, subtotal, discount, tax, total } = useCart();
   const { user, isAuthenticated } = useClientAuth();
   const navigate = useNavigate();
-
   const [couponInput, setCouponInput] = useState(promoCode);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  const handleApplyCoupon = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCouponError(null);
-    setCouponSuccess(null);
-    if (!couponInput.trim()) return;
-
-    try {
-      await applyPromo(couponInput.trim().toUpperCase());
-      setCouponSuccess(`Coupon "${couponInput.toUpperCase()}" applied successfully!`);
-    } catch (err: any) {
-      setCouponError(err.message || 'Invalid coupon code');
-    }
-  };
-
-  const handleCheckout = async (gatewayID: string = 'midtrans') => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    setCheckoutLoading(true);
-    try {
-      const res = await api.checkoutCart({
-        client_id: user?.id || 1,
-        items: items.map((i) => ({
-          product_id: i.product_id,
-          title: i.title,
-          period: i.period,
-          price: i.price,
-          quantity: 1,
-          config: i.config || (i.domain_name ? { domain_name: i.domain_name } : undefined),
-        })),
-        promo_code: promoCode || undefined,
-      });
-
+  const checkoutMutation = useMutation({
+    mutationFn: (gid: string) => api.checkoutCart({ client_id: user?.id || 1, items: items.map(i => ({ product_id: i.product_id, title: i.title, period: i.period, price: i.price, quantity: 1, config: i.config || (i.domain_name ? { domain_name: i.domain_name } : undefined) })), promo_code: promoCode || undefined }),
+    onSuccess: async (res, gid) => {
       clearCart();
-
-      // If checkout successful, initiate payment for the generated invoice
-      if (res && res.invoice) {
-        try {
-          const payRes = await api.initiateInvoicePayment(res.invoice.id, gatewayID);
-          if (payRes.redirect_url) {
-            window.location.href = payRes.redirect_url;
-            return;
-          }
-        } catch (payErr) {
-           console.error('Payment initiation failed, falling back to invoices list', payErr);
-        }
+      if (res?.invoice) {
+        try { const p = await api.initiateInvoicePayment(res.invoice.id, gid); if (p.redirect_url) { window.location.href = p.redirect_url; return; } } catch {}
       }
-
       navigate('/invoices');
-    } catch (err: any) {
-      alert(`Checkout failed: ${err.message}`);
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
+    },
+  });
 
   return {
-    items,
-    removeItem,
-    clearCart,
-    updateItemConfig,
-    promoCode,
-    subtotal,
-    discount,
-    tax,
-    total,
-    couponInput,
-    setCouponInput,
-    couponError,
-    couponSuccess,
-    checkoutLoading,
-    handleApplyCoupon,
-    handleCheckout,
+    items, removeItem, clearCart, updateItemConfig, promoCode, subtotal, discount, tax, total, couponInput, setCouponInput, couponError, couponSuccess,
+    checkoutLoading: checkoutMutation.isPending,
+    handleApplyCoupon: async (e: any) => {
+      e.preventDefault(); setCouponError(null); setCouponSuccess(null);
+      try { await applyPromo(couponInput.toUpperCase()); setCouponSuccess('Coupon applied!'); } catch (err: any) { setCouponError(err.message); }
+    },
+    handleCheckout: (gid = 'midtrans') => isAuthenticated ? checkoutMutation.mutate(gid) : navigate('/login'),
   };
 }

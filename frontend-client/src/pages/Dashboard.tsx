@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, AlertTriangle, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useClientDashboard } from '@/hooks/useClientDashboard';
 import { Button } from '@/components/ui/button';
 import { DashboardStatsGrid } from '@/components/dashboard/DashboardStatsGrid';
@@ -8,6 +9,7 @@ import { ActiveServicesList } from '@/components/dashboard/ActiveServicesList';
 import { RecentInvoicesList } from '@/components/dashboard/RecentInvoicesList';
 
 export const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const {
     user,
     balance,
@@ -24,16 +26,16 @@ export const Dashboard: React.FC = () => {
       <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Welcome back, {user?.first_name} {user?.last_name}! 👋
+            {t('welcome_back', { name: user?.first_name })}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Manage your cloud servers, track invoices, and access support tickets.
+            {t('manage_services')}
           </p>
         </div>
         <Link to="/">
           <Button className="gap-2 font-semibold shadow-md shadow-primary/20">
             <Zap className="h-4 w-4" />
-            Order New Cloud Service
+            {t('order_new')}
           </Button>
         </Link>
       </div>
@@ -45,16 +47,16 @@ export const Dashboard: React.FC = () => {
             <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
             <div>
               <p className="text-sm font-semibold">
-                You have {unpaidInvoices.length} unpaid invoice pending payment!
+                {t('unpaid_invoice_alert', { count: unpaidInvoices.length })}
               </p>
               <p className="text-xs opacity-90">
-                Please settle your invoice to avoid service interruption.
+                {t('unpaid_invoice_desc')}
               </p>
             </div>
           </div>
           <Link to="/invoices">
             <Button size="sm" variant="default" className="bg-amber-600 hover:bg-amber-700 text-white gap-1 text-xs">
-              View & Pay Now <ArrowRight className="h-3.5 w-3.5" />
+              {t('view_pay_now')} <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>

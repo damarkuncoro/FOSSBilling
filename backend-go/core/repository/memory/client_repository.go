@@ -79,7 +79,7 @@ func (r *MockClientRepository) Create(ctx context.Context, c *domain.Client) err
 
 	for _, existing := range r.clients {
 		if strings.EqualFold(existing.Email, c.Email) {
-			return appErrors.ErrDuplicateEntry
+			return appErrors.ErrDuplicate
 		}
 	}
 

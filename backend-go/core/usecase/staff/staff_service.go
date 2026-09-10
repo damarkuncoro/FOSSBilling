@@ -14,12 +14,14 @@ import (
 type StaffService struct {
 	staffRepo domain.StaffRepository
 	jwtSecret string
+	issuer    string
 }
 
-func NewStaffService(staffRepo domain.StaffRepository, jwtSecret string) *StaffService {
+func NewStaffService(staffRepo domain.StaffRepository, jwtSecret string, issuer string) *StaffService {
 	return &StaffService{
 		staffRepo: staffRepo,
 		jwtSecret: jwtSecret,
+		issuer:    issuer,
 	}
 }
 
@@ -122,7 +124,7 @@ func (s *StaffService) SetupTwoFactor(ctx context.Context, staffID int64) (strin
 	}
 
 	secret := security.GenerateTOTPSecret()
-	qrURL := security.GenerateTOTPURL(staff.Email, "FOSSBilling-Admin", secret)
+	qrURL := security.GenerateTOTPURL(staff.Email, s.issuer+"-Admin", secret)
 
 	staff.TwoFactorSecret = &secret
 	err = s.staffRepo.Update(ctx, staff) // Need Update in StaffRepository
@@ -189,4 +191,11 @@ func (s *StaffService) ListAuditLogs(ctx context.Context, limit, offset int) ([]
 		limit = 20
 	}
 	return s.staffRepo.ListAuditLogs(ctx, limit, offset)
+}
+
+func (s *StaffService) ListStaff(ctx context.Context, limit, offset int) ([]*domain.Staff, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.staffRepo.List(ctx, limit, offset)
 }

@@ -81,7 +81,7 @@ func (r *MockCurrencyRepository) Create(ctx context.Context, c *domain.Currency)
 
 	code := strings.ToUpper(c.Code)
 	if _, ok := r.currencies[code]; ok {
-		return appErrors.ErrDuplicateEntry
+		return appErrors.ErrDuplicate
 	}
 
 	c.ID = r.nextID

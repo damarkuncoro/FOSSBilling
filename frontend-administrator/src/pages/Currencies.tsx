@@ -38,7 +38,7 @@ export const Currencies: React.FC = () => {
             <Globe2 className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing...' : 'Update Rates (API)'}
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchCurrencies} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchCurrencies()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>

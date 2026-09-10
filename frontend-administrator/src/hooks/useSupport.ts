@@ -1,72 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminSupportService } from '@/services/admin_support.service';
 import type { SupportTicket } from '@/types/api';
 
 export function useSupport() {
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const queryClient = useQueryClient();
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
-  const [replyLoading, setReplyLoading] = useState(false);
 
-  const fetchTickets = async () => {
-    setLoading(true);
-    try {
-      const data = await adminSupportService.listTickets();
-      setTickets(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: tickets = [], isLoading: ticketsLoading, refetch: fetchTickets } = useQuery({
+    queryKey: ['admin', 'support', 'tickets'],
+    queryFn: () => adminSupportService.listTickets(),
+  });
 
-  useEffect(() => {
-    fetchTickets();
-  }, []);
+  const { data: selectedTicket = null, isLoading: ticketLoading } = useQuery({
+    queryKey: ['admin', 'support', 'tickets', selectedTicketId],
+    queryFn: () => (selectedTicketId ? adminSupportService.getTicketDetail(selectedTicketId) : null),
+    enabled: !!selectedTicketId,
+  });
 
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTicket || !replyText.trim()) return;
-
-    setReplyLoading(true);
-    try {
-      await adminSupportService.replyTicket(selectedTicket.id, replyText);
+  const replyMutation = useMutation({
+    mutationFn: ({ id, message }: { id: number; message: string }) => adminSupportService.replyTicket(id, message),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'support', 'tickets', selectedTicketId] });
       setReplyText('');
-      setSelectedTicket(null);
-      await fetchTickets();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setReplyLoading(false);
-    }
-  };
+    },
+  });
 
-  const handleSelectTicket = async (ticket: SupportTicket | null) => {
-    if (!ticket) {
-      setSelectedTicket(null);
-      return;
-    }
-
-    // Fetch full ticket details including replies
-    try {
-      const details = await adminSupportService.getTicketDetail(ticket.id);
-      setSelectedTicket(details);
-    } catch (err) {
-      console.error(err);
-      setSelectedTicket(ticket); // Fallback to list object
-    }
-  };
+  const closeMutation = useMutation({
+    mutationFn: (id: number) => adminSupportService.closeTicket(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'support', 'tickets'] });
+      setSelectedTicketId(null);
+    },
+  });
 
   return {
     tickets,
-    loading,
+    loading: ticketsLoading || ticketLoading,
     selectedTicket,
-    setSelectedTicket: handleSelectTicket,
+    setSelectedTicket: (t: SupportTicket | null) => setSelectedTicketId(t ? t.id : null),
     replyText,
     setReplyText,
-    replyLoading,
+    replyLoading: replyMutation.isPending,
     fetchTickets,
-    handleReply,
+    handleReply: (e: React.FormEvent) => {
+      e.preventDefault();
+      if (selectedTicketId && replyText.trim()) replyMutation.mutate({ id: selectedTicketId, message: replyText });
+    },
+    handleClose: (id: number) => closeMutation.mutate(id),
   };
 }

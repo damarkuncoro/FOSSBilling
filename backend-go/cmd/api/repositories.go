@@ -37,6 +37,7 @@ type Repositories struct {
 	Redirect          domain.RedirectRepository
 	Theme             domain.ThemeRepository
 	Tax               domain.TaxRepository
+	EmailTemplate     domain.EmailTemplateRepository
 }
 
 // InitRepositories factory that determines whether to instantiate real PostgreSQL or mock repositories

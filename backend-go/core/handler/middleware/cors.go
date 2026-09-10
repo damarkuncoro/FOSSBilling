@@ -5,43 +5,17 @@ import (
 	"strings"
 )
 
-func CORS(allowedOrigins string) func(http.Handler) http.Handler {
-	if allowedOrigins == "" {
-		allowedOrigins = "*"
-	}
-	origins := strings.Split(allowedOrigins, ",")
-
+func CORS(allowed string) func(http.Handler) http.Handler {
+	if allowed == "" { allowed = "*" }; os := strings.Split(allowed, ",")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-
-			isAllowed := false
-			if allowedOrigins == "*" {
-				isAllowed = true
-			} else {
-				for _, o := range origins {
-					if o == origin {
-						isAllowed = true
-						break
-					}
-				}
-			}
-
-			if isAllowed && origin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-			} else if allowedOrigins == "*" {
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-			}
-
+			org, ok := r.Header.Get("Origin"), false
+			if allowed == "*" { ok = true } else { for _, o := range os { if o == org { ok = true; break } } }
+			if ok && org != "" { w.Header().Set("Access-Control-Allow-Origin", org) } else if allowed == "*" { w.Header().Set("Access-Control-Allow-Origin", "*") }
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, X-CSRF-Token")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
+			if r.Method == "OPTIONS" { w.WriteHeader(200); return }
 			next.ServeHTTP(w, r)
 		})
 	}

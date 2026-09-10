@@ -1,45 +1,15 @@
-import { InvoiceRepository, invoiceRepository, IInvoiceRepository } from '../repositories/invoice.repository';
+import { invoiceRepository as repo } from '../repositories/invoice.repository';
 import { API_BASE, getStoredClientToken } from '../lib/api/client';
 import type { Invoice } from '@/types/api';
 
 export class InvoiceService {
-  constructor(private repo: IInvoiceRepository = invoiceRepository) {}
-
-  async listClientInvoices(limit = 100, offset = 0): Promise<Invoice[]> {
-    return this.repo.listInvoices(limit, offset);
-  }
-
-  async getInvoiceDetail(id: number): Promise<Invoice> {
-    if (!id || id <= 0) {
-      throw new Error('Valid invoice ID is required');
-    }
-    return this.repo.getInvoice(id);
-  }
-
-  async payWithBalance(id: number): Promise<any> {
-    return this.repo.payWithBalance(id);
-  }
-
-  async payWithGateway(id: number, gateway = 'midtrans'): Promise<{ redirect_url: string }> {
-    return this.repo.payWithGateway(id, gateway);
-  }
-
-  async depositFunds(amount: number, gateway = 'midtrans'): Promise<{ invoice_id: number; redirect_url?: string }> {
-    if (!amount || amount <= 0) {
-      throw new Error('Deposit amount must be greater than zero');
-    }
-    return this.repo.depositFunds(amount, gateway);
-  }
-
-  getPdfDownloadUrl(id: number): string {
-    const token = getStoredClientToken();
-    return `${API_BASE}/client/invoices/${id}/pdf${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-  }
-
-  filterByStatus(invoices: Invoice[], status?: string): Invoice[] {
-    if (!status || status === 'all') return invoices;
-    return invoices.filter((inv) => inv.status.toLowerCase() === status.toLowerCase());
-  }
+  listClientInvoices = (l = 100, o = 0) => repo.list(l, o);
+  getInvoiceDetail = (id: number) => repo.get(id);
+  payWithBalance = (id: number) => repo.payBalance(id);
+  payWithGateway = (id: number, g = 'midtrans') => repo.payGateway(id, g);
+  depositFunds = (a: number, g = 'midtrans') => repo.deposit(a, g);
+  getPdfDownloadUrl = (id: number) => `${API_BASE}/client/invoices/${id}/pdf?token=${getStoredClientToken()}`;
+  filterByStatus = (is: Invoice[], st?: string) => (!st || st === 'all') ? is : is.filter(i => i.status.toLowerCase() === st.toLowerCase());
 }
 
 export const invoiceService = new InvoiceService();

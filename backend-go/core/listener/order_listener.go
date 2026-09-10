@@ -3,7 +3,6 @@ package listener
 import (
 	"context"
 	"encoding/json"
-	"log"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
@@ -13,200 +12,53 @@ import (
 )
 
 type OrderListener struct {
-	emailService        *notification.EmailService
-	orderRepo           domain.OrderRepository
-	productRepo         domain.ProductRepository
-	clientRepo          domain.ClientRepository
-	orderService        *order.OrderService
-	registrarRegistry   *provisioning.RegistrarRegistry
-	provisionerRegistry *provisioning.ProvisionerRegistry
+	es *notification.EmailService; or domain.OrderRepository; pr domain.ProductRepository; cr domain.ClientRepository; os *order.OrderService; rr *provisioning.RegistrarRegistry; prr *provisioning.ProvisionerRegistry
 }
 
-func NewOrderListener(
-	emailService *notification.EmailService,
-	orderRepo domain.OrderRepository,
-	productRepo domain.ProductRepository,
-	clientRepo domain.ClientRepository,
-	orderService *order.OrderService,
-	registrarRegistry *provisioning.RegistrarRegistry,
-	provisionerRegistry *provisioning.ProvisionerRegistry,
-) *OrderListener {
-	return &OrderListener{
-		emailService:        emailService,
-		orderRepo:           orderRepo,
-		productRepo:         productRepo,
-		clientRepo:          clientRepo,
-		orderService:        orderService,
-		registrarRegistry:   registrarRegistry,
-		provisionerRegistry: provisionerRegistry,
-	}
+func NewOrderListener(es *notification.EmailService, or domain.OrderRepository, pr domain.ProductRepository, cr domain.ClientRepository, os *order.OrderService, rr *provisioning.RegistrarRegistry, prr *provisioning.ProvisionerRegistry) *OrderListener {
+	return &OrderListener{es, or, pr, cr, os, rr, prr}
 }
 
 func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event) error {
-	var orderID int64
+	var id int64
+	if p, ok := e.Payload.(domain.OrderActivatedPayload); ok { id = p.OrderID } else if p, ok := e.Payload.(*domain.OrderActivatedPayload); ok && p != nil { id = p.OrderID }
+	if id == 0 { return nil }
 
-	switch p := e.Payload.(type) {
-	case domain.OrderActivatedPayload:
-		orderID = p.OrderID
-	case *domain.OrderActivatedPayload:
-		if p != nil {
-			orderID = p.OrderID
+	o, err := l.or.GetByID(ctx, id); if err != nil { return err }
+	p, err := l.pr.GetByID(ctx, o.ProductID); if err != nil { return err }
+
+	var cfg map[string]any; _ = json.Unmarshal(o.Config, &cfg); if cfg == nil { cfg = make(map[string]any) }
+	if len(p.Config) > 0 { var pc map[string]any; if err := json.Unmarshal(p.Config, &pc); err == nil { for k, v := range pc { if _, ex := cfg[k]; !ex { cfg[k] = v } } } }
+
+	ok := true
+	if p.Type == domain.ProductTypeDomain && l.rr != nil {
+		rid, _ := cfg["registrar"].(string); if rid == "" { rid = "rdap" }
+		if reg, _ := l.rr.Get(rid); reg != nil {
+			c, _ := l.cr.GetByID(ctx, o.ClientID)
+			con := map[string]string{"first_name": c.FirstName, "last_name": c.LastName, "email": c.Email}
+			dnm, _ := cfg["domain_name"].(string)
+			if res, err := reg.RegisterDomain(ctx, provisioning.DomainRegistrationRequest{DomainName: dnm, Years: 1, ContactInfo: con}); err == nil {
+				cfg["remote_id"], cfg["status"] = res.AuthCode, "active"
+			} else { ok = false }
+		}
+	} else if p.Type == domain.ProductTypeHosting && l.prr != nil {
+		did, _ := cfg["server_type"].(string); if did == "" { did = "cpanel" }
+		if prov, _ := l.prr.Get(did); prov != nil {
+			if res, err := prov.Create(ctx, o); err == nil {
+				cfg["remote_id"], cfg["account_details"] = res.RemoteID, res.AccountDetails
+			} else { ok = false }
 		}
 	}
 
-	if orderID == 0 {
-		return nil
-	}
-
-	order, err := l.orderRepo.GetByID(ctx, orderID)
-	if err != nil || order == nil {
-		return err
-	}
-
-	product, err := l.productRepo.GetByID(ctx, order.ProductID)
-	if err != nil || product == nil {
-		return err
-	}
-
-	log.Printf("📢 [OrderListener] Processing activation for Order #%d (Product Type: %s)", order.ID, product.Type)
-
-	var cfg map[string]interface{}
-	if len(order.Config) > 0 {
-		_ = json.Unmarshal(order.Config, &cfg)
-	}
-	if cfg == nil {
-		cfg = make(map[string]interface{})
-	}
-
-	// Merge product config into temporary cfg if keys don't exist
-	if len(product.Config) > 0 {
-		var prodCfg map[string]interface{}
-		if err := json.Unmarshal(product.Config, &prodCfg); err == nil {
-			for k, v := range prodCfg {
-				if _, exists := cfg[k]; !exists {
-					cfg[k] = v
-				}
-			}
-		}
-	}
-
-	// 1. Provisioning based on Product Type
-	provisioningSuccess := true
-	switch product.Type {
-	case domain.ProductTypeDomain:
-		if l.registrarRegistry != nil {
-			domainName, _ := cfg["domain_name"].(string)
-			registrarID, _ := cfg["registrar"].(string)
-			if registrarID == "" {
-				registrarID = "rdap" // Default
-			}
-
-			if domainName != "" {
-				reg, err := l.registrarRegistry.Get(registrarID)
-				if err != nil {
-					// Fallback to email if specified driver fails
-					reg, _ = l.registrarRegistry.Get("email")
-				}
-
-				if reg != nil {
-					// Fetch client for contact info
-					var contactInfo map[string]string
-					if client, err := l.clientRepo.GetByID(ctx, order.ClientID); err == nil && client != nil {
-						contactInfo = map[string]string{
-							"first_name": client.FirstName,
-							"last_name":  client.LastName,
-							"email":      client.Email,
-							"company":    client.Company,
-							"address1":   client.Address1,
-							"address2":   client.Address2,
-							"city":       client.City,
-							"state":      client.State,
-							"postcode":   client.Postcode,
-							"country":    client.Country,
-							"phone_cc":   client.PhoneCC,
-							"phone":      client.Phone,
-						}
-					}
-
-					regRes, err := reg.RegisterDomain(ctx, provisioning.DomainRegistrationRequest{
-						DomainName:  domainName,
-						Years:       1,
-						ContactInfo: contactInfo,
-					})
-					if err == nil && regRes != nil {
-						cfg["remote_id"] = regRes.AuthCode
-						cfg["status"] = "active"
-						cfg["registrar_id"] = registrarID
-						log.Printf("🌐 [Registrar] Domain %s registered via %s", domainName, registrarID)
-					} else {
-						provisioningSuccess = false
-						log.Printf("❌ [Registrar] Registration failed for %s: %v", domainName, err)
-					}
-				}
-			}
-		}
-
-	case domain.ProductTypeHosting:
-		if l.provisionerRegistry != nil {
-			driverID, _ := cfg["server_type"].(string)
-			if driverID == "" {
-				driverID = "cpanel" // Default
-			}
-
-			prov, err := l.provisionerRegistry.Get(driverID)
-			if err == nil {
-				res, err := prov.Create(ctx, order)
-				if err == nil && res.Success {
-					cfg["remote_id"] = res.RemoteID
-					cfg["account_details"] = res.AccountDetails
-					log.Printf("🖥️ [Hosting] Account provisioned: %s via %s", res.RemoteID, driverID)
-				} else {
-					provisioningSuccess = false
-					log.Printf("❌ [Hosting] Provisioning failed for Order #%d: %v", order.ID, err)
-				}
-			} else {
-				provisioningSuccess = false
-			}
-		}
-	}
-
-	if !provisioningSuccess {
-		// Rollback status to pending_setup so it can be retried later
-		_ = l.orderRepo.UpdateStatus(ctx, order.ID, domain.OrderStatusPendingSetup, nil)
-		return nil
-	}
-
-	// Update order config with provisioning results
-	newCfg, _ := json.Marshal(cfg)
-	order.Config = newCfg
-	_ = l.orderRepo.Update(ctx, order)
-
-	// 2. Send activation confirmation email
-	if l.clientRepo != nil && l.emailService != nil {
-		client, err := l.clientRepo.GetByID(ctx, order.ClientID)
-		if err == nil && client != nil {
-			_ = l.emailService.SendServiceActivatedEmail(ctx, client, order)
-		}
-	}
-
+	if !ok { return l.or.UpdateStatus(ctx, o.ID, domain.OrderStatusPendingSetup, nil) }
+	o.Config, _ = json.Marshal(cfg); _ = l.or.Update(ctx, o)
+	c, _ := l.cr.GetByID(ctx, o.ClientID); if c != nil { _ = l.es.SendServiceActivatedEmail(ctx, c, o) }
 	return nil
 }
 
 func (l *OrderListener) HandleInvoicePaid(ctx context.Context, e events.Event) error {
-	var invID int64
-	switch p := e.Payload.(type) {
-	case domain.InvoicePaidPayload:
-		invID = p.InvoiceID
-	case *domain.InvoicePaidPayload:
-		if p != nil {
-			invID = p.InvoiceID
-		}
-	}
-
-	if invID == 0 {
-		return nil
-	}
-
-	log.Printf("📢 [OrderListener] Invoice #%d paid. Activating associated orders...", invID)
-	return l.orderService.ActivateOrdersByInvoiceID(ctx, invID)
+	var id int64
+	if p, ok := e.Payload.(domain.InvoicePaidPayload); ok { id = p.InvoiceID } else if p, ok := e.Payload.(*domain.InvoicePaidPayload); ok && p != nil { id = p.InvoiceID }
+	if id == 0 { return nil }
+	return l.os.ActivateOrdersByInvoiceID(ctx, id)
 }

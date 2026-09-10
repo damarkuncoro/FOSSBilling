@@ -12,10 +12,10 @@ import (
 )
 
 func TestHTTP_SupportAndAdminLifecycle(t *testing.T) {
-	ts, promoRepo, staffRepo := setupTestServer()
+	ts, promoRepo, staffRepo, productRepo := setupTestServer()
 	defer ts.Close()
 	ctx := context.Background()
-	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo)
+	setupTestAdminsAndPromos(ctx, promoRepo, staffRepo, productRepo)
 
 	regBody, _ := json.Marshal(map[string]interface{}{
 		"email": "supporter@example.com", "password": "Password123!",

@@ -19,7 +19,8 @@ import (
 func TestListeners_Flows(t *testing.T) {
 	ctx := context.Background()
 	mockMailer := mailer.NewMockMailer()
-	emailService := notification.NewEmailService(mockMailer, "no-reply@fossbilling.org", "FOSSBilling")
+	tplRepo := memory.NewMockEmailTemplateRepository()
+	emailService := notification.NewEmailService(mockMailer, tplRepo, "no-reply@fossbilling.org", "FOSSBilling")
 
 	clientRepo := memory.NewMockClientRepository()
 	orderRepo := memory.NewMockOrderRepository()

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { RevenueMetricsGrid } from '@/components/reports/RevenueMetricsGrid';
 import { TaxReportCard } from '@/components/reports/TaxReportCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export const Reports: React.FC = () => {
   const { report, loading, fetchReports, handleExportCsv } = useReports();
@@ -29,7 +30,7 @@ export const Reports: React.FC = () => {
             <Download className="h-4 w-4" />
             Detailed Export (CSV)
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchReports()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>

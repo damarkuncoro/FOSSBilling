@@ -1,73 +1,31 @@
-import { DomainRepository, domainRepository, IDomainRepository } from '../repositories/domain.repository';
+import { domainRepository as repo } from '../repositories/domain.repository';
 import type { DomainSearchResult } from '@/types/api';
 import type { DomainRecord } from '@/types/clientModules';
 
 export class DomainService {
-  constructor(private repo: IDomainRepository = domainRepository) {}
-
-  /**
-   * Normalizes domain name input by stripping protocol, trailing slashes,
-   * converting to lowercase, and defaulting to .com if no TLD is present.
-   */
-  normalizeDomainName(input: string): string {
-    let clean = input.toLowerCase().replace(/https?:\/\//, '').replace(/\/$/, '').trim();
-    if (clean && !clean.includes('.')) {
-      clean += '.com';
-    }
-    return clean;
+  normalizeDomainName(i: string) {
+    let c = i.toLowerCase().replace(/https?:\/\//, '').replace(/\/$/, '').trim();
+    if (c && !c.includes('.')) c += '.com';
+    return c;
   }
 
-  /**
-   * Checks real-time registry availability for a domain.
-   */
-  async checkAvailability(domainInput: string): Promise<DomainSearchResult> {
-    const clean = this.normalizeDomainName(domainInput);
-    if (!clean) {
-      throw new Error('Domain name cannot be empty');
-    }
-    return this.repo.checkAvailability(clean);
-  }
+  checkAvailability = async (i: string): Promise<DomainSearchResult> => {
+    const c = this.normalizeDomainName(i); if (!c) throw new Error('Empty');
+    return repo.checkAvailability(c);
+  };
 
-  /**
-   * Lists all domains registered by the authenticated client.
-   */
-  async listClientDomains(): Promise<DomainRecord[]> {
-    return this.repo.listDomains();
-  }
+  listClientDomains = () => repo.listDomains();
 
-  /**
-   * Updates DNS nameservers for a client domain after validating input.
-   */
-  async updateNameservers(id: number, nameservers: string[]): Promise<any> {
-    const validNS = nameservers
-      .map((ns) => ns.trim().toLowerCase())
-      .filter((ns) => ns.length > 0 && ns.includes('.'));
+  updateNameservers = (id: number, ns: string[]) => {
+    const v = ns.map(x => x.trim().toLowerCase()).filter(x => x.length > 0 && x.includes('.'));
+    if (v.length === 0) throw new Error('Invalid NS');
+    return repo.updateNameservers(id, v);
+  };
 
-    if (validNS.length === 0) {
-      throw new Error('At least one valid nameserver (e.g. ns1.example.com) is required');
-    }
-
-    return this.repo.updateNameservers(id, validNS);
-  }
-
-  /**
-   * Toggles the auto-renewal status of a domain.
-   */
-  async toggleAutoRenew(id: number): Promise<any> {
-    return this.repo.toggleAutoRenew(id);
-  }
-
-  async getDnsRecords(id: number): Promise<any[]> {
-    return this.repo.listDnsRecords(id);
-  }
-
-  async addDnsRecord(id: number, record: any): Promise<any> {
-    return this.repo.addDnsRecord(id, record);
-  }
-
-  async deleteDnsRecord(id: number, recordId: string): Promise<any> {
-    return this.repo.deleteDnsRecord(id, recordId);
-  }
+  toggleAutoRenew = (id: number) => repo.toggleAutoRenew(id);
+  getDnsRecords = (id: number) => repo.listDnsRecords(id);
+  addDnsRecord = (id: number, r: any) => repo.addDnsRecord(id, r);
+  deleteDnsRecord = (id: number, rid: string) => repo.deleteDnsRecord(id, rid);
 }
 
 export const domainService = new DomainService();

@@ -5,85 +5,57 @@ import (
 	"fmt"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type ActivityRepository struct {
-	pool *pgxpool.Pool
-}
+const actCols = `id, client_id, admin_id, type, event, message, ip_address, created_at`
 
-func NewActivityRepository(pool *pgxpool.Pool) *ActivityRepository {
-	return &ActivityRepository{pool: pool}
+type ActivityRepository struct{ pool *pgxpool.Pool }
+
+func NewActivityRepository(p *pgxpool.Pool) *ActivityRepository { return &ActivityRepository{p} }
+
+func scanAct(r pgx.Row) (*domain.Activity, error) {
+	var a domain.Activity; err := r.Scan(&a.ID, &a.ClientID, &a.AdminID, &a.Type, &a.Event, &a.Message, &a.IPAddress, &a.CreatedAt); return &a, err
 }
 
 func (r *ActivityRepository) Log(ctx context.Context, a *domain.Activity) error {
-	query := `
-		INSERT INTO activity_logs (client_id, admin_id, type, event, message, ip_address, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
-		RETURNING id, created_at
-	`
-	return r.pool.QueryRow(ctx, query, a.ClientID, a.AdminID, a.Type, a.Event, a.Message, a.IPAddress).Scan(&a.ID, &a.CreatedAt)
+	return r.pool.QueryRow(ctx, `INSERT INTO activity_logs (client_id, admin_id, type, event, message, ip_address, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING id, created_at`, a.ClientID, a.AdminID, a.Type, a.Event, a.Message, a.IPAddress).Scan(&a.ID, &a.CreatedAt)
 }
 
-func (r *ActivityRepository) List(ctx context.Context, limit, offset int) ([]*domain.Activity, int, error) {
-	var total int
-	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM activity_logs`).Scan(&total)
-
-	query := `
-		SELECT id, client_id, admin_id, type, event, message, ip_address, created_at
-		FROM activity_logs
-		ORDER BY id DESC
-		LIMIT $1 OFFSET $2
-	`
-	rows, err := r.pool.Query(ctx, query, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var logs []*domain.Activity
-	for rows.Next() {
-		a := &domain.Activity{}
-		if err := rows.Scan(&a.ID, &a.ClientID, &a.AdminID, &a.Type, &a.Event, &a.Message, &a.IPAddress, &a.CreatedAt); err != nil {
-			return nil, 0, err
-		}
-		logs = append(logs, a)
-	}
-
-	return logs, total, nil
+func (r *ActivityRepository) List(ctx context.Context, l, o int) ([]*domain.Activity, int, error) {
+	res, err := list(ctx, r.pool, "SELECT "+actCols+" FROM activity_logs ORDER BY id DESC LIMIT $1 OFFSET $2", scanAct, l, o)
+	return res, total(ctx, r.pool, "SELECT COUNT(*) FROM activity_logs"), err
 }
 
-func (r *ActivityRepository) ListByClientID(ctx context.Context, clientID int64, limit, offset int) ([]*domain.Activity, int, error) {
-	var total int
-	_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM activity_logs WHERE client_id = $1`, clientID).Scan(&total)
-
-	query := `
-		SELECT id, client_id, admin_id, type, event, message, ip_address, created_at
-		FROM activity_logs
-		WHERE client_id = $1
-		ORDER BY id DESC
-		LIMIT $2 OFFSET $3
-	`
-	rows, err := r.pool.Query(ctx, query, clientID, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	var logs []*domain.Activity
-	for rows.Next() {
-		a := &domain.Activity{}
-		if err := rows.Scan(&a.ID, &a.ClientID, &a.AdminID, &a.Type, &a.Event, &a.Message, &a.IPAddress, &a.CreatedAt); err != nil {
-			return nil, 0, err
-		}
-		logs = append(logs, a)
-	}
-
-	return logs, total, nil
+func (r *ActivityRepository) ListByClientID(ctx context.Context, cid int64, l, o int) ([]*domain.Activity, int, error) {
+	res, err := list(ctx, r.pool, "SELECT "+actCols+" FROM activity_logs WHERE client_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3", scanAct, cid, l, o)
+	return res, total(ctx, r.pool, "SELECT COUNT(*) FROM activity_logs WHERE client_id = $1", cid), err
 }
 
 func (r *ActivityRepository) DeleteOld(ctx context.Context, days int) error {
-	query := fmt.Sprintf(`DELETE FROM activity_logs WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '%d days'`, days)
-	_, err := r.pool.Exec(ctx, query)
-	return err
+	_, err := r.pool.Exec(ctx, fmt.Sprintf(`DELETE FROM activity_logs WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '%d days'`, days)); return err
+}
+
+func (r *ActivityRepository) GetTrend(ctx context.Context, days int) (map[string]int, error) {
+	q := `SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as day, COUNT(*) as count
+	      FROM activity_logs
+	      WHERE created_at > CURRENT_DATE - INTERVAL '1 day' * $1
+	      GROUP BY day ORDER BY day ASC`
+	rows, err := r.pool.Query(ctx, q, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[string]int)
+	for rows.Next() {
+		var day string
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, err
+		}
+		res[day] = count
+	}
+	return res, nil
 }

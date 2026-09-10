@@ -123,6 +123,20 @@ func (r *MockOrderRepository) ListOverdueSuspensions(ctx context.Context, overdu
 	return result, nil
 }
 
+func (r *MockOrderRepository) ListPendingProvisioning(ctx context.Context) ([]*domain.Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var matched []*domain.Order
+	for _, o := range r.orders {
+		if o.Status == domain.OrderStatusPendingSetup && o.InvoiceID != nil {
+			cp := *o
+			matched = append(matched, &cp)
+		}
+	}
+	return matched, nil
+}
+
 func (r *MockOrderRepository) Create(ctx context.Context, o *domain.Order) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

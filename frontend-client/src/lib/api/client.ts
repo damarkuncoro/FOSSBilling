@@ -29,7 +29,10 @@ export function removeStoredClientToken() {
   localStorage.removeItem('fossbilling_client_user');
 }
 
-export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+/**
+ * requestFull returns the entire ApiResponse object
+ */
+export async function requestFull<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const token = getStoredClientToken();
   const headers = new Headers(options.headers || {});
 
@@ -44,12 +47,8 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const response = await fetch(url, { ...options, headers });
 
-    // Handle 401 Unauthorized globally
     if (response.status === 401 && !endpoint.includes('/auth/login')) {
       removeStoredClientToken();
       if (!window.location.pathname.includes('/login')) {
@@ -63,15 +62,25 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
     });
 
     if (!response.ok || !json.success) {
-      const errorMsg = json.error?.message || `Request failed with status ${response.status}`;
-      const errorCode = json.error?.code || 'UNKNOWN_ERROR';
-
-      throw new ApiError(errorMsg, errorCode, json.error?.details, response.status);
+      throw new ApiError(
+        json.error?.message || `Status ${response.status}`,
+        json.error?.code || 'UNKNOWN_ERROR',
+        json.error?.details,
+        response.status
+      );
     }
 
-    return json.data;
+    return json;
   } catch (err: any) {
     if (err instanceof ApiError) throw err;
     throw new ApiError(err.message || 'Network error', 'NETWORK_ERROR');
   }
+}
+
+/**
+ * request returns only the .data portion of the response (default behavior)
+ */
+export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const res = await requestFull<T>(endpoint, options);
+  return res.data;
 }

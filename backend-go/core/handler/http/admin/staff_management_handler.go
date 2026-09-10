@@ -1,256 +1,86 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
-	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type StaffManagementHandler struct {
-	staffService   *staff.StaffService
-	clientRepo     domain.ClientRepository
-	orderRepo      domain.OrderRepository
-	orderService   *order.OrderService
-	supportService *support.SupportService
+	staffService *staff.StaffService; clientRepo domain.ClientRepository; orderRepo domain.OrderRepository; orderService *order.OrderService; supportService *support.SupportService
 }
 
-func NewStaffManagementHandler(
-	staffService *staff.StaffService,
-	clientRepo domain.ClientRepository,
-	orderRepo domain.OrderRepository,
-	orderService *order.OrderService,
-	supportService *support.SupportService,
-) *StaffManagementHandler {
-	return &StaffManagementHandler{
-		staffService:   staffService,
-		clientRepo:     clientRepo,
-		orderRepo:      orderRepo,
-		orderService:   orderService,
-		supportService: supportService,
-	}
+func NewStaffManagementHandler(s *staff.StaffService, cr domain.ClientRepository, or domain.OrderRepository, os *order.OrderService, ss *support.SupportService) *StaffManagementHandler {
+	return &StaffManagementHandler{s, cr, or, os, ss}
 }
 
 func (h *StaffManagementHandler) ListClients(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "clients", "read")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: clients", nil)
-		return
-	}
+	if !check(w, r, h.staffService, "clients", "read") { return }
+	l, o := request.GetLimitOffset(r)
+	cs, tot, err := h.clientRepo.List(r.Context(), l, o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, cs, &response.Meta{Total: tot, Limit: l, Offset: o})
+}
 
-	limit := 20
-	offset := 0
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
-			limit = v
-		}
-	}
-	if o := r.URL.Query().Get("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
-			offset = v
-		}
-	}
-
-	clients, total, err := h.clientRepo.List(r.Context(), limit, offset)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve clients", err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, clients, &response.Meta{
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
-	})
+func (h *StaffManagementHandler) ListStaff(w http.ResponseWriter, r *http.Request) {
+	if !check(w, r, h.staffService, "staff", "read") { return }
+	l, o := request.GetLimitOffset(r)
+	sl, tot, err := h.staffService.ListStaff(r.Context(), l, o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, sl, &response.Meta{Total: tot, Limit: l, Offset: o})
 }
 
 func (h *StaffManagementHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "read")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	limit := 20
-	offset := 0
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 {
-			limit = v
-		}
-	}
-	if o := r.URL.Query().Get("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
-			offset = v
-		}
-	}
-
-	orders, total, err := h.orderRepo.List(r.Context(), limit, offset)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve orders", err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, orders, &response.Meta{
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
-	})
-}
-
-type suspendRequest struct {
-	Reason string `json:"reason"`
+	if !check(w, r, h.staffService, "orders", "read") { return }
+	l, o := request.GetLimitOffset(r)
+	os, tot, err := h.orderRepo.List(r.Context(), l, o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, os, &response.Meta{Total: tot, Limit: l, Offset: o})
 }
 
 func (h *StaffManagementHandler) SuspendOrder(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
-		return
-	}
-
-	var req suspendRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if req.Reason == "" {
-		req.Reason = "Suspended by admin"
-	}
-
-	res, err := h.orderService.Suspend(r.Context(), orderID, req.Reason)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "SUSPEND_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, res, nil)
+	if !check(w, r, h.staffService, "orders", "write") { return }
+	var req struct{ Reason string }; _ = request.Decode(r, &req)
+	if req.Reason == "" { req.Reason = "Suspended by admin" }
+	res, err := h.orderService.Suspend(r.Context(), request.GetID(r), req.Reason)
+	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *StaffManagementHandler) UnsuspendOrder(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
-		return
-	}
-
-	res, err := h.orderService.Unsuspend(r.Context(), orderID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "UNSUSPEND_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, res, nil)
+	if !check(w, r, h.staffService, "orders", "write") { return }
+	res, err := h.orderService.Unsuspend(r.Context(), request.GetID(r))
+	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *StaffManagementHandler) ActivateOrder(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
-		return
-	}
-
-	res, err := h.orderService.Activate(r.Context(), orderID, time.Now().UTC())
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "ACTIVATE_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, res, nil)
+	if !check(w, r, h.staffService, "orders", "write") { return }
+	res, err := h.orderService.Activate(r.Context(), request.GetID(r), time.Now().UTC())
+	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *StaffManagementHandler) SyncOrder(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
-		return
-	}
-
-	order, err := h.orderRepo.GetByID(r.Context(), orderID)
-	if err != nil {
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
-		return
-	}
-
-	status, err := h.orderService.SyncRemote(r.Context(), order)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "SYNC_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, status, nil)
+	if !check(w, r, h.staffService, "orders", "write") { return }
+	o, err := h.orderRepo.GetByID(r.Context(), request.GetID(r))
+	if err != nil { response.Error(w, 404, "NOT_FOUND", "Order not found", nil); return }
+	st, err := h.orderService.SyncRemote(r.Context(), o)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, st, nil)
 }
 
 func (h *StaffManagementHandler) ChangeOrderPassword(w http.ResponseWriter, r *http.Request) {
-	staffID := middleware.GetClientID(r.Context())
-	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "orders", "write")
-	if !allowed {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: orders", nil)
-		return
-	}
-
-	idStr := r.PathValue("id")
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid order ID", nil)
-		return
-	}
-
-	order, err := h.orderRepo.GetByID(r.Context(), orderID)
-	if err != nil {
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "Order not found", nil)
-		return
-	}
-
-	var req struct {
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_BODY", "Failed to parse JSON body", nil)
-		return
-	}
-
-	if err := h.orderService.ChangePasswordRemote(r.Context(), order, req.Password); err != nil {
-		response.Error(w, http.StatusInternalServerError, "PASSWORD_CHANGE_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, map[string]string{"message": "Service password changed successfully"}, nil)
+	if !check(w, r, h.staffService, "orders", "write") { return }
+	o, err := h.orderRepo.GetByID(r.Context(), request.GetID(r))
+	if err != nil { response.Error(w, 404, "NOT_FOUND", "Order not found", nil); return }
+	var req struct{ Password string }; if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	if err := h.orderService.ChangePasswordRemote(r.Context(), o, req.Password); err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, map[string]string{"message": "Changed"}, nil)
 }

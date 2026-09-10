@@ -1,106 +1,27 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supportService } from '@/services/support.service';
-import { SupportTicket } from '@/types/api';
+import type { SupportTicket } from '@/types/api';
 
 export function useClientSupport() {
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openNewModal, setOpenNewModal] = useState(false);
-  const [newTicketForm, setNewTicketForm] = useState({
-    subject: '',
-    message: '',
-    priority: 'medium',
-  });
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+  const [newTicketForm, setNewTicketForm] = useState({ subject: '', message: '', priority: 'medium' });
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  const [replying, setReplying] = useState(false);
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await supportService.listTickets();
-      setTickets(data || []);
-    } catch (err) {
-      console.error('Failed to fetch tickets:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: tickets = [], isLoading: tl, refetch } = useQuery({ queryKey: ['client', 'support', 'tickets'], queryFn: () => supportService.listTickets() });
+  const { data: selectedTicket = null, isLoading: tkl } = useQuery({ queryKey: ['client', 'support', 'tickets', selectedTicketId], queryFn: () => (selectedTicketId ? supportService.getTicketDetail(selectedTicketId) : null), enabled: !!selectedTicketId });
 
-  useEffect(() => {
-    fetchTickets();
-  }, [fetchTickets]);
-
-  const handleCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await supportService.openTicket(newTicketForm.subject, newTicketForm.message, newTicketForm.priority);
-      setOpenNewModal(false);
-      setNewTicketForm({ subject: '', message: '', priority: 'medium' });
-      await fetchTickets();
-    } catch (err: any) {
-      alert(`Failed to open ticket: ${err.message}`);
-    }
-  };
-
-  const handleReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTicket || !replyContent.trim()) return;
-
-    setReplying(true);
-    try {
-      await supportService.replyTicket(selectedTicket.id, replyContent);
-      setReplyContent('');
-      setSelectedTicket(null);
-      await fetchTickets();
-    } catch (err: any) {
-      alert(`Failed to reply: ${err.message}`);
-    } finally {
-      setReplying(false);
-    }
-  };
-
-  const handleClose = async (id: number) => {
-    if (!confirm('Are you sure you want to close this ticket?')) return;
-    try {
-      await supportService.closeTicket(id);
-      setSelectedTicket(null);
-      await fetchTickets();
-    } catch (err: any) {
-      alert(`Failed to close ticket: ${err.message}`);
-    }
-  };
-
-  const handleSelectTicket = async (ticket: SupportTicket | null) => {
-    if (!ticket) {
-      setSelectedTicket(null);
-      return;
-    }
-
-    try {
-      const details = await supportService.getTicketDetail(ticket.id);
-      setSelectedTicket(details);
-    } catch (err) {
-      console.error(err);
-      setSelectedTicket(ticket);
-    }
-  };
+  const cM = useMutation({ mutationFn: () => supportService.openTicket(newTicketForm.subject, newTicketForm.message, newTicketForm.priority), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'support', 'tickets'] }); setOpenNewModal(false); setNewTicketForm({ subject: '', message: '', priority: 'medium' }); } });
+  const rM = useMutation({ mutationFn: ({ id, message }: { id: number; message: string }) => supportService.replyTicket(id, message), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'support', 'tickets', selectedTicketId] }); setReplyContent(''); } });
+  const clM = useMutation({ mutationFn: (id: number) => supportService.closeTicket(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'support', 'tickets'] }); setSelectedTicketId(null); } });
 
   return {
-    tickets,
-    loading,
-    openNewModal,
-    setOpenNewModal,
-    newTicketForm,
-    setNewTicketForm,
-    selectedTicket,
-    setSelectedTicket: handleSelectTicket,
-    replyContent,
-    setReplyContent,
-    replying,
-    fetchTickets,
-    handleCreateTicket,
-    handleReply,
-    handleClose,
+    tickets, loading: tl || tkl, openNewModal, setOpenNewModal, newTicketForm, setNewTicketForm, selectedTicket, setSelectedTicket: (t: any) => setSelectedTicketId(t ? t.id : null), replyContent, setReplyContent,
+    replying: rM.isPending, fetchTickets: () => refetch(),
+    handleCreateTicket: (e: any) => { e.preventDefault(); cM.mutate(); },
+    handleReply: (e: any) => { e.preventDefault(); if (selectedTicketId && replyContent.trim()) rM.mutate({ id: selectedTicketId, message: replyContent }); },
+    handleClose: (id: number) => { if (confirm('Close?')) clM.mutate(id); },
   };
 }

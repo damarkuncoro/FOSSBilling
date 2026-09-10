@@ -58,7 +58,7 @@ func TestCurrencyService_CRUD(t *testing.T) {
 
 	// 6. Delete default should fail
 	err = service.DeleteCurrency(ctx, "SGD")
-	if err != currency.ErrCannotDeleteDefault {
-		t.Errorf("expected ErrCannotDeleteDefault, got %v", err)
+	if err != currency.ErrDeleteDef {
+		t.Errorf("expected ErrDeleteDef, got %v", err)
 	}
 }

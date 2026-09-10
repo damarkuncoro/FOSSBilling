@@ -11,6 +11,7 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 	return &AppHandlers{
 		GuestAuth:          guest.NewAuthHandler(services.Auth, services.Antispam),
 		GuestCart:          guest.NewCartHandler(services.Cart),
+		GuestProduct:       guest.NewProductHandler(services.Product),
 		GuestWebhook:       guest.NewWebhookHandler(services.Webhook),
 		GuestCurrency:      guest.NewCurrencyHandler(services.Currency),
 		GuestNews:          guest.NewNewsHandler(services.News),
@@ -24,6 +25,7 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		GuestTheme:         guest.NewThemeHandler(services.Theme),
 		GuestSEO:           guest.NewSEOHandler(services.SEO),
 		GuestWidget:        guest.NewWidgetHandler(services.Widget),
+		GuestSystem:        guest.NewSystemHandler(services.Health),
 		ClientProfile:      client.NewProfileHandler(services.Auth, services.Password),
 		ClientOrder:        client.NewOrderHandler(services.Order),
 		ClientDomain:       client.NewDomainHandler(services.Domain),
@@ -47,7 +49,7 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		AdminCompany:       admin.NewCompanyHandler(services.Company, services.Staff),
 		AdminCatalog:       admin.NewCatalogHandler(services.Staff, services.Product, services.Server, repos.Catalog),
 		AdminBilling:       admin.NewBillingModuleHandler(services.Staff, services.Stats, services.Tax, repos.Promo),
-		AdminSystem:        admin.NewSystemModuleHandler(services.Staff, services.System, services.Page, services.Cache),
+		AdminSystem:        admin.NewSystemModuleHandler(services.Staff, services.System, services.Page, services.Cache, services.WSHub),
 		AdminActivity:      admin.NewActivityHandler(services.Staff, services.Activity),
 		AdminAntispam:      admin.NewAntispamHandler(services.Staff, services.Antispam),
 		AdminFormbuilder:   admin.NewFormbuilderHandler(services.Staff, services.Formbuilder),
@@ -58,5 +60,6 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		AdminTheme:         admin.NewThemeHandler(services.Staff, services.Theme),
 		AdminSEO:           admin.NewSEOHandler(services.Staff, services.SEO),
 		AdminWidget:        admin.NewWidgetHandler(services.Staff, services.Widget),
+		AdminEmailTemplate: admin.NewEmailTemplateHandler(services.Staff, repos.EmailTemplate),
 	}
 }

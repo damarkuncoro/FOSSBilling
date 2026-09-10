@@ -1,26 +1,47 @@
 import React from 'react';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
-export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { locale, setLocale, locales, currentLocaleInfo } = useTranslation();
+export const LanguageSwitcher: React.FC = () => {
+  const { i18n } = useTranslation();
+
+  const languages = [
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'id', name: 'Bahasa Indonesia', flag: '🇮🇩' },
+  ];
+
+  const currentLang = languages.find(l => l.code === i18n.language.split('-')[0]) || languages[0];
 
   return (
-    <div className={`relative inline-flex items-center gap-1.5 ${className}`}>
-      <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-      <select
-        value={locale}
-        onChange={(e) => setLocale(e.target.value)}
-        aria-label="Select Language"
-        className="bg-secondary/60 hover:bg-secondary border text-xs font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer transition-colors"
-      >
-        {locales.map((loc) => (
-          <option key={loc.code} value={loc.code} className="bg-popover text-foreground">
-            {loc.flag} {loc.native_name} ({loc.code})
-          </option>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2 h-9 px-2">
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs font-medium uppercase">{currentLang.code}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        {languages.map((lang) => (
+          <DropdownMenuItem
+            key={lang.code}
+            className="gap-2 cursor-pointer"
+            onClick={() => i18n.changeLanguage(lang.code)}
+          >
+            <span>{lang.flag}</span>
+            <span className={i18n.language.startsWith(lang.code) ? 'font-bold' : ''}>
+              {lang.name}
+            </span>
+          </DropdownMenuItem>
         ))}
-      </select>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

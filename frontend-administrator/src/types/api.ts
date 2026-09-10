@@ -1,6 +1,13 @@
 export interface ApiResponse<T = any> {
   success: boolean;
   data: T;
+  meta?: {
+    total: number;
+    limit: number;
+    offset: number;
+    page?: number;
+    total_pages?: number;
+  };
   error?: {
     code: string;
     message: string;
@@ -115,7 +122,7 @@ export interface StaffMemberItem {
 
 export interface SecuritySettings {
   recaptcha_enabled: boolean;
-  recaptcha_provider: 'cloudflare_turnstile' | 'google_recaptcha';
+  recaptcha_provider: 'cloudflare_turnstile' | 'google_recaptcha' | 'turnstile';
   site_key: string;
   secret_key?: string;
   ip_blacklist: string[];
@@ -138,6 +145,8 @@ export interface SystemStatusInfo {
   uptime: string;
 }
 
+export type SystemStatus = SystemStatusInfo;
+
 export interface StaffProfile {
   id: number;
   name: string;
@@ -145,6 +154,18 @@ export interface StaffProfile {
   role: string;
   status: string;
   created_at?: string;
+}
+
+export interface AuditLog {
+  id: number;
+  staff_id: number;
+  staff_name?: string;
+  client_id?: number;
+  module: string;
+  action: string;
+  details: string;
+  ip_address: string;
+  created_at: string;
 }
 
 export interface ClientProfile {

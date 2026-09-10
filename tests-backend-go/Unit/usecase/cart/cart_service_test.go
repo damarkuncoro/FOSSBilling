@@ -14,21 +14,22 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 )
 
-func setupCartService() (*cart.CartService, *memory.MockPromoRepository, *memory.MockOrderRepository, *memory.MockClientRepository) {
+func setupCartService() (*cart.CartService, *memory.MockPromoRepository, *memory.MockOrderRepository, *memory.MockClientRepository, *memory.MockProductRepository) {
 	promoRepo := memory.NewMockPromoRepository()
 	orderRepo := memory.NewMockOrderRepository()
 	invRepo := memory.NewMockInvoiceRepository()
 	clientRepo := memory.NewMockClientRepository()
 	productRepo := memory.NewMockProductRepository()
 	formRepo := memory.NewMockFormbuilderRepository()
+	companyRepo := memory.NewMockCompanyRepository()
 
 	taxCalc := billing.NewTaxCalculator(nil)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, companyRepo, taxCalc, nil)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
 	formService := formbuilder.NewFormbuilderService(formRepo)
 
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil)
-	return cartService, promoRepo, orderRepo, clientRepo
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil, nil)
+	return cartService, promoRepo, orderRepo, clientRepo, productRepo
 }
 
 func TestPromoCalculator_Discounts(t *testing.T) {
@@ -108,7 +109,7 @@ func TestPromoCalculator_ValidationRules(t *testing.T) {
 }
 
 func TestCartService_CheckoutFlow(t *testing.T) {
-	cartService, promoRepo, orderRepo, clientRepo := setupCartService()
+	cartService, promoRepo, orderRepo, clientRepo, productRepo := setupCartService()
 	ctx := context.Background()
 
 	// Create test client
@@ -121,6 +122,10 @@ func TestCartService_CheckoutFlow(t *testing.T) {
 		Status:    "active",
 	}
 	_ = clientRepo.Create(ctx, client)
+
+	// Create Products
+	_ = productRepo.Create(ctx, &domain.Product{ID: 10, Title: "cPanel Shared Hosting", Type: domain.ProductTypeHosting, PriceMonthly: decimal.FromFloat(50.00)})
+	_ = productRepo.Create(ctx, &domain.Product{ID: 20, Title: "Domain Registration", Type: domain.ProductTypeDomain, PriceAnnually: decimal.FromFloat(15.00)})
 
 	// Create Promo
 	promo := &domain.Promo{
@@ -140,7 +145,7 @@ func TestCartService_CheckoutFlow(t *testing.T) {
 		},
 	}
 
-	res, err := cartService.Checkout(ctx, shoppingCart)
+	res, err := cartService.Checkout(ctx, shoppingCart, "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Checkout failed: %v", err)
 	}

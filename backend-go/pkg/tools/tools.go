@@ -8,87 +8,45 @@ import (
 )
 
 const (
-	lowerChars   = "abcdefghijklmnopqrstuvwxyz"
-	upperChars   = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	digitChars   = "0123456789"
-	specialChars = "!@#$%^&*()-_=+"
+	low = "abcdefghijklmnopqrstuvwxyz"
+	upp = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	dig = "0123456789"
+	spc = "!@#$%^&*()-_=+"
 )
 
-// GeneratePassword generates a cryptographically secure random password
-func GeneratePassword(length int, includeSpecial bool) (string, error) {
-	if length < 6 {
-		length = 8
-	}
-
-	charSet := lowerChars + upperChars + digitChars
-	if includeSpecial {
-		charSet += specialChars
-	}
-
-	// Guarantee at least one from required categories
-	req := []string{lowerChars, upperChars, digitChars}
-	if includeSpecial {
-		req = append(req, specialChars)
-	}
+func GeneratePassword(length int, spec bool) (string, error) {
+	if length < 8 { length = 8 }
+	set := low + upp + dig
+	if spec { set += spc }
+	req := []string{low, upp, dig}; if spec { req = append(req, spc) }
 
 	res := make([]byte, length)
-	for i, cat := range req {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(cat))))
-		if err != nil {
-			return "", err
-		}
-		res[i] = cat[n.Int64()]
+	for i, c := range req {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(c))))
+		res[i] = c[n.Int64()]
 	}
-
-	// Fill remaining characters
 	for i := len(req); i < length; i++ {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charSet))))
-		if err != nil {
-			return "", err
-		}
-		res[i] = charSet[n.Int64()]
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(set))))
+		res[i] = set[n.Int64()]
 	}
-
-	// Fisher-Yates shuffle
 	for i := len(res) - 1; i > 0; i-- {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
-		if err != nil {
-			return "", err
-		}
-		j := n.Int64()
-		res[i], res[j] = res[j], res[i]
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		j := n.Int64(); res[i], res[j] = res[j], res[i]
 	}
-
 	return string(res), nil
 }
 
-// GenerateRandomString generates a simple alphanumeric random string
-func GenerateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
-		b[i] = charset[n.Int64()]
-	}
+func GenerateRandomString(l int) string {
+	cs := low + upp + dig; b := make([]byte, l)
+	for i := range b { n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(cs)))); b[i] = cs[n.Int64()] }
 	return string(b)
 }
 
-// FormatBytes formats byte counts into human-readable strings (e.g. 1024 -> 1.00 KB, 1073741824 -> 1.00 GB)
-func FormatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	suffixes := []string{"KB", "MB", "GB", "TB", "PB"}
-	return fmt.Sprintf("%.2f %s", float64(bytes)/float64(div), suffixes[exp])
+func FormatBytes(b int64) string {
+	if b < 1024 { return fmt.Sprintf("%d B", b) }
+	d, e := int64(1024), 0
+	for n := b / 1024; n >= 1024; n /= 1024 { d *= 1024; e++ }
+	return fmt.Sprintf("%.2f %s", float64(b)/float64(d), []string{"KB", "MB", "GB", "TB"}[e])
 }
 
-// NormalizeEmail normalizes email addresses by trimming whitespace and lowercasing
-func NormalizeEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
-}
+func NormalizeEmail(e string) string { return strings.ToLower(strings.TrimSpace(e)) }

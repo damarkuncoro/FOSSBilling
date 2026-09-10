@@ -55,7 +55,7 @@ export const Invoices: React.FC = () => {
           <Button variant="outline" size="sm" onClick={exportInvoicesToCSV} disabled={invoices.length === 0} className="gap-2">
             <FileSpreadsheet className="h-4 w-4" /> Export CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={fetchInvoices} disabled={loading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchInvoices()} disabled={loading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-2">
@@ -181,8 +181,8 @@ export const Invoices: React.FC = () => {
         open={createOpen}
         onOpenChange={setCreateOpen}
         clients={clients}
-        onInvoiceCreated={fetchInvoices}
-        apiCreateInvoice={createInvoice}
+        onInvoiceCreated={() => fetchInvoices()}
+        apiCreateInvoice={(data: any) => createInvoice(data.client_id, data.items)}
       />
     </div>
   );

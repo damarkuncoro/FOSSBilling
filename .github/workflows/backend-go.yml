@@ -26,13 +26,23 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.23'
         cache-dependency-path: |
           backend-go/go.sum
           tests-backend-go/go.sum
 
+    - name: Start PostgreSQL for Integration Tests
+      run: |
+        docker run --name postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fossbilling -p 5432:5432 -d postgres:16-alpine
+        # Wait for postgres to be ready
+        until docker exec postgres pg_isready; do
+          sleep 1
+        done
+
     - name: Run Test Suite
       working-directory: tests-backend-go
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/fossbilling?sslmode=disable
       run: |
         go test -v ./...
 

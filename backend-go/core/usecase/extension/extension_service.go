@@ -11,217 +11,56 @@ import (
 )
 
 var (
-	ErrCoreExtensionImmutable = errors.New("core extensions cannot be deactivated or uninstalled")
-	ErrExtensionNotFound      = errors.New("extension not found in system or marketplace")
+	ErrImmutable = errors.New("core immutable")
+	ErrNotFound  = errors.New("not found")
 )
 
-type ExtensionService struct {
-	repo domain.ExtensionRepository
+type ExtensionService struct{ repo domain.ExtensionRepository }
+
+func NewExtensionService(r domain.ExtensionRepository) *ExtensionService { return &ExtensionService{r} }
+
+func (s *ExtensionService) ListExtensions(ctx context.Context, f domain.ExtensionFilter) ([]*domain.Extension, error) { return s.repo.List(ctx, f) }
+func (s *ExtensionService) GetExtension(ctx context.Context, id string) (*domain.Extension, error) { return s.repo.GetByID(ctx, strings.TrimSpace(id)) }
+
+func (s *ExtensionService) setStatus(ctx context.Context, id string, st domain.ExtensionStatus, checkCore bool) (*domain.Extension, error) {
+	e, err := s.repo.GetByID(ctx, strings.TrimSpace(id)); if err != nil { return nil, err }
+	if checkCore && e.Status == domain.ExtensionStatusCore { return nil, ErrImmutable }
+	e.Status = st; return e, s.repo.Update(ctx, e)
 }
 
-func NewExtensionService(repo domain.ExtensionRepository) *ExtensionService {
-	return &ExtensionService{repo: repo}
-}
+func (s *ExtensionService) ActivateExtension(ctx context.Context, id string) (*domain.Extension, error) { return s.setStatus(ctx, id, domain.ExtensionStatusActive, false) }
+func (s *ExtensionService) DeactivateExtension(ctx context.Context, id string) (*domain.Extension, error) { return s.setStatus(ctx, id, domain.ExtensionStatusInactive, true) }
 
-func (s *ExtensionService) ListExtensions(ctx context.Context, filter domain.ExtensionFilter) ([]*domain.Extension, error) {
-	return s.repo.List(ctx, filter)
-}
-
-func (s *ExtensionService) GetExtension(ctx context.Context, id string) (*domain.Extension, error) {
-	return s.repo.GetByID(ctx, strings.TrimSpace(id))
-}
-
-func (s *ExtensionService) ActivateExtension(ctx context.Context, id string) (*domain.Extension, error) {
-	ext, err := s.repo.GetByID(ctx, strings.TrimSpace(id))
-	if err != nil {
-		return nil, err
-	}
-
-	if ext.Status == domain.ExtensionStatusCore {
-		return ext, nil
-	}
-
-	ext.Status = domain.ExtensionStatusActive
-	if err := s.repo.Update(ctx, ext); err != nil {
-		return nil, err
-	}
-	return ext, nil
-}
-
-func (s *ExtensionService) DeactivateExtension(ctx context.Context, id string) (*domain.Extension, error) {
-	ext, err := s.repo.GetByID(ctx, strings.TrimSpace(id))
-	if err != nil {
-		return nil, err
-	}
-
-	if ext.Status == domain.ExtensionStatusCore {
-		return nil, ErrCoreExtensionImmutable
-	}
-
-	ext.Status = domain.ExtensionStatusInactive
-	if err := s.repo.Update(ctx, ext); err != nil {
-		return nil, err
-	}
-	return ext, nil
-}
-
-func (s *ExtensionService) InstallExtension(ctx context.Context, marketplaceID string) (*domain.Extension, error) {
-	// Look up marketplace item
-	marketplaceList := s.getMarketplaceCatalog()
-	var found *domain.MarketplaceExtension
-	for _, m := range marketplaceList {
-		if m.ID == marketplaceID {
-			found = m
-			break
-		}
-	}
-
-	if found == nil {
-		return nil, ErrExtensionNotFound
-	}
-
-	// Check if already installed
-	existing, _ := s.repo.GetByID(ctx, marketplaceID)
-	if existing != nil {
-		existing.Status = domain.ExtensionStatusActive
-		_ = s.repo.Update(ctx, existing)
-		return existing, nil
-	}
-
-	newExt := &domain.Extension{
-		ID:          found.ID,
-		Name:        found.Name,
-		Type:        found.Type,
-		Version:     found.Version,
-		Description: found.Description,
-		Author:      found.Author,
-		Icon:        found.IconURL,
-		Status:      domain.ExtensionStatusActive,
-		HasSettings: true,
-		Config:      make(map[string]interface{}),
-		Manifest: map[string]interface{}{
-			"download_url": found.DownloadURL,
-			"rating":       found.Rating,
-		},
-	}
-
-	if err := s.repo.Create(ctx, newExt); err != nil {
-		return nil, err
-	}
-	return newExt, nil
+func (s *ExtensionService) InstallExtension(ctx context.Context, mid string) (*domain.Extension, error) {
+	var f *domain.MarketplaceExtension; for _, m := range s.getMarketplaceCatalog() { if m.ID == mid { f = m; break } }
+	if f == nil { return nil, ErrNotFound }
+	if ex, _ := s.repo.GetByID(ctx, mid); ex != nil { ex.Status = domain.ExtensionStatusActive; _ = s.repo.Update(ctx, ex); return ex, nil }
+	ne := &domain.Extension{ID: f.ID, Name: f.Name, Type: f.Type, Version: f.Version, Description: f.Description, Author: f.Author, Icon: f.IconURL, Status: domain.ExtensionStatusActive, HasSettings: true, Config: map[string]any{}, Manifest: map[string]any{"download_url": f.DownloadURL, "rating": f.Rating}}
+	return ne, s.repo.Create(ctx, ne)
 }
 
 func (s *ExtensionService) UninstallExtension(ctx context.Context, id string) error {
-	ext, err := s.repo.GetByID(ctx, strings.TrimSpace(id))
-	if err != nil {
-		return err
-	}
-
-	if ext.Status == domain.ExtensionStatusCore {
-		return ErrCoreExtensionImmutable
-	}
-
-	return s.repo.Delete(ctx, strings.TrimSpace(id))
+	e, err := s.repo.GetByID(ctx, strings.TrimSpace(id)); if err != nil { return err }
+	if e.Status == domain.ExtensionStatusCore { return ErrImmutable }; return s.repo.Delete(ctx, strings.TrimSpace(id))
 }
 
-func (s *ExtensionService) GetExtensionConfig(ctx context.Context, id string) (map[string]interface{}, error) {
-	return s.repo.GetConfig(ctx, strings.TrimSpace(id))
-}
+func (s *ExtensionService) GetExtensionConfig(ctx context.Context, id string) (map[string]any, error) { return s.repo.GetConfig(ctx, strings.TrimSpace(id)) }
+func (s *ExtensionService) UpdateExtensionConfig(ctx context.Context, id string, cfg map[string]any) error { return s.repo.UpdateConfig(ctx, strings.TrimSpace(id), cfg) }
 
-func (s *ExtensionService) UpdateExtensionConfig(ctx context.Context, id string, config map[string]interface{}) error {
-	return s.repo.UpdateConfig(ctx, strings.TrimSpace(id), config)
-}
-
-func (s *ExtensionService) FetchMarketplace(ctx context.Context, extType string) ([]*domain.MarketplaceExtension, error) {
-	catalog := s.getMarketplaceCatalog()
-	if extType == "" || extType == "all" {
-		return catalog, nil
-	}
-
-	var filtered []*domain.MarketplaceExtension
-	for _, item := range catalog {
-		if string(item.Type) == extType {
-			filtered = append(filtered, item)
-		}
-	}
-	return filtered, nil
+func (s *ExtensionService) FetchMarketplace(ctx context.Context, t string) ([]*domain.MarketplaceExtension, error) {
+	cat := s.getMarketplaceCatalog(); if t == "" || t == "all" { return cat, nil }
+	var res []*domain.MarketplaceExtension; for _, i := range cat { if string(i.Type) == t { res = append(res, i) } }; return res, nil
 }
 
 func (s *ExtensionService) GetMarketplaceReadme(ctx context.Context, id string) (string, error) {
-	catalog := s.getMarketplaceCatalog()
-	for _, item := range catalog {
-		if item.ID == id {
-			if item.Readme != "" {
-				return item.Readme, nil
-			}
-			return fmt.Sprintf("# %s\n\n%s\n\n**Author:** %s\n**Version:** %s", item.Name, item.Description, item.Author, item.Version), nil
-		}
-	}
+	for _, i := range s.getMarketplaceCatalog() { if i.ID == id { if i.Readme != "" { return i.Readme, nil }; return fmt.Sprintf("# %s\n\n%s", i.Name, i.Description), nil } }
 	return "", appErrors.ErrNotFound
 }
 
 func (s *ExtensionService) getMarketplaceCatalog() []*domain.MarketplaceExtension {
 	return []*domain.MarketplaceExtension{
-		{
-			ID:          "tripay",
-			Name:        "TriPay Indonesia Payment Gateway",
-			Type:        domain.ExtensionTypeGateway,
-			Version:     "1.4.0",
-			Description: "Automated payment channels including QRIS, BCA, Mandiri, BRI, Alfamart, Indomaret.",
-			Author:      "TriPay Community",
-			IconURL:     "https://raw.githubusercontent.com/FOSSBilling/Extensions/main/tripay/icon.svg",
-			DownloadURL: "https://extensions.fossbilling.org/download/tripay-1.4.0.zip",
-			Rating:      4.9,
-			Downloads:   1420,
-			Readme:      "# TriPay Payment Gateway\nOfficial TriPay integration for FOSSBilling providing instantaneous QRIS & VA reconciliation.",
-		},
-		{
-			ID:          "xendit",
-			Name:        "Xendit Global & SEA Payments",
-			Type:        domain.ExtensionTypeGateway,
-			Version:     "2.0.1",
-			Description: "Accept credit cards, e-wallets (OVO, DANA, ShopeePay), and recurring subscriptions.",
-			Author:      "Xendit Integrators",
-			IconURL:     "https://raw.githubusercontent.com/FOSSBilling/Extensions/main/xendit/icon.svg",
-			DownloadURL: "https://extensions.fossbilling.org/download/xendit-2.0.1.zip",
-			Rating:      4.8,
-			Downloads:   2150,
-		},
-		{
-			ID:          "cyberpanel",
-			Name:        "CyberPanel Server Provisioning",
-			Type:        domain.ExtensionTypeService,
-			Version:     "1.1.0",
-			Description: "Direct automated provisioning and management for LiteSpeed CyberPanel web servers.",
-			Author:      "CyberPanel Devs",
-			IconURL:     "https://raw.githubusercontent.com/FOSSBilling/Extensions/main/cyberpanel/icon.svg",
-			DownloadURL: "https://extensions.fossbilling.org/download/cyberpanel-1.1.0.zip",
-			Rating:      4.7,
-			Downloads:   980,
-		},
-		{
-			ID:          "telegram_notif",
-			Name:        "Telegram Bot Staff & Client Alerts",
-			Type:        domain.ExtensionTypePlugin,
-			Version:     "1.5.0",
-			Description: "Instant notifications for paid invoices, new support tickets, and service provisioning events.",
-			Author:      "FOSSBilling Community",
-			IconURL:     "https://raw.githubusercontent.com/FOSSBilling/Extensions/main/telegram/icon.svg",
-			DownloadURL: "https://extensions.fossbilling.org/download/telegram-1.5.0.zip",
-			Rating:      5.0,
-			Downloads:   3890,
-		},
-		{
-			ID:          "dark_theme",
-			Name:        "Onyx Dark Client Theme",
-			Type:        domain.ExtensionTypeTheme,
-			Version:     "1.0.2",
-			Description: "Ultra-sleek OLED dark mode theme with glassmorphic accents.",
-			Author:      "ThemeMasters",
-			IconURL:     "https://raw.githubusercontent.com/FOSSBilling/Extensions/main/onyx/icon.svg",
-			DownloadURL: "https://extensions.fossbilling.org/download/onyx-1.0.2.zip",
-			Rating:      4.9,
-			Downloads:   4200,
-		},
+		{ID: "tripay", Name: "TriPay", Type: domain.ExtensionTypeGateway, Version: "1.4.0", Description: "QRIS, VA payments.", Author: "TriPay", DownloadURL: "https://x.org/dl.zip", Rating: 4.9},
+		{ID: "stripe_pro", Name: "Stripe Pro", Type: domain.ExtensionTypeGateway, Version: "2.1.0", Description: "Enhanced Stripe.", Author: "FOSSBilling", DownloadURL: "https://x.org/sp.zip", Rating: 4.8},
+		{ID: "telegram_notif", Name: "Telegram Notif", Type: domain.ExtensionTypePlugin, Version: "1.5.0", Description: "Staff alerts.", Author: "FOSSBilling", DownloadURL: "https://x.org/tg.zip", Rating: 5.0},
 	}
 }

@@ -21,7 +21,10 @@ export const removeStoredToken = () => {
   localStorage.removeItem('fossbilling_admin_user');
 };
 
-export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+/**
+ * requestFull returns the entire ApiResponse object
+ */
+export async function requestFull<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const token = getStoredToken();
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -44,7 +47,15 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
       json.error?.details
     );
   }
-  return json.data;
+  return json;
+}
+
+/**
+ * request returns only the .data portion of the response (default behavior)
+ */
+export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const res = await requestFull<T>(endpoint, options);
+  return res.data;
 }
 
 export const apiClient = {
@@ -58,33 +69,32 @@ export const apiClient = {
       const qs = q.toString();
       if (qs) finalUrl += `?${qs}`;
     }
-    const data = await request<T>(finalUrl, { method: 'GET' });
-    return { data };
+    const res = await requestFull<T>(finalUrl, { method: 'GET' });
+    return { data: res.data, meta: res.meta };
   },
   post: async <T>(url: string, body?: any) => {
-    const data = await request<T>(url, {
+    const res = await requestFull<T>(url, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
     });
-    return { data };
+    return { data: res.data, meta: res.meta };
   },
   put: async <T>(url: string, body?: any) => {
-    const data = await request<T>(url, {
+    const res = await requestFull<T>(url, {
       method: 'PUT',
       body: body ? JSON.stringify(body) : undefined,
     });
-    return { data };
+    return { data: res.data, meta: res.meta };
   },
   delete: async <T>(url: string) => {
-    const data = await request<T>(url, { method: 'DELETE' });
-    return { data };
+    const res = await requestFull<T>(url, { method: 'DELETE' });
+    return { data: res.data, meta: res.meta };
   },
   patch: async <T>(url: string, body?: any) => {
-    const data = await request<T>(url, {
+    const res = await requestFull<T>(url, {
       method: 'PATCH',
       body: body ? JSON.stringify(body) : undefined,
     });
-    return { data };
+    return { data: res.data, meta: res.meta };
   },
 };
-

@@ -103,12 +103,12 @@ func runDeepSimulation() {
 	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
 	formService := formbuilder.NewFormbuilderService(formRepo)
-	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, eventBus)
+	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil, eventBus)
 	antispamUc := antispam.NewAntispamService(antispamRepo, security.NewTurnstileVerifier(""), nil, nil)
 	authUc := auth.NewAuthUsecase(clientRepo, antispamUc, "simulation-secret-key")
 	webhookUc := paymentUsecase.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
 	supportUc := support.NewSupportService(supportRepo, clientRepo, eventBus)
-	statsUc := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo)
+	statsUc := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo, nil)
 	apiKeyUc := apikey.NewAPIKeyService(apiKeyRepo)
 	downloadUc := downloadable.NewDownloadableService(downloadRepo, orderRepo, "simulation-secret-key")
 	orderUc := order.NewOrderService(orderRepo, productRepo, provRegistry, regRegistry, eventBus)
@@ -165,7 +165,7 @@ func runDeepSimulation() {
 			{ProductID: 999, Title: "Domain Registration: " + domainName, Period: "1Y", Price: decimal.FromFloat(avail.Price), Quantity: 1, Config: []byte(`{"domain_name":"` + domainName + `","registrar_id":"mock"}`)},
 		},
 	}
-	checkoutRes, _ := cartService.Checkout(ctx, shoppingCart)
+	checkoutRes, _ := cartService.Checkout(ctx, shoppingCart, "114.124.200.1")
 	_, _ = webhookUc.HandlePaymentWebhook(ctx, paymentUsecase.WebhookPayload{InvoiceID: checkoutRes.Invoice.ID, Amount: checkoutRes.Invoice.Total, GatewayID: "midtrans", TxnID: "TXN-DOM-1"})
 
 	// DNS Record Simulation
@@ -194,7 +194,7 @@ func runDeepSimulation() {
 			{ProductID: 101, Title: "Cloud VPS cPanel Pro", Period: "1Y", Price: decimal.FromFloat(2000000.00), Quantity: 1, Config: []byte(`{"domain":"` + domainName + `","server_type":"mock"}`)},
 		},
 	}
-	hostingCheckout, _ := cartService.Checkout(ctx, hostingCart)
+	hostingCheckout, _ := cartService.Checkout(ctx, hostingCart, "114.124.200.1")
 	_, _ = webhookUc.HandlePaymentWebhook(ctx, paymentUsecase.WebhookPayload{InvoiceID: hostingCheckout.Invoice.ID, Amount: hostingCheckout.Invoice.Total, GatewayID: "midtrans", TxnID: "TXN-HOST-1"})
 
 	for _, o := range hostingCheckout.Orders {
@@ -211,8 +211,8 @@ func runDeepSimulation() {
 
 	// 4.2 Mass Mail Simulation
 	campaign, _ := massMailUc.Create(ctx, 1, "System Maintenance", "<p>Maintenance tomorrow at 02:00 UTC</p>")
-	sent, _ := massMailUc.Send(ctx, campaign.ID)
-	fmt.Printf("   📧 Mass Mail Campaign '%s' sent to %d clients.\n", campaign.Subject, sent)
+	resMM, _ := massMailUc.Send(ctx, campaign.ID)
+	fmt.Printf("   📧 Mass Mail Campaign '%s' sent to %d clients.\n", campaign.Subject, resMM.SentCount)
 
 	// 6. STAGE 5: The End of Lifecycle (Termination)
 	fmt.Println("\n[STAGE 5] ⚰️  Automated Termination")

@@ -1,99 +1,57 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminCurrencyService } from '@/services/admin_currency.service';
-import type { CurrencyItem } from '@/repositories/admin_currency.repository';
 
 export function useCurrencies() {
-  const [currencies, setCurrencies] = useState<CurrencyItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState(false);
-  const [form, setForm] = useState({
-    code: '',
-    title: '',
-    conversion_rate: 1.0,
-    format: '$ {{price}}',
+  const [form, setForm] = useState({ code: '', title: '', conversion_rate: 1.0, format: '$ {{price}}' });
+
+  const { data: currencies = [], isLoading: loading, refetch: fetchCurrencies } = useQuery({
+    queryKey: ['admin', 'currencies'],
+    queryFn: () => adminCurrencyService.listCurrencies(),
   });
-  const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
-  const fetchCurrencies = async () => {
-    setLoading(true);
-    try {
-      const data = await adminCurrencyService.listCurrencies();
-      setCurrencies(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCurrencies();
-  }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await adminCurrencyService.createCurrency({
-        code: form.code,
-        title: form.title,
-        conversion_rate: Number(form.conversion_rate),
-        format: form.format,
-      });
+  const createMutation = useMutation({
+    mutationFn: (d: any) => adminCurrencyService.createCurrency(d),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'currencies'] });
       setOpenModal(false);
       setForm({ code: '', title: '', conversion_rate: 1.0, format: '$ {{price}}' });
-      await fetchCurrencies();
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
 
-  const handleSetDefault = async (code: string) => {
-    try {
-      await adminCurrencyService.setDefault(code);
-      await fetchCurrencies();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const syncMutation = useMutation({
+    mutationFn: () => adminCurrencyService.syncRates(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'currencies'] });
+      alert('Rates updated.');
+    },
+  });
 
-  const handleDelete = async (code: string) => {
-    if (!confirm(`Are you sure you want to delete currency ${code}?`)) return;
-    try {
-      await adminCurrencyService.deleteCurrency(code);
-      await fetchCurrencies();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const defaultMutation = useMutation({
+    mutationFn: (c: string) => adminCurrencyService.setDefault(c),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'currencies'] }),
+  });
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await adminCurrencyService.syncRates();
-      await fetchCurrencies();
-      alert('Currency exchange rates have been updated to latest global market values.');
-    } catch (err: any) {
-      alert(`Sync failed: ${err.message}`);
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (c: string) => adminCurrencyService.deleteCurrency(c),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'currencies'] }),
+  });
 
   return {
     currencies,
     loading,
+    fetchCurrencies,
     openModal,
     setOpenModal,
     form,
     setForm,
-    saving,
-    syncing,
-    fetchCurrencies,
-    handleCreate,
-    handleSetDefault,
-    handleDelete,
-    handleSync,
+    saving: createMutation.isPending,
+    syncing: syncMutation.isPending,
+    handleCreate: (e: React.FormEvent) => { e.preventDefault(); createMutation.mutate(form); },
+    handleSync: () => syncMutation.mutate(),
+    handleSetDefault: (c: string) => defaultMutation.mutate(c),
+    handleDelete: (c: string) => { if (confirm('Delete?')) deleteMutation.mutate(c); },
   };
 }

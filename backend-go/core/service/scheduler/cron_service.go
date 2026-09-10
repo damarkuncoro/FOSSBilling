@@ -9,310 +9,177 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 )
 
 type CronService struct {
 	orderRepo      domain.OrderRepository
 	orderService   *order.OrderService
 	invoiceService *billing.InvoiceService
+	systemService  *system.SystemService
 	supportRepo    domain.SupportRepository
+	massMailRepo   domain.MassMailRepository
+	clientRepo     domain.ClientRepository
+	mailer         mailer.Mailer
+	dbURL          string
 	concurrency    int
 }
 
-func NewCronService(
-	orderRepo domain.OrderRepository,
-	orderService *order.OrderService,
-	invoiceService *billing.InvoiceService,
-	supportRepo ...domain.SupportRepository,
-) *CronService {
-	var sRepo domain.SupportRepository
-	if len(supportRepo) > 0 {
-		sRepo = supportRepo[0]
-	}
+func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billing.InvoiceService, sys *system.SystemService, sr domain.SupportRepository, mr domain.MassMailRepository, cr domain.ClientRepository, m mailer.Mailer, dbURL string) *CronService {
 	return &CronService{
-		orderRepo:      orderRepo,
-		orderService:   orderService,
-		invoiceService: invoiceService,
-		supportRepo:    sRepo,
-		concurrency:    20, // Default worker pool size
+		orderRepo:      or,
+		orderService:   os,
+		invoiceService: is,
+		systemService:  sys,
+		supportRepo:    sr,
+		massMailRepo:   mr,
+		clientRepo:     cr,
+		mailer:         m,
+		dbURL:          dbURL,
+		concurrency:    20,
 	}
 }
 
-func (s *CronService) SetConcurrency(n int) {
-	if n > 0 {
-		s.concurrency = n
-	}
-}
-
-// GenerateRenewalInvoicesBatch finds active orders due within issueDaysBefore and generates invoices
-func (s *CronService) GenerateRenewalInvoicesBatch(ctx context.Context, issueDaysBefore int) (*domain.CronTaskResult, error) {
+// runTaskInParallel: Generic Worker Pool (SRP & DRY)
+func runTaskInParallel[T any](ctx context.Context, items []T, concurrency int, taskName string, fn func(item T) error) *domain.CronTaskResult {
 	start := time.Now()
-	now := time.Now().UTC()
-	cutoffDate := now.AddDate(0, 0, issueDaysBefore)
-
-	dueOrders, err := s.orderRepo.ListDueOrders(ctx, cutoffDate)
-	if err != nil {
-		return nil, err
+	res := &domain.CronTaskResult{TaskName: taskName, ProcessedCount: len(items)}
+	if len(items) == 0 {
+		res.Duration = time.Since(start)
+		return res
 	}
 
-	result := &domain.CronTaskResult{
-		TaskName:       "BatchInvoiceGenerator",
-		ProcessedCount: len(dueOrders),
-	}
-
-	if len(dueOrders) == 0 {
-		result.Duration = time.Since(start)
-		return result, nil
-	}
-
-	// Use Worker Pool for high-performance concurrent processing
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	jobs := make(chan *domain.Order, len(dueOrders))
+	jobs := make(chan T, len(items))
+	workerCount := min(concurrency, len(items))
 
-	// Start workers
-	workerCount := s.concurrency
-	if workerCount > len(dueOrders) {
-		workerCount = len(dueOrders)
-	}
-
-	for w := 1; w <= workerCount; w++ {
+	for w := 0; w < workerCount; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for ord := range jobs {
-				// BUG-33 FIX: Skip if order already has an active renewal invoice
-				if ord.InvoiceID != nil {
-					existingInv, err := s.invoiceService.GetInvoice(ctx, *ord.InvoiceID)
-					if err == nil && (existingInv.Status == domain.InvoiceStatusUnpaid) {
-						// Already has an unpaid invoice, skip to prevent duplicates
-						mu.Lock()
-						result.ProcessedCount-- // Adjust count since we skipped
-						mu.Unlock()
-						continue
+			for item := range jobs {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					err := fn(item)
+					mu.Lock()
+					if err != nil {
+						res.ErrorCount++
+						res.Errors = append(res.Errors, err.Error())
+					} else {
+						res.SuccessCount++
 					}
+					mu.Unlock()
 				}
-
-				item := billing.CreateInvoiceItemDTO{
-					OrderID:  &ord.ID,
-					Title:    fmt.Sprintf("Renewal: %s (%s)", ord.Title, ord.Period),
-					Period:   &ord.Period,
-					Price:    ord.Price,
-					Quantity: 1,
-					Taxable:  true,
-				}
-
-				inv, err := s.invoiceService.CreateInvoice(ctx, billing.CreateInvoiceDTO{
-					ClientID: ord.ClientID,
-					Currency: ord.Currency,
-					DueDays:  7,
-					Items:    []billing.CreateInvoiceItemDTO{item},
-				})
-
-				if err == nil {
-					ord.InvoiceID = &inv.ID
-					err = s.orderRepo.Update(ctx, ord)
-				}
-
-				mu.Lock()
-				if err != nil {
-					result.ErrorCount++
-					result.Errors = append(result.Errors, fmt.Sprintf("Order #%d processing error: %v", ord.ID, err))
-				} else {
-					result.SuccessCount++
-				}
-				mu.Unlock()
 			}
 		}()
 	}
-
-	// Send jobs
-	for _, ord := range dueOrders {
-		jobs <- ord
+	for _, item := range items {
+		jobs <- item
 	}
 	close(jobs)
 	wg.Wait()
-
-	result.Duration = time.Since(start)
-	return result, nil
+	res.Duration = time.Since(start)
+	return res
 }
 
-// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
-func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
-	start := time.Now()
-	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+func (s *CronService) GenerateRenewalInvoicesBatch(ctx context.Context, days int) (*domain.CronTaskResult, error) {
+	orders, err := s.orderRepo.ListDueOrders(ctx, time.Now().UTC().AddDate(0, 0, days))
 	if err != nil {
 		return nil, err
 	}
 
-	result := &domain.CronTaskResult{
-		TaskName:       "BatchProvisioning",
-		ProcessedCount: len(pendingOrders),
-	}
-
-	if len(pendingOrders) == 0 {
-		result.Duration = time.Since(start)
-		return result, nil
-	}
-
-	for _, ord := range pendingOrders {
-		err := s.orderService.Activate(ctx, ord.ID)
-		if err != nil {
-			result.ErrorCount++
-			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
-		} else {
-			result.SuccessCount++
-		}
-	}
-
-	result.Duration = time.Since(start)
-	return result, nil
-}
-
-// AutoSuspendOverdueOrdersBatch finds overdue orders exceeding grace period and suspends them
-func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, gracePeriodDays int) (*domain.CronTaskResult, error) {
-	start := time.Now()
-	overdueOrders, err := s.orderRepo.ListOverdueSuspensions(ctx, gracePeriodDays)
-	if err != nil {
-		return nil, err
-	}
-
-	result := &domain.CronTaskResult{
-		TaskName:       "BatchAutoSuspension",
-		ProcessedCount: len(overdueOrders),
-	}
-
-	if len(overdueOrders) == 0 {
-		result.Duration = time.Since(start)
-		return result, nil
-	}
-
-	reason := fmt.Sprintf("Auto-suspended by system: payment overdue past %d days grace period", gracePeriodDays)
-
-	// Concurrent Processing
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	jobs := make(chan *domain.Order, len(overdueOrders))
-
-	workerCount := s.concurrency
-	if workerCount > len(overdueOrders) {
-		workerCount = len(overdueOrders)
-	}
-
-	for w := 1; w <= workerCount; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for ord := range jobs {
-				_, err := s.orderService.Suspend(ctx, ord.ID, reason)
-				mu.Lock()
-				if err != nil {
-					result.ErrorCount++
-					result.Errors = append(result.Errors, fmt.Sprintf("Order #%d suspend error: %v", ord.ID, err))
-				} else {
-					result.SuccessCount++
-				}
-				mu.Unlock()
+	return runTaskInParallel(ctx, orders, s.concurrency, "Renewals", func(ord *domain.Order) error {
+		if ord.InvoiceID != nil {
+			inv, err := s.invoiceService.GetInvoice(ctx, *ord.InvoiceID)
+			if err == nil && inv.Status == domain.InvoiceStatusUnpaid {
+				return nil
 			}
-		}()
-	}
-
-	for _, ord := range overdueOrders {
-		jobs <- ord
-	}
-	close(jobs)
-	wg.Wait()
-
-	result.Duration = time.Since(start)
-	return result, nil
+		}
+		newInv, err := s.invoiceService.CreateInvoice(ctx, billing.CreateInvoiceDTO{
+			ClientID: ord.ClientID, Currency: ord.Currency, DueDays: 7,
+			Items: []billing.CreateInvoiceItemDTO{{OrderID: &ord.ID, Title: "Renewal: " + ord.Title, Period: &ord.Period, Price: ord.Price, Quantity: 1, Taxable: true}},
+		})
+		if err != nil {
+			return err
+		}
+		ord.InvoiceID = &newInv.ID
+		return s.orderRepo.Update(ctx, ord)
+	}), nil
 }
 
-// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
-func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
-	start := time.Now()
-	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+func (s *CronService) AutoSuspendOverdueOrdersBatch(ctx context.Context, grace int) (*domain.CronTaskResult, error) {
+	orders, err := s.orderRepo.ListOverdueSuspensions(ctx, grace)
 	if err != nil {
 		return nil, err
 	}
-
-	result := &domain.CronTaskResult{
-		TaskName:       "BatchProvisioning",
-		ProcessedCount: len(pendingOrders),
-	}
-
-	if len(pendingOrders) == 0 {
-		result.Duration = time.Since(start)
-		return result, nil
-	}
-
-	for _, ord := range pendingOrders {
-		err := s.orderService.Activate(ctx, ord.ID)
-		if err != nil {
-			result.ErrorCount++
-			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
-		} else {
-			result.SuccessCount++
-		}
-	}
-
-	result.Duration = time.Since(start)
-	return result, nil
+	reason := fmt.Sprintf("Auto-suspended: overdue > %d days", grace)
+	return runTaskInParallel(ctx, orders, s.concurrency, "Suspensions", func(o *domain.Order) error {
+		_, err := s.orderService.Suspend(ctx, o.ID, reason)
+		return err
+	}), nil
 }
 
-// AutoCloseInactiveTicketsBatch closes resolved or abandoned tickets exceeding inactiveDays
-func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, inactiveDays int) (*domain.CronTaskResult, error) {
-	start := time.Now()
-	result := &domain.CronTaskResult{
-		TaskName: "BatchAutoCloseTickets",
+func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	orders, err := s.orderRepo.ListPendingProvisioning(ctx)
+	if err != nil {
+		return nil, err
 	}
+	now := time.Now().UTC()
+	return runTaskInParallel(ctx, orders, s.concurrency, "Provisioning", func(o *domain.Order) error {
+		_, err := s.orderService.Activate(ctx, o.ID, now)
+		return err
+	}), nil
+}
 
+func (s *CronService) ProcessPendingMassMailBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	campaigns, _, err := s.massMailRepo.List(ctx, 5, 0)
+	if err != nil || len(campaigns) == 0 {
+		return nil, err
+	}
+	clients, _, _ := s.clientRepo.List(ctx, 5000, 0)
+
+	return runTaskInParallel(ctx, campaigns, 1, "MassMail", func(cp *domain.MassMailCampaign) error {
+		if cp.Status != domain.CampaignStatusSending {
+			return nil
+		}
+		sent := 0
+		for _, c := range clients {
+			if c.Email != "" && s.mailer.Send(ctx, mailer.Message{To: []string{c.Email}, Subject: cp.Subject, HTMLBody: cp.Content}) == nil {
+				sent++
+			}
+		}
+		cp.SentCount, cp.Status, cp.SentAt = sent, domain.CampaignStatusCompleted, pointer(time.Now().UTC())
+		return s.massMailRepo.Update(ctx, cp)
+	}), nil
+}
+
+func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, days int) (*domain.CronTaskResult, error) {
+	start := time.Now()
 	if s.supportRepo == nil {
-		result.Duration = time.Since(start)
-		return result, nil
+		return &domain.CronTaskResult{TaskName: "TicketClose", Duration: time.Since(start)}, nil
 	}
-
-	cutoff := time.Now().UTC().AddDate(0, 0, -inactiveDays)
-	closedCount, err := s.supportRepo.CloseInactiveTickets(ctx, cutoff)
-	if err != nil {
-		result.ErrorCount++
-		result.Errors = append(result.Errors, fmt.Sprintf("Close inactive tickets error: %v", err))
-	} else {
-		result.ProcessedCount = closedCount
-		result.SuccessCount = closedCount
-	}
-
-	result.Duration = time.Since(start)
-	return result, nil
-}
-
-// ProcessPendingProvisioningBatch finds orders that are paid but not yet active and triggers activation
-func (s *CronService) ProcessPendingProvisioningBatch(ctx context.Context) (*domain.CronTaskResult, error) {
-	start := time.Now()
-	pendingOrders, err := s.orderRepo.ListPendingProvisioning(ctx)
+	count, err := s.supportRepo.CloseInactiveTickets(ctx, time.Now().UTC().AddDate(0, 0, -days))
 	if err != nil {
 		return nil, err
 	}
-
-	result := &domain.CronTaskResult{
-		TaskName:       "BatchProvisioning",
-		ProcessedCount: len(pendingOrders),
-	}
-
-	if len(pendingOrders) == 0 {
-		result.Duration = time.Since(start)
-		return result, nil
-	}
-
-	for _, ord := range pendingOrders {
-		err := s.orderService.Activate(ctx, ord.ID)
-		if err != nil {
-			result.ErrorCount++
-			result.Errors = append(result.Errors, fmt.Sprintf("Order #%d activation error: %v", ord.ID, err))
-		} else {
-			result.SuccessCount++
-		}
-	}
-
-	result.Duration = time.Since(start)
-	return result, nil
+	return &domain.CronTaskResult{TaskName: "TicketClose", ProcessedCount: count, SuccessCount: count, Duration: time.Since(start)}, nil
 }
+
+func (s *CronService) PerformAutomatedBackup(ctx context.Context) (*domain.CronTaskResult, error) {
+	start := time.Now()
+	if s.systemService == nil || s.dbURL == "" {
+		return &domain.CronTaskResult{TaskName: "DBBackup", Duration: time.Since(start)}, nil
+	}
+	_, err := s.systemService.CreateFullBackup(ctx, s.dbURL)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.CronTaskResult{TaskName: "DBBackup", SuccessCount: 1, Duration: time.Since(start)}, nil
+}
+
+func pointer[T any](v T) *T { return &v }
+func min(a, b int) int      { if a < b { return a }; return b }

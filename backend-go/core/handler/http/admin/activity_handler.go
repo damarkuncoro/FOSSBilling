@@ -46,3 +46,21 @@ func (h *ActivityHandler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	response.JSON(w, http.StatusOK, logs, meta)
 }
+
+func (h *ActivityHandler) GetActivityTrend(w http.ResponseWriter, r *http.Request) {
+	staffID := middleware.GetClientID(r.Context())
+	allowed, _ := h.staffService.HasPermission(r.Context(), staffID, "activity", "read")
+	if !allowed {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "Insufficient permissions for module: activity", nil)
+		return
+	}
+
+	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+	res, err := h.activityService.GetTrend(r.Context(), days)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res, nil)
+}

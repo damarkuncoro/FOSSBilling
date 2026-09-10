@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/builder"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment/gateways"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/seeder"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/geoip"
@@ -41,6 +47,12 @@ func main() {
 
 	case "admin:create":
 		runCreateAdmin(os.Args[2:])
+
+	case "db:backup":
+		runDBBackup(os.Args[2:])
+
+	case "db:seed:bench":
+		runDBSeedBench(os.Args[2:])
 
 	case "invoice:build":
 		runBuildInvoice(os.Args[2:])
@@ -72,6 +84,8 @@ func printUsage() {
 	fmt.Println("  status          Check registered payment, registrar, and provisioning drivers")
 	fmt.Println("  client:create   Create a new client account interactively via builder")
 	fmt.Println("  admin:create    Create a new staff/admin account with bcrypt password hash")
+	fmt.Println("  db:backup       Create a full SQL backup of the database")
+	fmt.Println("  db:seed:bench   Perform high-performance batch seeding for stress testing")
 	fmt.Println("  invoice:build   Construct and preview an invoice with items via builder")
 	fmt.Println("  tools:password  Generate a cryptographically secure random password")
 	fmt.Println("  tools:geoip     Lookup country and flag for a given IP address")
@@ -259,6 +273,66 @@ func runCreateAdmin(args []string) {
 	fmt.Printf("   Bcrypt Hash   : %s\n", staff.PasswordHash)
 }
 
+func runDBBackup(args []string) {
+	fs := flag.NewFlagSet("db:backup", flag.ExitOnError)
+	output := fs.String("output", "", "Output file path (e.g. backup.sql)")
+	dbURL := fs.String("db-url", "", "Custom Database URL")
+
+	_ = fs.Parse(args)
+
+	cfg := config.Load()
+	finalURL := cfg.DatabaseURL
+	if *dbURL != "" {
+		finalURL = *dbURL
+	}
+
+	outFile := *output
+	if outFile == "" {
+		outFile = fmt.Sprintf("fossbilling_backup_%s.sql", time.Now().Format("20060102_150405"))
+	}
+
+	fmt.Printf("📦 Creating database backup to %s...\n", outFile)
+
+	// Since we are using pgx, we can't easily do a dump via Go without
+	// reimplementing pg_dump. The best way is to shell out to pg_dump.
+	cmd := exec.Command("pg_dump", finalURL, "-f", outFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("❌ Backup failed: %v\nMake sure 'pg_dump' is installed and in your PATH.", err)
+	}
+
+	fmt.Printf("✅ Backup successfully created: %s\n", outFile)
+}
+
+func runDBSeedBench(args []string) {
+	fs := flag.NewFlagSet("db:seed:bench", flag.ExitOnError)
+	clients := fs.Int("clients", 1000, "Number of clients to seed")
+	invoices := fs.Int("invoices", 5000, "Number of invoices to seed")
+	dbURL := fs.String("db-url", "", "Custom Database URL (optional)")
+
+	_ = fs.Parse(args)
+
+	cfg := config.Load()
+	finalURL := cfg.DatabaseURL
+	if *dbURL != "" {
+		finalURL = *dbURL
+	}
+
+	ctx := context.Background()
+	pool, err := postgres.NewPostgresPool(ctx, finalURL)
+	if err != nil {
+		log.Fatalf("❌ Database connection failed: %v", err)
+	}
+	defer pool.Close()
+
+	s := seeder.NewBenchSeeder(pool)
+	if err := s.SeedLargeScale(ctx, *clients, *invoices); err != nil {
+		log.Fatalf("❌ Seeding failed: %v", err)
+	}
+}
+
 func runGeneratePassword(args []string) {
 	fs := flag.NewFlagSet("tools:password", flag.ExitOnError)
 	length := fs.Int("length", 16, "Password length (8-64)")
@@ -292,6 +366,6 @@ func runGeoIPLookup(args []string) {
 func runListLocales() {
 	fmt.Println("🌐 Supported FOSSBilling Locales:")
 	for _, l := range i18n.SupportedLocales {
-		fmt.Printf("   %s [%s] %s (%s) — Direction: %s\n", l.Flag, l.Code, l.Name, l.NativeName, l.Direction)
+		fmt.Printf("   %s [%s] %s (%s) — Direction: %s\n", l.Flag, l.Code, l.Name, l.Native, l.Dir)
 	}
 }

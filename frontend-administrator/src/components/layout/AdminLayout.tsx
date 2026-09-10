@@ -4,6 +4,7 @@ import { LogOut, Moon, Sun, ShieldCheck, Menu, X, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { request } from '@/lib/api/client';
 import { SidebarNav } from './SidebarNav';
+import { useLiveNotifications } from '@/hooks/useLiveNotifications';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import { AdminNotificationDropdown } from '../notifications/AdminNotificationDro
 
 export const AdminLayout: React.FC = () => {
   const { user, logout, theme, toggleTheme } = useAuth();
+  const { isConnected } = useLiveNotifications();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [branding, setBranding] = useState<any>(null);
@@ -145,8 +147,10 @@ export const AdminLayout: React.FC = () => {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-medium text-muted-foreground">Admin API Engine: Active</span>
+              <span className={`inline-block h-2 w-2 rounded-full animate-pulse ${isConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="text-xs font-medium text-muted-foreground">
+                {isConnected ? 'Admin API Engine: Live' : 'Admin API Engine: Offline'}
+              </span>
             </div>
           </div>
 

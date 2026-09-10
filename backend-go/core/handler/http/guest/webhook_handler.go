@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -76,4 +77,9 @@ func (h *WebhookHandler) HandleGatewayWebhook(w http.ResponseWriter, r *http.Req
 		"txn_id":         txn.TxnID,
 		"invoice_id":     txn.InvoiceID,
 	}, nil)
+}
+
+func (h *WebhookHandler) HandleSimulation(ctx context.Context, payload payment.WebhookPayload) error {
+	_, err := h.webhookService.HandlePaymentWebhook(ctx, payload)
+	return err
 }

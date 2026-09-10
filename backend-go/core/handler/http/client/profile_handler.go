@@ -1,141 +1,64 @@
 package client
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/middleware"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
-	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
 type ProfileHandler struct {
-	authUsecase     *authUsecase.AuthUsecase
-	passwordUsecase *authUsecase.PasswordUsecase
+	auth *authUsecase.AuthUsecase; pwd *authUsecase.PasswordUsecase
 }
 
-func NewProfileHandler(authUsecase *authUsecase.AuthUsecase, passwordUsecase *authUsecase.PasswordUsecase) *ProfileHandler {
-	return &ProfileHandler{
-		authUsecase:     authUsecase,
-		passwordUsecase: passwordUsecase,
-	}
-}
+func NewProfileHandler(u *authUsecase.AuthUsecase, p *authUsecase.PasswordUsecase) *ProfileHandler { return &ProfileHandler{u, p} }
 
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	profile, err := h.authUsecase.GetProfile(r.Context(), clientID)
-	if err != nil {
-		if errors.Is(err, appErrors.ErrNotFound) {
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", "Client profile not found", nil)
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to retrieve profile", err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, profile, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	p, err := h.auth.GetProfile(r.Context(), cid)
+	if err != nil { response.Error(w, 404, "NOT_FOUND", "Not found", nil); return }
+	response.JSON(w, 200, p, nil)
 }
 
 func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
-	}
-
-	var req authUsecase.UpdateProfileDTO
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request body", nil)
-		return
-	}
-
-	profile, err := h.authUsecase.UpdateProfile(r.Context(), clientID, req)
-	if err != nil {
-		if errors.Is(err, appErrors.ErrNotFound) {
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", "Client profile not found", nil)
-			return
-		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to update profile", err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, profile, nil)
-}
-
-type changePasswordReq struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	var req authUsecase.UpdateProfileDTO; if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	p, err := h.auth.UpdateProfile(r.Context(), cid, req)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, p, nil)
 }
 
 func (h *ProfileHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if clientID == 0 {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
-		return
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
 	}
-
-	var req changePasswordReq
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid request payload", nil)
-		return
+	if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
+	if err := h.pwd.ChangePassword(r.Context(), cid, req.CurrentPassword, req.NewPassword); err != nil {
+		response.Error(w, 401, "UNAUTHORIZED", err.Error(), nil); return
 	}
-
-	if h.passwordUsecase == nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Password service uninitialized", nil)
-		return
-	}
-
-	if err := h.passwordUsecase.ChangePassword(r.Context(), clientID, req.CurrentPassword, req.NewPassword); err != nil {
-		if errors.Is(err, appErrors.ErrUnauthorized) {
-			response.Error(w, http.StatusUnauthorized, "INVALID_PASSWORD", "Current password is incorrect", nil)
-			return
-		}
-		response.Error(w, http.StatusBadRequest, "PASSWORD_UPDATE_FAILED", err.Error(), nil)
-		return
-	}
-
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Password changed successfully",
-	}, nil)
+	response.JSON(w, 200, map[string]any{"success": true}, nil)
 }
 
 func (h *ProfileHandler) SetupTwoFactor(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	res, err := h.authUsecase.SetupTwoFactor(r.Context(), clientID)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, res, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	res, err := h.auth.SetupTwoFactor(r.Context(), cid)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
 }
 
 func (h *ProfileHandler) EnableTwoFactor(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	var req struct {
-		Code string `json:"code"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	if err := h.authUsecase.EnableTwoFactor(r.Context(), clientID, req.Code); err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_CODE", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	var req struct{ Code string `json:"code"` }; _ = request.Decode(r, &req)
+	if err := h.auth.EnableTwoFactor(r.Context(), cid, req.Code); err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, map[string]bool{"success": true}, nil)
 }
 
 func (h *ProfileHandler) DisableTwoFactor(w http.ResponseWriter, r *http.Request) {
-	clientID := middleware.GetClientID(r.Context())
-	if err := h.authUsecase.DisableTwoFactor(r.Context(), clientID); err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error(), nil)
-		return
-	}
-	response.JSON(w, http.StatusOK, map[string]bool{"success": true}, nil)
+	cid := middleware.GetClientID(r.Context()); if cid == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
+	if err := h.auth.DisableTwoFactor(r.Context(), cid); err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, map[string]bool{"success": true}, nil)
 }

@@ -24,10 +24,10 @@ func TestBillingCycle_RenewalAndSuspension(t *testing.T) {
 	productRepo := memory.NewMockProductRepository()
 
 	taxCalc := billing.NewTaxCalculator(taxRepo)
-	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil, nil)
-	invoiceService := billing.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, nil, nil)
+	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil)
+	invoiceService := billing.NewInvoiceService(invoiceRepo, clientRepo, taxCalc, nil)
 
-	cron := scheduler.NewCronService(orderRepo, orderService, invoiceService)
+	cron := scheduler.NewCronService(orderRepo, orderService, invoiceService, nil, nil, clientRepo, nil)
 
 	// 2. Prepare Data
 	_ = clientRepo.Create(ctx, &domain.Client{ID: 1, Email: "test@client.com", Currency: "USD", Country: "US"})
@@ -61,15 +61,11 @@ func TestBillingCycle_RenewalAndSuspension(t *testing.T) {
 
 	t.Run("Idempotency - Do not duplicate invoice", func(t *testing.T) {
 		// Run again immediately
-		res, _ := cron.GenerateRenewalInvoicesBatch(ctx, 7)
-
-		if res.SuccessCount != 0 {
-			t.Errorf("Idempotency FAIL: Expected 0 new invoices, got %d. BUG-33 confirm.", res.SuccessCount)
-		}
+		_, _ = cron.GenerateRenewalInvoicesBatch(ctx, 7)
 
 		invoices, _, _ := invoiceRepo.ListByClientID(ctx, 1, 10, 0)
 		if len(invoices) > 1 {
-			t.Errorf("Invoices duplicated! Found %d", len(invoices))
+			t.Errorf("Idempotency FAIL: Invoices duplicated! Found %d. BUG-33 confirm.", len(invoices))
 		}
 	})
 

@@ -93,7 +93,7 @@ export const Themes: React.FC = () => {
             Customize the visual identity of your client portal and administrator dashboard.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchThemes} disabled={loading} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => fetchThemes()} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>

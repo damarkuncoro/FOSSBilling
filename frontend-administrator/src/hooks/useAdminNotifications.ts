@@ -1,54 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { request } from '../lib/api/client';
 
 export function useAdminNotifications() {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await request<any[]>('/admin/notifications');
-      setNotifications(res || []);
-      setUnreadCount((res || []).filter((n: any) => !n.is_read).length);
-    } catch (err) {
-      console.error('Failed to fetch admin notifications');
-    }
-  }, []);
+  const { data: notifications = [], isLoading: loading } = useQuery({
+    queryKey: ['admin', 'notifications'],
+    queryFn: () => request<any[]>('/admin/notifications'),
+    refetchInterval: 30000,
+  });
 
-  useEffect(() => {
-    fetchNotifications();
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  const markMutation = useMutation({
+    mutationFn: (id: number) => request(`/admin/notifications/${id}/read`, { method: 'PUT' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] }),
+  });
 
-  const markAsRead = async (id: number) => {
-    try {
-      await request(`/admin/notifications/${id}/read`, { method: 'PUT' });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error('Failed to mark notification as read');
-    }
-  };
-
-  const markAllRead = async () => {
-    try {
-      await request('/admin/notifications/mark-all-read', { method: 'POST' });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch (err) {
-      console.error('Failed to mark all notifications as read');
-    }
-  };
+  const markAllMutation = useMutation({
+    mutationFn: () => request('/admin/notifications/mark-all-read', { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'notifications'] }),
+  });
 
   return {
     notifications,
-    unreadCount,
+    unreadCount: notifications.filter((n: any) => !n.is_read).length,
     loading,
-    markAsRead,
-    markAllRead,
-    refresh: fetchNotifications,
+    markAsRead: markMutation.mutate,
+    markAllRead: markAllMutation.mutate,
   };
 }

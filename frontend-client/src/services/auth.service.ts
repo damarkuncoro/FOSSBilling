@@ -1,72 +1,27 @@
-import { AuthRepository, authRepository, IAuthRepository } from '../repositories/auth.repository';
-import {
-  getStoredClientToken,
-  setStoredClientToken,
-  removeStoredClientToken,
-} from '../lib/api/client';
+import { authRepository as repo } from '../repositories/auth.repository';
+import { getStoredClientToken, setStoredClientToken, removeStoredClientToken } from '../lib/api/client';
 import type { ClientProfile } from '@/types/api';
 
 export class AuthService {
-  constructor(private repo: IAuthRepository = authRepository) {}
+  isAuthenticated = () => !!getStoredClientToken();
+  getToken = () => getStoredClientToken();
 
-  isAuthenticated(): boolean {
-    return !!getStoredClientToken();
-  }
+  login = async (e: string, p: string) => {
+    const r = await repo.login(e.trim(), p);
+    if (r?.token) { setStoredClientToken(r.token); localStorage.setItem('fossbilling_client_user', JSON.stringify(r.client)); }
+    return r.client;
+  };
 
-  getToken(): string | null {
-    return getStoredClientToken();
-  }
+  register = async (d: any) => {
+    const r = await repo.register({ ...d, email: d.email.trim().toLowerCase() });
+    if (r?.token) { setStoredClientToken(r.token); localStorage.setItem('fossbilling_client_user', JSON.stringify(r.client)); }
+    return r.client;
+  };
 
-  async login(email: string, password: string): Promise<ClientProfile> {
-    const res = await this.repo.login(email.trim(), password);
-    if (res?.token) {
-      setStoredClientToken(res.token);
-      localStorage.setItem('fossbilling_client_user', JSON.stringify(res.client));
-    }
-    return res.client;
-  }
-
-  async register(dto: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    currency?: string;
-  }): Promise<ClientProfile> {
-    const res = await this.repo.register({
-      ...dto,
-      email: dto.email.trim().toLowerCase(),
-    });
-    if (res?.token) {
-      setStoredClientToken(res.token);
-      localStorage.setItem('fossbilling_client_user', JSON.stringify(res.client));
-    }
-    return res.client;
-  }
-
-  logout(): void {
-    removeStoredClientToken();
-  }
-
-  async getProfile(): Promise<ClientProfile> {
-    const profile = await this.repo.getProfile();
-    localStorage.setItem('fossbilling_client_user', JSON.stringify(profile));
-    return profile;
-  }
-
-  async updateProfile(dto: Partial<ClientProfile>): Promise<ClientProfile> {
-    const updated = await this.repo.updateProfile(dto);
-    localStorage.setItem('fossbilling_client_user', JSON.stringify(updated));
-    return updated;
-  }
-
-  async changePassword(oldPassword: string, newPassword: string): Promise<string> {
-    if (newPassword.length < 8) {
-      throw new Error('New password must be at least 8 characters');
-    }
-    const res = await this.repo.changePassword(oldPassword, newPassword);
-    return res.message;
-  }
+  logout = () => removeStoredClientToken();
+  getProfile = async () => { const p = await repo.getProfile(); localStorage.setItem('fossbilling_client_user', JSON.stringify(p)); return p; };
+  updateProfile = async (d: any) => { const p = await repo.updateProfile(d); localStorage.setItem('fossbilling_client_user', JSON.stringify(p)); return p; };
+  changePassword = async (o: string, n: string) => { if (n.length < 8) throw new Error('Short'); const r = await repo.changePassword(o, n); return r.message; };
 }
 
 export const authService = new AuthService();

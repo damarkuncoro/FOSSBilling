@@ -1,44 +1,21 @@
-import { AdminInvoiceRepository, adminInvoiceRepository, IAdminInvoiceRepository } from '../repositories/admin_invoice.repository';
+import { adminInvoiceRepository, AdminInvoiceRepository } from '../repositories/admin_invoice.repository';
 import type { Invoice } from '@/types/api';
 
 export class AdminInvoiceService {
-  constructor(private repo: IAdminInvoiceRepository = adminInvoiceRepository) {}
+  constructor(private repo: AdminInvoiceRepository = adminInvoiceRepository) {}
 
-  async listInvoices(): Promise<Invoice[]> {
-    return this.repo.listInvoices();
-  }
+  listInvoices = () => this.repo.list();
+  getInvoiceDetail = (id: number) => this.repo.get(id);
+  createInvoice = (clientId: number, items: any[]) => {
+    if (!items || items.length === 0) throw new Error('Invoice must contain at least one line item');
+    return this.repo.create({ client_id: clientId, items });
+  };
+  refundInvoice = (id: number) => this.repo.refund(id);
+  deleteInvoice = (id: number) => this.repo.delete(id);
 
-  async getInvoiceDetail(id: number): Promise<Invoice> {
-    if (!id || id <= 0) {
-      throw new Error('Valid invoice ID is required');
-    }
-    return this.repo.getInvoice(id);
-  }
-
-  async createInvoice(clientId: number, items: Array<{ title: string; price: number; quantity?: number }>): Promise<Invoice> {
-    if (!clientId || clientId <= 0) {
-      throw new Error('Client ID is required');
-    }
-    if (!items || items.length === 0) {
-      throw new Error('Invoice must contain at least one line item');
-    }
-    return this.repo.createInvoice({
-      client_id: clientId,
-      items,
-    });
-  }
-
-  async refundInvoice(id: number): Promise<any> {
-    return this.repo.refundInvoice(id);
-  }
-
-  async deleteInvoice(id: number): Promise<any> {
-    return this.repo.deleteInvoice(id);
-  }
-
-  filterByStatus(invoices: Invoice[], status?: string): Invoice[] {
-    if (!status || status === 'all') return invoices;
-    return invoices.filter((inv) => inv.status.toLowerCase() === status.toLowerCase());
+  filterByStatus(invs: Invoice[], st?: string) {
+    if (!st || st === 'all') return invs;
+    return invs.filter(i => (i.status || '').toLowerCase() === st.toLowerCase());
   }
 }
 

@@ -20,7 +20,7 @@ export const AuditLogs: React.FC = () => {
             Immutable log record of all staff administrative actions, order lifecycle updates, and permission changes.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading} className="gap-2">
+        <Button variant="outline" size="sm" onClick={() => fetchLogs()} disabled={loading} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>

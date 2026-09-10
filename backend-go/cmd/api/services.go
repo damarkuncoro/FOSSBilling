@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/listener"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
@@ -38,8 +39,11 @@ import (
 	themeUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/theme"
 	widgetUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/widget"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/centralalerts"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/fraud"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/notifications"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
@@ -82,14 +86,16 @@ type Services struct {
 	SEO           *seoUsecase.SEOService
 	Widget        *widgetUsecase.WidgetService
 	Tax           *billingUsecase.TaxCalculator
+	Health        *systemUsecase.HealthUsecase
 	Gateways      *payment.GatewayRegistry
 	Hooks         *plugins.HookManager
 	Cache         cache.Cache
+	WSHub         *notifications.WSHub
 	EventBus      *events.EventBus
 }
 
 // InitServices instantiates and configures all domain services with their respective repository dependencies
-func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.EventBus, appCache cache.Cache, hookManager *plugins.HookManager) *Services {
+func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, eventBus *events.EventBus, appCache cache.Cache, hookManager *plugins.HookManager) *Services {
 	var appMailer mailer.Mailer
 	if cfg.MailDriver == "smtp" {
 		appMailer = mailer.NewSMTPMailer(cfg.MailHost, cfg.MailPort, cfg.MailUser, cfg.MailPass, cfg.MailFromAddr)
@@ -97,7 +103,8 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		appMailer = mailer.NewMockMailer()
 	}
 
-	emailService := notification.NewEmailService(appMailer, cfg.MailFromAddr, cfg.MailFromName)
+	emailService := notification.NewEmailService(appMailer, repos.EmailTemplate, cfg.MailFromAddr, cfg.MailFromName)
+	wsHub := notifications.NewWSHub()
 
 	taxCalculator := billingUsecase.NewTaxCalculator(repos.Tax)
 	promoCalc := cartUsecase.NewPromoCalculator(repos.Promo)
@@ -109,45 +116,40 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	sfsChecker := security.NewStopForumSpamChecker()
 	antispamService := antispamUsecase.NewAntispamService(repos.Antispam, turnstileVerifier, emailChecker, sfsChecker)
 
+	activityService := activityUsecase.NewActivityService(repos.Activity)
+
 	// 2. Auth
-	authUc := authUsecase.NewAuthUsecase(repos.Client, antispamService, cfg.JWTSecret)
+	authUc := authUsecase.NewAuthUsecase(repos.Client, antispamService, cfg.JWTSecret, cfg.CompanyName, activityService)
 	passwordUc := authUsecase.NewPasswordUsecase(repos.Client)
 
 	// 3. Provisioning Registries
 	provisionerFactory := provisioning.NewProvisionerFactory()
 	provisionerRegistry := provisioning.NewProvisionerRegistry()
-	provisionerRegistry.Register("cpanel", provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{
-		Host: "cpanel.fossbilling.org", Username: "root", APIToken: "MOCK_TOKEN", Insecure: true,
-	}))
-	provisionerRegistry.Register("directadmin", provisioning.NewDirectAdminProvisioner("da.fossbilling.org", 2222, "admin", "pass"))
-	provisionerRegistry.Register("plesk", provisioning.NewPleskProvisioner(provisioning.PleskConfig{
-		Host: "plesk.fossbilling.org", APIKey: "MOCK_KEY", Insecure: true,
-	}))
-	provisionerRegistry.Register("hestia", provisioning.NewHestiaProvisioner(provisioning.HestiaConfig{
-		Host: "hestia.fossbilling.org", AccessKey: "admin", SecretKey: "PASS", Insecure: true,
-	}))
-	provisionerRegistry.Register("cwp", provisioning.NewCWPProvisioner(provisioning.CWPConfig{
-		Host: "cwp.fossbilling.org", APIKey: "KEY", Insecure: true,
-	}))
-	provisionerRegistry.Register("cyberpanel", provisioning.NewCyberPanelProvisioner(provisioning.CyberPanelConfig{
-		Host: "cyberpanel.fossbilling.org", AdminPass: "PASS", Insecure: true,
-	}))
-	provisionerRegistry.Register("custom", provisioning.NewCustomServerProvisioner(provisioning.CustomServerConfig{
-		EndpointURL: "https://webhooks.fossbilling.org", AuthToken: "SECRET",
-	}))
+	// Real world provisioners are matched dynamically. Mocks for demo:
+	provisionerRegistry.Register("cpanel", provisioning.NewCpanelProvisioner(provisioning.CpanelConfig{Insecure: true}))
+	provisionerRegistry.Register("directadmin", provisioning.NewDirectAdminProvisioner("localhost", 2222, "admin", ""))
 
 	registrarRegistry := provisioning.NewRegistrarRegistry()
 	registrarRegistry.Register("rdap", provisioning.NewRDAPRegistrarDriver())
-	registrarRegistry.Register("email", provisioning.NewEmailRegistrarDriver(emailService, "admin@fossbilling.org"))
+	registrarRegistry.Register("email", provisioning.NewEmailRegistrarDriver(emailService, cfg.MailFromAddr))
 	registrarRegistry.Register("custom", provisioning.NewCustomRegistrarDriver())
-	registrarRegistry.Register("namecheap", provisioning.NewNamecheapRegistrarDriver(provisioning.NamecheapConfig{IsSandbox: true}))
+
+	if cfg.NamecheapAPIUser != "" {
+		registrarRegistry.Register("namecheap", provisioning.NewNamecheapRegistrarDriver(provisioning.NamecheapConfig{
+			ApiUser:   cfg.NamecheapAPIUser,
+			ApiKey:    cfg.NamecheapAPIKey,
+			IsSandbox: cfg.AppEnv != "production",
+		}))
+	}
 
 	dnsRegistry := provisioning.NewDNSProviderRegistry()
-	dnsRegistry.Register("cloudflare", provisioning.NewCloudflareDNSProvider("MOCK_CF_TOKEN"))
+	if cfg.CloudflareToken != "" {
+		dnsRegistry.Register("cloudflare", provisioning.NewCloudflareDNSProvider(cfg.CloudflareToken))
+	}
 
 	// 4. Core Business Logic
 	orderService := orderUsecase.NewOrderService(repos.Order, repos.Product, provisionerRegistry, registrarRegistry, eventBus)
-	invoiceService := billingUsecase.NewInvoiceService(repos.Invoice, repos.Client, taxCalculator, hookManager, eventBus)
+	invoiceService := billingUsecase.NewInvoiceService(repos.Invoice, repos.Client, repos.Company, taxCalculator, hookManager, eventBus)
 	formbuilderService := formbuilderUsecase.NewFormbuilderService(repos.Formbuilder)
 	cartService := cartUsecase.NewCartService(promoCalc, repos.Promo, repos.Order, repos.Product, repos.Client, formbuilderService, taxCalculator, invoiceService, fraudChecker, eventBus)
 
@@ -155,13 +157,13 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	gatewayRegistry := payment.NewGatewayRegistry()
 	gatewayRegistry.Register(gateways.NewStripeGateway(cfg.StripeSecretKey, cfg.StripePublicKey, ""))
 	gatewayRegistry.Register(gateways.NewMidtransGateway(cfg.MidtransServerKey, cfg.MidtransClientKey, cfg.AppEnv == "production"))
-	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Mandiri", "1234567890", "FOSSBilling Indonesia"))
+	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Transfer", "", cfg.CompanyName))
 
 	// 6. Rest of services
 	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, gatewayRegistry, eventBus)
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
 	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
-	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret)
+	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret, cfg.CompanyName)
 	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support, appCache)
 	companyService := companyUsecase.NewCompanyService(repos.Company, repos.System)
 	currencyService := currencyUsecase.NewCurrencyService(repos.Currency)
@@ -175,9 +177,9 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	serverService := catalogUsecase.NewServerService(repos.Catalog, provisionerFactory)
 	systemService := systemUsecase.NewSystemService(repos.System)
 	pageService := pageUsecase.NewPageService(repos.Page)
-	activityService := activityUsecase.NewActivityService(repos.Activity)
 	notificationService := notificationUsecase.NewNotificationService(repos.Notification)
 	adminNotifService := notificationUsecase.NewAdminNotificationService(repos.AdminNotification)
+	healthService := systemUsecase.NewHealthUsecase(pool, appCache)
 	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, appMailer, cfg.MailFromAddr, cfg.MailFromName)
 
 	// 7. Event Listeners
@@ -198,7 +200,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 	eventBus.Subscribe(events.EventOrderActivated, notificationListener.HandleOrderActivated)
 
 	telegramService := centralalerts.NewTelegramService(cfg.TelegramBotToken, cfg.TelegramChatID)
-	adminAlertListener := listener.NewAdminAlertListener(adminNotifService, telegramService)
+	adminAlertListener := listener.NewAdminAlertListener(adminNotifService, telegramService, wsHub)
 	eventBus.Subscribe(events.EventInvoicePaid, adminAlertListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventTicketOpened, adminAlertListener.HandleTicketOpened)
 
@@ -234,6 +236,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		Antispam:      antispamService,
 		Fraud:         fraudChecker,
 		Tax:           taxCalculator,
+		Health:        healthService,
 		Formbuilder:   formbuilderService,
 		Extension:     extensionUsecase.NewExtensionService(repos.Extension),
 		Redirect:      redirectUsecase.NewRedirectService(repos.Redirect),
@@ -244,6 +247,7 @@ func InitServices(cfg *config.Config, repos *Repositories, eventBus *events.Even
 		Gateways:      gatewayRegistry,
 		Hooks:         hookManager,
 		Cache:         appCache,
+		WSHub:         wsHub,
 		MassMail:      massMailService,
 		EventBus:      eventBus,
 	}

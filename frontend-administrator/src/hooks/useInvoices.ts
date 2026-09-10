@@ -1,39 +1,43 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminInvoiceService } from '@/services/admin_invoice.service';
 import { adminClientService } from '@/services/admin_client.service';
 import { adminStatsService } from '@/services/admin_stats.service';
-import type { Invoice, ClientProfile, DashboardStats } from '@/types/api';
+import type { Invoice } from '@/types/api';
 
 export function useInvoices() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [clients, setClients] = useState<ClientProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [invData, clientData, statsData] = await Promise.allSettled([
-        adminInvoiceService.listInvoices(),
-        adminClientService.listClients(),
-        adminStatsService.getDashboardMetrics(),
-      ]);
+  const { data: invoices = [], isLoading: invoicesLoading, refetch: fetchInvoices } = useQuery({
+    queryKey: ['admin', 'invoices'],
+    queryFn: () => adminInvoiceService.listInvoices(),
+  });
 
-      if (invData.status === 'fulfilled' && Array.isArray(invData.value)) {
-        setInvoices(invData.value);
-      }
-      if (clientData.status === 'fulfilled' && Array.isArray(clientData.value)) {
-        setClients(clientData.value);
-      }
-      if (statsData.status === 'fulfilled') {
-        setStats(statsData.value);
-      }
-    } catch (err) {
-      console.error('Failed to fetch invoices/clients:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: clients = [], isLoading: clientsLoading } = useQuery({
+    queryKey: ['admin', 'clients'],
+    queryFn: () => adminClientService.listClients(),
+  });
+
+  const { data: stats = null } = useQuery({
+    queryKey: ['admin', 'stats', 'dashboard'],
+    queryFn: () => adminStatsService.getDashboardMetrics(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: ({ clientId, items }: { clientId: number; items: any[] }) =>
+      adminInvoiceService.createInvoice(clientId, items),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'invoices'] }),
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: (id: number) => adminInvoiceService.refundInvoice(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'invoices'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => adminInvoiceService.deleteInvoice(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'invoices'] }),
+  });
 
   const exportInvoicesToCSV = useCallback(() => {
     if (!invoices.length) return;
@@ -52,58 +56,23 @@ export function useInvoices() {
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', encodeURI(csvContent));
     link.setAttribute('download', `FOSSBilling-Invoices-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   }, [invoices]);
-
-  const createInvoice = useCallback(async (arg1: any, arg2?: any) => {
-    if (typeof arg1 === 'object' && arg1 !== null) {
-      return adminInvoiceService.createInvoice(arg1.client_id, arg1.items);
-    }
-    return adminInvoiceService.createInvoice(arg1, arg2);
-  }, []);
-
-  const refundInvoice = useCallback(async (id: number) => {
-    try {
-      await adminInvoiceService.refundInvoice(id);
-      setInvoices((prev) =>
-        prev.map((inv) => (inv.id === id ? { ...inv, status: 'refunded' } : inv))
-      );
-    } catch (err) {
-      console.error('Refund failed:', err);
-      throw err;
-    }
-  }, []);
-
-  const deleteInvoice = useCallback(async (id: number) => {
-    if (!confirm('Are you sure you want to permanently delete this invoice?')) return;
-    try {
-      await adminInvoiceService.deleteInvoice(id);
-      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
-    } catch (err) {
-      console.error('Delete failed:', err);
-      throw err;
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
 
   return {
     stats,
     invoices,
     clients,
-    loading,
+    loading: invoicesLoading || clientsLoading,
     fetchInvoices,
     exportInvoicesToCSV,
-    createInvoice,
-    refundInvoice,
-    deleteInvoice,
+    createInvoice: (clientId: number, items: any[]) => createMutation.mutateAsync({ clientId, items }),
+    refundInvoice: refundMutation.mutateAsync,
+    deleteInvoice: async (id: number) => {
+      if (confirm('Are you sure?')) await deleteMutation.mutateAsync(id);
+    },
   };
 }

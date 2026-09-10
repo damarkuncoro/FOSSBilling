@@ -3,61 +3,64 @@ package listener
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/centralalerts"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/notifications"
 )
 
 type AdminAlertListener struct {
-	adminNotifService *notification.AdminNotificationService
-	telegramService   *centralalerts.TelegramService
+	ans   *notification.AdminNotificationService
+	ts    *centralalerts.TelegramService
+	wsHub *notifications.WSHub
 }
 
-func NewAdminAlertListener(svc *notification.AdminNotificationService, tg *centralalerts.TelegramService) *AdminAlertListener {
-	return &AdminAlertListener{
-		adminNotifService: svc,
-		telegramService:   tg,
-	}
+func NewAdminAlertListener(s *notification.AdminNotificationService, t *centralalerts.TelegramService, ws *notifications.WSHub) *AdminAlertListener {
+	return &AdminAlertListener{s, t, ws}
 }
 
 func (l *AdminAlertListener) HandleInvoicePaid(ctx context.Context, e events.Event) error {
-	payload := e.Payload.(domain.InvoicePaidPayload)
+	p, ok := e.Payload.(domain.InvoicePaidPayload); if !ok { return nil }
+	m := fmt.Sprintf("Client #%d paid Invoice #%d: %s %s", p.ClientID, p.InvoiceID, p.Currency, p.Amount.String())
 
-	title := "💰 Payment Received"
-	msg := fmt.Sprintf("Client #%d has paid Invoice #%d with total %s %s.",
-		payload.ClientID, payload.InvoiceID, payload.Currency, payload.Amount.String())
-
-	// Push to Telegram if configured
-	if l.telegramService != nil {
-		tgMsg := fmt.Sprintf("<b>%s</b>\n%s", title, msg)
-		_ = l.telegramService.SendMessage(tgMsg)
+	// 1. WebSocket Live Push
+	if l.wsHub != nil {
+		_ = l.wsHub.Broadcast(ctx, map[string]any{"type": "invoice_paid", "title": "💰 Payment Received", "message": m})
 	}
 
-	// Large payment alert (e.g. > $100)
-	if payload.Amount >= 1000000 { // $100.00
-		return l.adminNotifService.CreateAlert(ctx, title, msg, "success", "billing")
+	// 2. Telegram Alert
+	if l.ts != nil {
+		priority := p.Amount >= 1000000 // High priority for large payments
+		_ = l.ts.SendAlert("Payment Received", m, priority)
+	}
+
+	// 3. Database Alert (if large amount)
+	if p.Amount >= 1000000 {
+		return l.ans.CreateAlert(ctx, "💰 Payment Received", m, "success", "billing")
 	}
 	return nil
 }
 
 func (l *AdminAlertListener) HandleTicketOpened(ctx context.Context, e events.Event) error {
-	payload := e.Payload.(domain.TicketOpenedPayload)
+	p, ok := e.Payload.(domain.TicketOpenedPayload); if !ok { return nil }
+	m := fmt.Sprintf("Ticket #%d by Client #%d: %s (Priority: %s)", p.TicketID, p.ClientID, p.Subject, p.Priority)
 
-	title := "🎫 New Support Ticket"
-	msg := fmt.Sprintf("Ticket #%d was opened by Client #%d: %s", payload.TicketID, payload.ClientID, payload.Subject)
-
-	// Push to Telegram if configured
-	if l.telegramService != nil {
-		tgMsg := fmt.Sprintf("<b>%s</b>\n%s\nPriority: %s", title, msg, payload.Priority)
-		_ = l.telegramService.SendMessage(tgMsg)
+	// 1. WebSocket Live Push
+	if l.wsHub != nil {
+		_ = l.wsHub.Broadcast(ctx, map[string]any{"type": "ticket_opened", "title": "🎫 New Support Ticket", "message": m, "priority": p.Priority})
 	}
 
-	if payload.Priority == string(domain.PriorityHigh) || payload.Priority == string(domain.PriorityUrgent) {
-		title = "🔥 Urgent Support Ticket"
-		return l.adminNotifService.CreateAlert(ctx, title, msg, "danger", "support")
+	// 2. Telegram Alert
+	if l.ts != nil {
+		priority := p.Priority == string(domain.PriorityHigh) || p.Priority == string(domain.PriorityUrgent)
+		_ = l.ts.SendAlert("New Support Ticket", m, priority)
+	}
+
+	// 3. Database Alert (if high priority)
+	if p.Priority == string(domain.PriorityHigh) || p.Priority == string(domain.PriorityUrgent) {
+		return l.ans.CreateAlert(ctx, "🔥 Urgent Ticket", m, "danger", "support")
 	}
 	return nil
 }

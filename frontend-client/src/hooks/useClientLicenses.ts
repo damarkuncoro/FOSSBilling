@@ -1,59 +1,25 @@
-import { useState, useEffect } from 'react';
-import type { ClientLicense } from '../types/clientModules';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { licenseService } from '../services/license.service';
 
-export function useClientLicenses(initial: ClientLicense[] = []) {
-  const [licenses, setLicenses] = useState<ClientLicense[]>(initial);
-  const [loading, setLoading] = useState(false);
+export function useClientLicenses() {
+  const queryClient = useQueryClient();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const fetchLicenses = async () => {
-    try {
-      setLoading(true);
-      const res = await licenseService.listClientLicenses();
-      if (res && Array.isArray(res)) {
-        setLicenses(res);
-      } else {
-        setLicenses([]);
-      }
-    } catch {
-      // Retain current state if offline or mocked
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: licenses = [], isLoading: loading } = useQuery({
+    queryKey: ['client', 'licenses'],
+    queryFn: () => licenseService.listClientLicenses(),
+  });
 
-  useEffect(() => {
-    fetchLicenses();
-  }, []);
-
-  const copyKey = (key: string) => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(key);
-    }
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const resetLock = async (id: number) => {
-    try {
-      await licenseService.resetLicenseLock(id);
-    } catch {
-      // Optimistic fallback
-    }
-    setLicenses((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, licensed_domain: '', licensed_ip: '' } : l))
-    );
-  };
+  const resetMutation = useMutation({
+    mutationFn: (id: number) => licenseService.resetLicenseLock(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client', 'licenses'] }),
+  });
 
   return {
-    licenses,
-    loading,
-    copiedKey,
-    copyKey,
-    resetLock,
-    refreshLicenses: fetchLicenses,
-    setLicenses,
+    licenses, loading, copiedKey,
+    copyKey: (k: string) => { navigator.clipboard?.writeText(k); setCopiedKey(k); setTimeout(() => setCopiedKey(null), 2000); },
+    resetLock: resetMutation.mutate,
+    refreshLicenses: () => queryClient.invalidateQueries({ queryKey: ['client', 'licenses'] }),
   };
 }
-

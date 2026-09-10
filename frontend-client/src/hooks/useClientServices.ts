@@ -1,69 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/order.service';
 import { downloadService } from '@/services/download.service';
-import { Order } from '@/types/api';
 
 export function useClientServices() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [downloadLink, setDownloadLink] = useState<string | null>(null);
   const [downloadModal, setDownloadModal] = useState(false);
 
-  const fetchServices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await orderService.listClientOrders();
-      setOrders(data || []);
-    } catch (err) {
-      console.error('Failed to fetch services:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: orders = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['client', 'orders'],
+    queryFn: () => orderService.listClientOrders(),
+  });
 
-  useEffect(() => {
-    fetchServices();
-  }, [fetchServices]);
+  const syncMutation = useMutation({
+    mutationFn: (id: number) => orderService.syncServiceStatus(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['client', 'orders'] }); alert('Synchronized.'); },
+  });
 
-  const handleGetDownload = async (id: number) => {
-    try {
-      const url = await downloadService.getSecureDownloadUrl(id);
-      setDownloadLink(url);
-      setDownloadModal(true);
-    } catch (err: any) {
-      alert(`Download generation failed: ${err.message}`);
-    }
-  };
-
-  const handleSyncStatus = async (id: number) => {
-    try {
-      await orderService.syncServiceStatus(id);
-      alert('Service status synchronized with remote provider.');
-      fetchServices();
-    } catch (err: any) {
-      alert(`Sync failed: ${err.message}`);
-    }
-  };
-
-  const handleChangePassword = async (id: number, password: string) => {
-    try {
-      await orderService.changeServicePassword(id, password);
-      alert('Service password updated successfully.');
-      fetchServices();
-    } catch (err: any) {
-      alert(`Password change failed: ${err.message}`);
-    }
-  };
+  const passwordMutation = useMutation({
+    mutationFn: ({ id, password }: { id: number; password: string }) => orderService.changeServicePassword(id, password),
+    onSuccess: () => alert('Updated.'),
+  });
 
   return {
-    orders,
-    loading,
-    downloadLink,
-    downloadModal,
-    setDownloadModal,
-    fetchServices,
-    handleGetDownload,
-    handleSyncStatus,
-    handleChangePassword,
+    orders, loading, downloadLink, downloadModal, setDownloadModal,
+    fetchServices: () => refetch(),
+    handleGetDownload: async (id: number) => { try { const url = await downloadService.getSecureDownloadUrl(id); setDownloadLink(url); setDownloadModal(true); } catch (err: any) { alert(err.message); } },
+    handleSyncStatus: (id: number) => syncMutation.mutateAsync(id),
+    handleChangePassword: (id: number, password: string) => passwordMutation.mutateAsync({ id, password }),
   };
 }
