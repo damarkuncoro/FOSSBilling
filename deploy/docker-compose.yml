@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: fossbilling-postgres
+    container_name: fb-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: fossbilling
@@ -22,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: fossbilling-redis
+    container_name: fb-cache
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -35,7 +35,7 @@ services:
     build:
       context: ../backend-go
       dockerfile: Dockerfile
-    container_name: fossbilling-api
+    container_name: fb-api
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -62,7 +62,7 @@ services:
     build:
       context: ../backend-go
       dockerfile: Dockerfile
-    container_name: fossbilling-worker
+    container_name: fb-worker
     restart: unless-stopped
     command: ["/app/worker"]
     environment:
@@ -81,7 +81,7 @@ services:
     build:
       context: ../frontend-administrator
       dockerfile: Dockerfile
-    container_name: fossbilling-admin-portal
+    container_name: fb-admin
     restart: unless-stopped
     ports:
       - "3000:80"
@@ -94,7 +94,7 @@ services:
     build:
       context: ../frontend-client
       dockerfile: Dockerfile
-    container_name: fossbilling-client-portal
+    container_name: fb-client
     restart: unless-stopped
     ports:
       - "3001:80"
@@ -107,7 +107,7 @@ services:
     build:
       context: ../docs
       dockerfile: Dockerfile
-    container_name: fossbilling-docs-portal
+    container_name: fb-docs
     restart: unless-stopped
     ports:
       - "3002:80"
@@ -116,7 +116,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: fossbilling-gateway
+    container_name: fb-gateway
     restart: unless-stopped
     ports:
       - "80:80"
