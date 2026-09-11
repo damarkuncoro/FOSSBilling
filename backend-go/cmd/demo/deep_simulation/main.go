@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/affiliate"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/apikey"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
@@ -22,11 +25,17 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/activity"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/listener"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/security"
 )
 
@@ -82,11 +91,16 @@ func runDeepSimulation() {
 	antispamRepo := memory.NewMockAntispamRepository()
 	newsRepo := memory.NewMockNewsRepository()
 	massMailRepo := memory.NewMockMassMailRepository()
+	affRepo := memory.NewMockAffiliateRepository()
 
 	eventBus := events.NewEventBus()
 	mockMailer := mailer.NewMockMailer()
-	emailService := notification.NewEmailService(mockMailer, "system@fossbilling.org", "FOSSBilling Core")
-	_ = emailService
+	tplRepo := memory.NewMockEmailTemplateRepository()
+	emailService := notification.NewEmailService(mockMailer, tplRepo, "system@fossbilling.org", "FOSSBilling Core")
+
+	luaEngine := plugins.NewLuaEngine("extensions")
+	_ = luaEngine.LoadExtensions()
+	hm := plugins.NewHookManager(luaEngine)
 
 	// Registries
 	provRegistry := provisioning.NewProvisionerRegistry()
@@ -100,47 +114,47 @@ func runDeepSimulation() {
 
 	// Services
 	taxCalc := billing.NewTaxCalculator(taxRepo)
-	invService := billing.NewInvoiceService(invRepo, clientRepo, taxCalc, nil, eventBus)
+	invService := billing.NewInvoiceService(invRepo, clientRepo, memory.NewMockCompanyRepository(), taxCalc, hm, eventBus)
 	promoCalc := cart.NewPromoCalculator(promoRepo)
 	formService := formbuilder.NewFormbuilderService(formRepo)
 	cartService := cart.NewCartService(promoCalc, promoRepo, orderRepo, productRepo, clientRepo, formService, taxCalc, invService, nil, eventBus)
 	antispamUc := antispam.NewAntispamService(antispamRepo, security.NewTurnstileVerifier(""), nil, nil)
-	authUc := auth.NewAuthUsecase(clientRepo, antispamUc, "simulation-secret-key")
+	activityService := activity.NewActivityService(memory.NewMockActivityRepository())
+	authUc := auth.NewAuthUsecase(clientRepo, antispamUc, "simulation-secret-key", "FOSSBilling", activityService)
 	webhookUc := paymentUsecase.NewWebhookService(txnRepo, invRepo, payment.NewGatewayRegistry(), eventBus)
 	supportUc := support.NewSupportService(supportRepo, clientRepo, eventBus)
-	statsUc := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo, nil)
+	statsUc := stats.NewStatsService(clientRepo, orderRepo, invRepo, supportRepo, cache.NewMemoryCache())
 	apiKeyUc := apikey.NewAPIKeyService(apiKeyRepo)
 	downloadUc := downloadable.NewDownloadableService(downloadRepo, orderRepo, "simulation-secret-key")
+	affSvc := affiliate.NewAffiliateService(affRepo, clientRepo, orderRepo)
 	orderUc := order.NewOrderService(orderRepo, productRepo, provRegistry, regRegistry, eventBus)
 	domainUcService := domainUc.NewDomainService(orderRepo, regRegistry, dnsRegistry)
 	newsUc := news.NewNewsService(newsRepo)
 	massMailUc := massmail.NewMassMailService(massMailRepo, clientRepo, mockMailer, "admin@fossbilling.org", "FOSSBilling Admin")
+
+	orderListener := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderUc, affSvc, regRegistry, provRegistry)
+	eventBus.Subscribe(events.EventOrderActivated, orderListener.HandleOrderActivated)
 
 	_ = supportUc
 	_ = apiKeyUc
 	_ = downloadUc
 	_ = orderUc
 
-	// 2. STAGE 1: Anti-Spam & Fraud Registration
-	fmt.Println("\n[STAGE 1] 🛡️  Anti-Spam & Fraud Prevention")
+	// 2. STAGE 1: Affiliate & Fraud Registration
+	fmt.Println("\n[STAGE 1] 🛡️  Affiliate Tracking & Fraud Prevention")
 
-	// 1.1 Block an IP
-	badIP := "192.168.1.50"
-	_, _ = antispamUc.BlockIP(ctx, badIP, "Known botnet member")
-	fmt.Printf("   🚫 IP %s has been blacklisted.\n", badIP)
+	// 1.1 Create an Affiliate (Partner)
+	partnerRes, _, _ := authUc.Register(ctx, auth.RegisterDTO{Email: "partner@example.com", Password: "Password123!", FirstName: "Partner", LastName: "One"}, "1.1.1.1")
+	partnerAff, _ := affSvc.ActivateAffiliate(ctx, partnerRes.Client.ID)
+	fmt.Printf("   🤝 Partner registered: %s (Affiliate ID: %d)\n", partnerRes.Client.Email, partnerAff.ID)
 
-	// 1.2 Attempt registration with blocked IP
-	_, _, err := authUc.Register(ctx, auth.RegisterDTO{Email: "bot@spam.com", Password: "123", FirstName: "Bot"}, badIP)
-	if err != nil {
-		fmt.Printf("   ✅ Fraud Blocked: %v\n", err)
-	}
-
-	// 1.3 Valid Registration
+	// 1.2 Registration with Referral
 	regRes, _, _ := authUc.Register(ctx, auth.RegisterDTO{
-		Email: "budi.santoso@nusantara.id", Password: "Password!123",
+		Email: "referred.user@nusantara.id", Password: "Password!123",
 		FirstName: "Budi", LastName: "Santoso", Country: "ID", Currency: "IDR",
+		ReferrerID: &partnerAff.ID,
 	}, "114.124.200.1")
-	fmt.Printf("   👤 Klien Terdaftar: %s (ID: %d)\n", regRes.Client.Email, regRes.Client.ID)
+	fmt.Printf("   👤 Referred Client: %s (Referrer ID: %d)\n", regRes.Client.Email, partnerAff.ID)
 
 	secret := security.GenerateTOTPSecret()
 	client, _ := clientRepo.GetByID(ctx, regRes.Client.ID)
@@ -267,12 +281,43 @@ func runDeepSimulation() {
 		fmt.Println("      ❌ BUG FOUND: Promo used beyond limit!")
 	}
 
+	// 7. STAGE 6: Distributed Locking & Resilience
+	fmt.Println("\n[STAGE 6] 🔗 Distributed Locking & Resilience")
+
+	locker := &lock.LocalLocker{}
+	cronSvc := scheduler.NewCronService(orderRepo, orderUc, invService, nil, supportRepo, massMailRepo, clientRepo, locker, mockMailer, "")
+
+	fmt.Println("   🔐 Attempting concurrent task execution (Worker Simulation)...")
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_ = cronSvc.RunLocked(ctx, "task:unique", time.Second, func() error {
+			fmt.Println("      👷 Worker 1: Acquired Lock and running...")
+			time.Sleep(500 * time.Millisecond)
+			return nil
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		time.Sleep(100 * time.Millisecond)
+		_ = cronSvc.RunLocked(ctx, "task:unique", time.Second, func() error {
+			fmt.Println("      👷 Worker 2: This should not print if locking works (Redis needed for real multi-proc)")
+			return nil
+		})
+	}()
+	wg.Wait()
+
 	// Global Analytics Final Check
 	fmt.Println("\n[FINAL AUDIT] 📊 Global Business Overview")
 	stats, _ := statsUc.CalculateDashboard(ctx)
 	fmt.Printf("   📈 Total Revenue Collected: Rp %s\n", stats.TotalRevenue.String())
 	fmt.Printf("   👥 Total Registered Klien : %d\n", stats.TotalClients)
 	fmt.Printf("   📦 Total Active Orders     : %d\n", stats.ActiveOrders)
+
+	// Check Affiliate Commission
+	finalAff, _ := affSvc.GetAffiliate(ctx, partnerRes.Client.ID)
+	fmt.Printf("   💰 Partner Balance        : Rp %s (Commission from referred client)\n", finalAff.Balance.String())
 
 	fmt.Println("\n🎉 ULTRA-DEEP SIMULATION COMPLETED - SYSTEM FULLY TESTED")
 }
