@@ -52,6 +52,7 @@ func billingRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) 
 	mux.Handle("DELETE /api/v1/admin/coupons/{id}", aAuth(http.HandlerFunc(h.AdminBilling.DeleteCoupon)))
 	mux.Handle("GET /api/v1/admin/reports/financial", aAuth(http.HandlerFunc(h.AdminBilling.GetFinancialReports)))
 	mux.Handle("GET /api/v1/admin/reports/invoices/csv", aAuth(http.HandlerFunc(h.AdminBilling.ExportInvoicesCSV)))
+	mux.Handle("GET /api/v1/admin/affiliates/{id}", aAuth(http.HandlerFunc(h.AdminAffiliate.GetAffiliate)))
 }
 
 func catalogRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) http.Handler) {

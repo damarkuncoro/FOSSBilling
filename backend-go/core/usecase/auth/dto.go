@@ -13,6 +13,7 @@ type RegisterDTO struct {
 	Country      string `json:"country,omitempty"`
 	Phone        string `json:"phone,omitempty"`
 	Currency     string `json:"currency,omitempty"`
+	ReferrerID   *int64 `json:"referrer_id,omitempty"`
 	Honeypot     string `json:"website_hp,omitempty"`
 	CaptchaToken string `json:"captcha_token,omitempty"`
 }

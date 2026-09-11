@@ -29,6 +29,7 @@ interface ClientAuthContextType {
     first_name: string;
     last_name: string;
     currency?: string;
+    referrer_id?: number;
   }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
@@ -128,6 +129,7 @@ export const ClientAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     first_name: string;
     last_name: string;
     currency?: string;
+    referrer_id?: number;
   }) => {
     setIsLoading(true);
     try {

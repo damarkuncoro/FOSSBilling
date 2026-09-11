@@ -45,6 +45,7 @@ type AppHandlers struct {
 	ClientDownload     *client.DownloadHandler
 	ClientLicense      *client.LicenseHandler
 	ClientAPIKey       *client.APIKeyHandler
+	ClientAffiliate    *client.AffiliateHandler
 	AdminAuth          *admin.StaffAuthHandler
 	AdminStaff         *admin.StaffManagementHandler
 	AdminClient        *admin.ClientManagementHandler
@@ -69,6 +70,7 @@ type AppHandlers struct {
 	AdminSEO           *admin.SEOHandler
 	AdminWidget        *admin.WidgetHandler
 	AdminEmailTemplate *admin.EmailTemplateHandler
+	AdminAffiliate     *admin.AffiliateHandler
 }
 
 // setupRoutes initializes system routes and dispatches to role-scoped routers

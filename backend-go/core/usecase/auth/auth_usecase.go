@@ -36,7 +36,7 @@ func (u *AuthUsecase) Register(ctx context.Context, req RegisterDTO, ip string) 
 	if !v.IsValid() { return nil, v, appErrors.ErrInvalidInput }
 	if u.antispamService != nil { if err := u.antispamService.ValidateSignup(ctx, req.Email, ip, req.Honeypot, req.CaptchaToken); err != nil { v.Add("email", err.Error()); return nil, v, appErrors.ErrInvalidInput } }
 	if ex, _ := u.clientRepo.GetByEmail(ctx, req.Email); ex != nil { return nil, nil, appErrors.ErrDuplicate }
-	hp, _ := auth.HashPassword(req.Password); c := &domain.Client{Email: req.Email, PasswordHash: hp, FirstName: req.FirstName, LastName: req.LastName, Company: req.Company, Address1: req.Address1, City: req.City, Country: req.Country, Phone: req.Phone, Currency: req.Currency, Status: domain.ClientStatusActive}
+	hp, _ := auth.HashPassword(req.Password); c := &domain.Client{Email: req.Email, PasswordHash: hp, FirstName: req.FirstName, LastName: req.LastName, Company: req.Company, Address1: req.Address1, City: req.City, Country: req.Country, Phone: req.Phone, Currency: req.Currency, ReferrerID: req.ReferrerID, Status: domain.ClientStatusActive}
 	if err := u.clientRepo.Create(ctx, c); err != nil { return nil, nil, err }
 	return u.res(c), nil, nil
 }

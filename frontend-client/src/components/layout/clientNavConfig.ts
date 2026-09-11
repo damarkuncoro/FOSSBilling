@@ -10,6 +10,7 @@ import {
   BookOpen,
   Newspaper,
   Settings,
+  Trophy,
   LucideIcon,
 } from 'lucide-react';
 
@@ -52,6 +53,7 @@ export const clientNavGroups: ClientNavGroup[] = [
   {
     groupName: 'Resources & Help',
     items: [
+      { name: 'Partner Program', path: '/affiliate', icon: Trophy, requiresAuth: true },
       { name: 'Knowledgebase', path: '/kb', icon: BookOpen },
       { name: 'Announcements', path: '/news', icon: Newspaper },
       { name: 'Account Settings', path: '/settings', icon: Settings, requiresAuth: true },

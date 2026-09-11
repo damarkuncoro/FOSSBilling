@@ -14,6 +14,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/importer"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment/gateways"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
@@ -54,6 +55,9 @@ func main() {
 	case "db:seed:bench":
 		runDBSeedBench(os.Args[2:])
 
+	case "db:import:legacy":
+		runDBImportLegacy(os.Args[2:])
+
 	case "invoice:build":
 		runBuildInvoice(os.Args[2:])
 
@@ -86,6 +90,7 @@ func printUsage() {
 	fmt.Println("  admin:create    Create a new staff/admin account with bcrypt password hash")
 	fmt.Println("  db:backup       Create a full SQL backup of the database")
 	fmt.Println("  db:seed:bench   Perform high-performance batch seeding for stress testing")
+	fmt.Println("  db:import:legacy Migrates data from legacy PHP FOSSBilling (MySQL)")
 	fmt.Println("  invoice:build   Construct and preview an invoice with items via builder")
 	fmt.Println("  tools:password  Generate a cryptographically secure random password")
 	fmt.Println("  tools:geoip     Lookup country and flag for a given IP address")
@@ -367,5 +372,40 @@ func runListLocales() {
 	fmt.Println("🌐 Supported FOSSBilling Locales:")
 	for _, l := range i18n.SupportedLocales {
 		fmt.Printf("   %s [%s] %s (%s) — Direction: %s\n", l.Flag, l.Code, l.Name, l.Native, l.Dir)
+	}
+}
+
+func runDBImportLegacy(args []string) {
+	fs := flag.NewFlagSet("db:import:legacy", flag.ExitOnError)
+	source := fs.String("source", "", "MySQL source DSN (e.g. user:pass@tcp(127.0.0.1:3306)/legacy_db)")
+
+	_ = fs.Parse(args)
+
+	if *source == "" {
+		fmt.Println("Error: --source DSN is required.")
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	cfg := config.Load()
+	ctx := context.Background()
+
+	// Connect to destination (Postgres)
+	pool, err := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("❌ Destination connection failed: %v", err)
+	}
+	defer pool.Close()
+
+	// Extract standard sql.DB from pgx pool for the importer service
+	// In a real app we might use a wrapper, but here we can just use the DB handle if available
+	// or use a direct repository implementation.
+	cr := postgres.NewClientRepository(pool)
+	or := postgres.NewOrderRepository(pool)
+	ir := postgres.NewInvoiceRepository(pool)
+
+	imp := importer.NewLegacyImporter(cr, or, ir)
+	if err := imp.RunFullMigration(ctx, *source); err != nil {
+		log.Fatalf("❌ Migration failed: %v", err)
 	}
 }

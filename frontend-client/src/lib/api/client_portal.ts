@@ -132,4 +132,8 @@ export const clientPortalApi = {
     request<any>(`/client/notifications/${id}/read`, { method: 'PUT' }),
   markAllNotificationsRead: () =>
     request<any>('/client/notifications/mark-all-read', { method: 'POST' }),
+
+  // Affiliate System
+  getAffiliate: () => request<any>('/client/affiliate'),
+  joinAffiliate: () => request<any>('/client/affiliate/join', { method: 'POST' }),
 };

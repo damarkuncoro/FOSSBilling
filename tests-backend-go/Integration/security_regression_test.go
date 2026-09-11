@@ -72,7 +72,7 @@ func TestBug16_17_PrivilegeEscalation(t *testing.T) {
 func TestBug20_ProvisioningFailureHandling(t *testing.T) {
 	ctx := context.Background(); or, pr, cr := memory.NewMockOrderRepository(), memory.NewMockProductRepository(), memory.NewMockClientRepository()
 	pReg := provisioning.NewProvisionerRegistry(); pReg.Register("fail", &MockFailingProv{})
-	ou := order.NewOrderService(or, pr, pReg, nil, nil); ls := listener.NewOrderListener(nil, or, pr, cr, ou, nil, pReg)
+	ou := order.NewOrderService(or, pr, pReg, nil, nil); ls := listener.NewOrderListener(nil, or, pr, cr, ou, nil, nil, pReg)
 	_ = pr.Create(ctx, &domain.Product{ID: 101, Title: "T", Type: domain.ProductTypeHosting})
 	_ = or.Create(ctx, &domain.Order{ID: 1, ProductID: 101, Status: domain.OrderStatusActive, Config: []byte(`{"server_type":"fail"}`)})
 	_ = ls.HandleOrderActivated(ctx, events.Event{Payload: domain.OrderActivatedPayload{OrderID: 1}})

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { ClientAuthProvider } from '@/lib/auth';
 import { CartProvider } from '@/lib/cart';
 import { ClientLayout } from '@/components/layout/ClientLayout';
@@ -13,6 +13,7 @@ import { Services } from '@/pages/Services';
 import { Invoices } from '@/pages/Invoices';
 import { Support } from '@/pages/Support';
 import { Settings } from '@/pages/Settings';
+import { Affiliate } from '@/pages/Affiliate';
 import { Knowledgebase } from '@/pages/Knowledgebase';
 import { News } from '@/pages/News';
 import { Domains } from '@/pages/Domains';
@@ -22,9 +23,32 @@ import { PaymentSuccess } from '@/pages/PaymentSuccess';
 import { PaymentFailed } from '@/pages/PaymentFailed';
 import { NotFound } from '@/pages/NotFound';
 
+const ReferralRedirect: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    if (id) {
+      localStorage.setItem('fb_referrer_id', id);
+    }
+    navigate('/register', { replace: true });
+  }, [id, navigate]);
+  return null;
+};
+
 import { I18nProvider } from '@/lib/i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+const ReferrerTracker: React.FC = () => {
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('fb_referrer_id', ref);
+    }
+  }, []);
+  return null;
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +63,7 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
+        <ReferrerTracker />
         <ClientAuthProvider>
           <CartProvider>
             <BrowserRouter>
@@ -54,6 +79,7 @@ export const App: React.FC = () => {
                   <Route path="/payment/failed" element={<PaymentFailed />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/r/:id" element={<ReferralRedirect />} />
 
                   {/* Protected Customer Routes */}
                   <Route element={<ProtectedRoute />}>
@@ -63,6 +89,7 @@ export const App: React.FC = () => {
                     <Route path="/downloads" element={<Downloads />} />
                     <Route path="/invoices" element={<Invoices />} />
                     <Route path="/support" element={<Support />} />
+                    <Route path="/affiliate" element={<Affiliate />} />
                     <Route path="/settings" element={<Settings />} />
                   </Route>
                 </Route>

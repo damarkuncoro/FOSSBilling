@@ -37,6 +37,7 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		ClientDownload:     client.NewDownloadHandler(services.Downloadable),
 		ClientLicense:      client.NewLicenseHandler(services.License),
 		ClientAPIKey:       client.NewAPIKeyHandler(services.APIKey),
+		ClientAffiliate:    client.NewAffiliateHandler(services.Affiliate),
 		AdminAuth:          admin.NewStaffAuthHandler(services.Staff),
 		AdminStaff:         admin.NewStaffManagementHandler(services.Staff, repos.Client, repos.Order, services.Order, services.Support),
 		AdminClient:        admin.NewClientManagementHandler(services.Staff, services.Auth, repos.Client),
@@ -61,5 +62,6 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		AdminSEO:           admin.NewSEOHandler(services.Staff, services.SEO),
 		AdminWidget:        admin.NewWidgetHandler(services.Staff, services.Widget),
 		AdminEmailTemplate: admin.NewEmailTemplateHandler(services.Staff, repos.EmailTemplate),
+		AdminAffiliate:     admin.NewAffiliateHandler(services.Affiliate, services.Staff),
 	}
 }

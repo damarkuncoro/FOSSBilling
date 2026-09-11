@@ -15,6 +15,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment/gateways"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/activity"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/affiliate"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
 	billingUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
@@ -69,6 +70,7 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, invoiceRepo, clientRepo)
 
 	supportService := supportUsecase.NewSupportService(supportRepo, clientRepo, eventBus)
+	affiliateService := affiliate.NewAffiliateService(memory.NewMockAffiliateRepository(), clientRepo, orderRepo)
 	staffService := staffUsecase.NewStaffService(staffRepo, jwtSecret, "FOSSBilling")
 	activityService := activity.NewActivityService(memory.NewMockActivityRepository())
 
@@ -76,7 +78,7 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	authUc := authUsecase.NewAuthUsecase(clientRepo, antispamService, jwtSecret, "FOSSBilling", activityService)
 	passwordUc := authUsecase.NewPasswordUsecase(clientRepo)
 
-	orderListener := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, regRegistry, provRegistry)
+	orderListener := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, affiliateService, regRegistry, provRegistry)
 	eventBus.Subscribe(events.EventInvoicePaid, orderListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventOrderActivated, orderListener.HandleOrderActivated)
 

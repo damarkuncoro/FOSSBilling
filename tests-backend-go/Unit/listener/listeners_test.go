@@ -10,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/memory"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/affiliate"
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
@@ -104,7 +105,8 @@ func TestListeners_Flows(t *testing.T) {
 	}
 
 	// 3. Order Listener
-	orderListenerWithReg := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, regRegistry, provRegistry)
+	affiliateService := affiliate.NewAffiliateService(memory.NewMockAffiliateRepository(), clientRepo, orderRepo)
+	orderListenerWithReg := listener.NewOrderListener(emailService, orderRepo, productRepo, clientRepo, orderService, affiliateService, regRegistry, provRegistry)
 	err = orderListenerWithReg.HandleOrderActivated(ctx, events.Event{
 		Type:    events.EventOrderActivated,
 		Payload: domain.OrderActivatedPayload{OrderID: domainOrd.ID},

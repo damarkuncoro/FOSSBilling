@@ -23,13 +23,16 @@ export const Register: React.FC = () => {
     setLoading(true);
 
     try {
+      const referrerId = localStorage.getItem('fb_referrer_id');
       await register({
         email,
         password,
         first_name: firstName,
         last_name: lastName,
         currency,
+        referrer_id: referrerId ? parseInt(referrerId) : undefined,
       });
+      localStorage.removeItem('fb_referrer_id');
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed');

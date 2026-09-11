@@ -36,6 +36,7 @@ import (
 	statsUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	supportUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
 	systemUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	affiliateUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/affiliate"
 	themeUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/theme"
 	widgetUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/widget"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
@@ -60,6 +61,7 @@ type Services struct {
 	Support       *supportUsecase.SupportService
 	Staff         *staffUsecase.StaffService
 	Stats         *statsUsecase.StatsService
+	Affiliate     *affiliateUsecase.AffiliateService
 	Company       companyUsecase.CompanyService
 	Currency      *currencyUsecase.CurrencyService
 	News          *newsUsecase.NewsService
@@ -162,6 +164,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 	// 6. Rest of services
 	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, gatewayRegistry, eventBus)
 	paymentService := paymentUsecase.NewPaymentService(gatewayRegistry, repos.Invoice, repos.Client)
+	affiliateService := affiliateUsecase.NewAffiliateService(repos.Affiliate, repos.Client, repos.Order)
 	supportService := supportUsecase.NewSupportService(repos.Support, repos.Client, eventBus)
 	staffService := staffUsecase.NewStaffService(repos.Staff, cfg.JWTSecret, cfg.CompanyName)
 	statsService := statsUsecase.NewStatsService(repos.Client, repos.Order, repos.Invoice, repos.Support, appCache)
@@ -183,7 +186,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, appMailer, cfg.MailFromAddr, cfg.MailFromName)
 
 	// 7. Event Listeners
-	orderListener := listener.NewOrderListener(emailService, repos.Order, repos.Product, repos.Client, orderService, registrarRegistry, provisionerRegistry)
+	orderListener := listener.NewOrderListener(emailService, repos.Order, repos.Product, repos.Client, orderService, affiliateService, registrarRegistry, provisionerRegistry)
 	eventBus.Subscribe(events.EventOrderActivated, orderListener.HandleOrderActivated)
 	eventBus.Subscribe(events.EventInvoicePaid, orderListener.HandleInvoicePaid)
 
@@ -219,6 +222,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 		Support:       supportService,
 		Staff:         staffService,
 		Stats:         statsService,
+		Affiliate:     affiliateService,
 		Company:       companyService,
 		Currency:      currencyService,
 		News:          newsService,

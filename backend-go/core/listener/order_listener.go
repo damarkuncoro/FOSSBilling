@@ -7,16 +7,24 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/provisioning"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/affiliate"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 )
 
 type OrderListener struct {
-	es *notification.EmailService; or domain.OrderRepository; pr domain.ProductRepository; cr domain.ClientRepository; os *order.OrderService; rr *provisioning.RegistrarRegistry; prr *provisioning.ProvisionerRegistry
+	es  *notification.EmailService
+	or  domain.OrderRepository
+	pr  domain.ProductRepository
+	cr  domain.ClientRepository
+	os  *order.OrderService
+	as  *affiliate.AffiliateService
+	rr  *provisioning.RegistrarRegistry
+	prr *provisioning.ProvisionerRegistry
 }
 
-func NewOrderListener(es *notification.EmailService, or domain.OrderRepository, pr domain.ProductRepository, cr domain.ClientRepository, os *order.OrderService, rr *provisioning.RegistrarRegistry, prr *provisioning.ProvisionerRegistry) *OrderListener {
-	return &OrderListener{es, or, pr, cr, os, rr, prr}
+func NewOrderListener(es *notification.EmailService, or domain.OrderRepository, pr domain.ProductRepository, cr domain.ClientRepository, os *order.OrderService, as *affiliate.AffiliateService, rr *provisioning.RegistrarRegistry, prr *provisioning.ProvisionerRegistry) *OrderListener {
+	return &OrderListener{es, or, pr, cr, os, as, rr, prr}
 }
 
 func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event) error {
@@ -57,6 +65,12 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 		return l.or.UpdateStatus(ctx, o.ID, domain.OrderStatusPendingSetup, nil)
 	}
 	o.Config, _ = json.Marshal(cfg); _ = l.or.Update(ctx, o)
+
+	// Process affiliate commission if applicable
+	if l.as != nil {
+		_ = l.as.ProcessCommission(ctx, o.ID)
+	}
+
 	c, _ := l.cr.GetByID(ctx, o.ClientID); if c != nil { _ = l.es.SendServiceActivatedEmail(ctx, c, o) }
 	return nil
 }

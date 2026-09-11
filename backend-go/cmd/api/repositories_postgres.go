@@ -21,5 +21,6 @@ func NewPostgresRepositories(p *pgxpool.Pool) *Repositories {
 		Antispam: postgres.NewAntispamRepository(p), Formbuilder: postgres.NewFormbuilderRepository(p), Extension: postgres.NewExtensionRepository(p),
 		Redirect: postgres.NewRedirectRepository(p), Theme: memory.NewThemeRepository(), Tax: postgres.NewTaxRepository(p),
 		EmailTemplate: postgres.NewEmailTemplateRepository(p),
+		Affiliate:     postgres.NewPostgresAffiliateRepository(p),
 	}
 }

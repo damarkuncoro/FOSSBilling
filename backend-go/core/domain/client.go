@@ -40,6 +40,7 @@ type Client struct {
 	Notes            string       `json:"notes,omitempty"`
 	Currency         string       `json:"currency"`
 	BillingEmail     string       `json:"billing_email,omitempty"`
+	ReferrerID       *int64       `json:"referrer_id,omitempty"`
 	ReferredBy       string       `json:"referred_by,omitempty"`
 	TaxExempt        bool         `json:"tax_exempt"`
 	Status           ClientStatus `json:"status"`
