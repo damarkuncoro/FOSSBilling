@@ -1,10 +1,23 @@
 import React from 'react';
-import { Globe, Search, CheckCircle2, XCircle, ShoppingCart } from 'lucide-react';
+import { Globe, Search, CheckCircle2, XCircle, ShoppingCart, RefreshCw, MoreHorizontal, Settings2, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useClientDomains } from '../hooks/useClientDomains';
 import { useCart } from '../lib/cart';
 import { ManageDnsDialog } from '../components/domains/ManageDnsDialog';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const Domains: React.FC = () => {
+  const { t } = useTranslation();
   const {
     domains,
     loading,
@@ -37,132 +50,145 @@ export const Domains: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      {/* Domain Lookup Card */}
-      <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-3xl p-8 text-white shadow-xl space-y-6">
-        <div className="max-w-xl space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300">WHOIS Checker</span>
-          <h2 className="text-2xl font-black tracking-tight">Register Your Next Domain</h2>
-          <p className="text-xs text-indigo-200">Instant registration with free DNS management and WHOIS privacy protection.</p>
+    <div className="space-y-8 animate-in fade-in-50 duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Domains & DNS Management</h1>
+          <p className="text-sm text-muted-foreground">
+            Search for new domain names or manage your active registrations and DNS zones.
+          </p>
         </div>
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <input
-              type="text"
+      {/* Domain Lookup Card */}
+      <Card className="bg-indigo-900 text-indigo-50 border-none shadow-xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+           <Globe className="w-40 h-40" />
+        </div>
+        <CardHeader className="relative z-10">
+          <CardTitle className="text-indigo-300 text-xs font-bold uppercase tracking-widest">WHOIS Checker</CardTitle>
+          <h2 className="text-2xl font-bold text-white">Register Your Next Domain</h2>
+        </CardHeader>
+        <CardContent className="relative z-10 space-y-6">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
               placeholder="Find your new domain (e.g. mycompany.com)..."
               value={checkQuery}
               onChange={(e) => setCheckQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && checkAvailability()}
-              className="w-full px-4 py-3.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder:text-gray-400 text-sm backdrop-blur-md outline-none focus:ring-2 focus:ring-indigo-400"
+              className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-indigo-300/60 h-12 rounded-xl"
             />
+            <Button
+              onClick={checkAvailability}
+              disabled={isSearching}
+              className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold h-12 px-8 rounded-xl shadow-lg"
+            >
+              {isSearching ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+              Check Availability
+            </Button>
           </div>
-          <button
-            onClick={checkAvailability}
-            disabled={isSearching}
-            className="px-6 py-3.5 bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-          >
-            <Search className="w-4 h-4" /> {isSearching ? 'Checking...' : 'Check Availability'}
-          </button>
-        </div>
 
-        {checkResult && (
-          <div className="p-4 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md flex items-center justify-between animate-in fade-in">
-            <div className="flex items-center gap-3">
-              {checkResult.available ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> : <XCircle className="w-6 h-6 text-rose-400" />}
-              <div>
-                <span className="font-mono font-bold text-base">{checkResult.domain}</span>
-                <p className="text-xs text-indigo-200">
-                  {checkResult.available ? `Available for $${checkResult.price}/year` : 'Already registered by another owner.'}
-                </p>
+          {checkResult && (
+            <div className="p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md flex items-center justify-between animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-4">
+                {checkResult.available ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> : <XCircle className="w-6 h-6 text-rose-400" />}
+                <div>
+                  <span className="font-mono font-bold text-lg text-white">{checkResult.domain}</span>
+                  <p className="text-sm text-indigo-200">
+                    {checkResult.available ? `Available for $${checkResult.price}/year` : 'Already registered by another owner.'}
+                  </p>
+                </div>
               </div>
+              {checkResult.available && (
+                <Button
+                  onClick={handleAddToCart}
+                  variant="secondary"
+                  className="bg-emerald-500 hover:bg-emerald-400 text-white border-none font-bold"
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" /> Add to Cart
+                </Button>
+              )}
             </div>
-            {checkResult.available && (
-              <button
-                onClick={handleAddToCart}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors"
-              >
-                <ShoppingCart className="w-4 h-4" /> Add to Cart
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Active Domains Table */}
+      {/* Active Domains */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-indigo-600" /> My Active Domains
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Globe className="w-5 h-5 text-primary" /> My Active Domains
           </h3>
-          <input
-            type="text"
+          <Input
             placeholder="Filter domains..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-3.5 py-1.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-indigo-500"
+            className="w-64 h-9 text-xs"
           />
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500 border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-4">Domain Name</th>
-                <th className="px-6 py-4">Nameservers</th>
-                <th className="px-6 py-4">Expires</th>
-                <th className="px-6 py-4">Auto-Renew</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-xs text-gray-500">
-                    Loading your domains...
-                  </td>
-                </tr>
-              ) : domains.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center space-y-2">
-                    <Globe className="w-8 h-8 text-gray-300 mx-auto" />
-                    <p className="text-sm font-semibold text-gray-700">No active domains found</p>
-                    <p className="text-xs text-gray-400">Search and register your new domain using the WHOIS checker above.</p>
-                  </td>
-                </tr>
-              ) : (
-                domains.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50/70">
-                    <td className="px-6 py-4 font-mono font-bold text-gray-900">{d.domain_name}</td>
-                    <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                      {d.nameservers.slice(0, 2).join(', ')}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      {new Date(d.expires_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => toggleAutoRenew(d.id)}
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          d.auto_renew ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {d.auto_renew ? 'Enabled' : 'Disabled'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => setEditingDomain(d)}
-                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium"
-                      >
-                        Manage DNS
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="border-border/60">
+                 <CardHeader><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-40 mt-2" /></CardHeader>
+                 <CardContent><Skeleton className="h-10 w-full rounded-lg" /></CardContent>
+              </Card>
+            ))
+          ) : domains.length === 0 ? (
+            <Card className="col-span-full py-12 border-dashed flex flex-col items-center justify-center text-muted-foreground">
+               <Globe className="w-10 h-10 mb-3 opacity-20" />
+               <p className="text-sm font-medium">No domains found in your account.</p>
+            </Card>
+          ) : (
+            domains.map((d) => (
+              <Card key={d.id} className="border-border/60 hover:shadow-md transition-all group overflow-hidden">
+                <CardHeader className="pb-3">
+                   <div className="flex justify-between items-start">
+                      <Badge variant={d.status === 'active' ? 'success' : 'warning'} className="uppercase text-[10px]">
+                        {d.status}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                           </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem className="gap-2" onClick={() => toggleAutoRenew(d.id)}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              {d.auto_renew ? 'Disable Auto-Renew' : 'Enable Auto-Renew'}
+                           </DropdownMenuItem>
+                           <DropdownMenuItem className="gap-2 text-destructive">
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Request Transfer
+                           </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                   </div>
+                   <CardTitle className="text-lg font-mono font-bold mt-2">{d.domain_name}</CardTitle>
+                   <CardDescription className="text-xs">
+                      Expires: {new Date(d.expires_at).toLocaleDateString()}
+                   </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                   <div className="p-3 rounded-lg bg-muted/40 border text-[10px] font-mono space-y-1">
+                      <div className="text-muted-foreground uppercase font-bold text-[9px] mb-1">Nameservers</div>
+                      {d.nameservers.map((ns, idx) => (
+                        <div key={idx}>{ns}</div>
+                      ))}
+                   </div>
+                   <Button
+                    onClick={() => setEditingDomain(d)}
+                    className="w-full gap-2 text-xs font-semibold"
+                    variant="outline"
+                   >
+                    <Settings2 className="w-3.5 h-3.5" /> Manage DNS Zone
+                   </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 

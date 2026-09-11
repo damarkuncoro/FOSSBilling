@@ -4,6 +4,7 @@ import { useReports } from '@/hooks/useReports';
 import { Button } from '@/components/ui/button';
 import { RevenueMetricsGrid } from '@/components/reports/RevenueMetricsGrid';
 import { TaxReportCard } from '@/components/reports/TaxReportCard';
+import { RevenueBreakdownChart } from '@/components/reports/RevenueBreakdownChart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -39,23 +40,26 @@ export const Reports: React.FC = () => {
 
       <RevenueMetricsGrid report={report} loading={loading} />
 
-      {loading ? (
-        <Card className="border-border/60 shadow-sm">
-           <CardHeader>
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-64 mt-2" />
-           </CardHeader>
-           <CardContent>
-              <div className="space-y-4">
-                 {Array.from({ length: 4 }).map((_, i) => (
-                   <Skeleton key={i} className="h-10 w-full" />
-                 ))}
-              </div>
-           </CardContent>
-        </Card>
-      ) : (
-        <TaxReportCard report={report} onExport={handleExportCsv} />
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <RevenueBreakdownChart report={report} />
+         {loading ? (
+            <Card className="border-border/60 shadow-sm h-full">
+               <CardHeader>
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-64 mt-2" />
+               </CardHeader>
+               <CardContent>
+                  <div className="space-y-4">
+                     {Array.from({ length: 4 }).map((_, i) => (
+                       <Skeleton key={i} className="h-10 w-full" />
+                     ))}
+                  </div>
+               </CardContent>
+            </Card>
+          ) : (
+            <TaxReportCard report={report} onExport={handleExportCsv} />
+          )}
+      </div>
     </div>
   );
 };
