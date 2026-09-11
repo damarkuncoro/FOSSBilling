@@ -67,3 +67,36 @@ func (r *PostgresAffiliateRepository) ListReferrals(ctx context.Context, affilia
 	}
 	return refs, nil
 }
+
+func (r *PostgresAffiliateRepository) CreatePayoutRequest(ctx context.Context, p *domain.AffiliatePayout) error {
+	p.CreatedAt = time.Now().UTC()
+	p.Status = "pending"
+	return r.pool.QueryRow(ctx,
+		"INSERT INTO affiliate_payouts (affiliate_id, amount, currency, status, notes, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+		p.AffiliateID, p.Amount, p.Currency, p.Status, p.Notes, p.CreatedAt).Scan(&p.ID)
+}
+
+func (r *PostgresAffiliateRepository) ListPayoutRequests(ctx context.Context, affiliateID int64) ([]*domain.AffiliatePayout, error) {
+	rows, err := r.pool.Query(ctx, "SELECT id, affiliate_id, amount, currency, status, notes, created_at, processed_at FROM affiliate_payouts WHERE affiliate_id = $1 ORDER BY created_at DESC", affiliateID)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var res []*domain.AffiliatePayout
+	for rows.Next() {
+		var p domain.AffiliatePayout
+		if err := rows.Scan(&p.ID, &p.AffiliateID, &p.Amount, &p.Currency, &p.Status, &p.Notes, &p.CreatedAt, &p.ProcessedAt); err != nil { return nil, err }
+		res = append(res, &p)
+	}
+	return res, nil
+}
+
+func (r *PostgresAffiliateRepository) GetPayoutByID(ctx context.Context, id int64) (*domain.AffiliatePayout, error) {
+	var p domain.AffiliatePayout
+	err := r.pool.QueryRow(ctx, "SELECT id, affiliate_id, amount, currency, status, notes, created_at, processed_at FROM affiliate_payouts WHERE id = $1", id).
+		Scan(&p.ID, &p.AffiliateID, &p.Amount, &p.Currency, &p.Status, &p.Notes, &p.CreatedAt, &p.ProcessedAt)
+	return &p, err
+}
+
+func (r *PostgresAffiliateRepository) UpdatePayout(ctx context.Context, p *domain.AffiliatePayout) error {
+	_, err := r.pool.Exec(ctx, "UPDATE affiliate_payouts SET status = $1, notes = $2, processed_at = $3 WHERE id = $4", p.Status, p.Notes, p.ProcessedAt, p.ID)
+	return err
+}

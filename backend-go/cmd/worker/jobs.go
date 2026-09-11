@@ -45,7 +45,13 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 	// 4. Housekeeping & Maintenance
 	tasks.RunSystemMaintenanceTask(jobCtx)
 
-	// 5. Automated Daily Backup (Runs at 02:00 UTC)
+	// 5. Invoice Reminders Job
+	_ = cronService.RunLocked(jobCtx, "task:reminders", time.Hour, func() error {
+		_, err := cronService.SendInvoiceRemindersBatch(jobCtx)
+		return err
+	})
+
+	// 6. Automated Daily Backup (Runs at 02:00 UTC)
 	if time.Now().Hour() == 2 {
 		_ = cronService.RunLocked(jobCtx, "task:daily_backup", 2*time.Hour, func() error {
 			_, err := cronService.PerformAutomatedBackup(jobCtx)

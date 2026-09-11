@@ -9,14 +9,19 @@ import (
 )
 
 type MockAffiliateRepository struct {
-	mu   sync.RWMutex
-	affs map[int64]*domain.Affiliate
-	refs []*domain.AffiliateReferral
-	next int64
+	mu      sync.RWMutex
+	affs    map[int64]*domain.Affiliate
+	refs    []*domain.AffiliateReferral
+	payouts map[int64]*domain.AffiliatePayout
+	next    int64
 }
 
 func NewMockAffiliateRepository() *MockAffiliateRepository {
-	return &MockAffiliateRepository{affs: make(map[int64]*domain.Affiliate), next: 1}
+	return &MockAffiliateRepository{
+		affs:    make(map[int64]*domain.Affiliate),
+		payouts: make(map[int64]*domain.AffiliatePayout),
+		next:    1,
+	}
 }
 
 func (r *MockAffiliateRepository) GetByClientID(ctx context.Context, clientID int64) (*domain.Affiliate, error) {
@@ -64,4 +69,39 @@ func (r *MockAffiliateRepository) ListReferrals(ctx context.Context, affiliateID
 		}
 	}
 	return res, nil
+}
+
+func (r *MockAffiliateRepository) CreatePayoutRequest(ctx context.Context, p *domain.AffiliatePayout) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p.ID = int64(len(r.payouts) + 1)
+	r.payouts[p.ID] = p
+	return nil
+}
+
+func (r *MockAffiliateRepository) ListPayoutRequests(ctx context.Context, affiliateID int64) ([]*domain.AffiliatePayout, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var res []*domain.AffiliatePayout
+	for _, p := range r.payouts {
+		if p.AffiliateID == affiliateID {
+			res = append(res, p)
+		}
+	}
+	return res, nil
+}
+
+func (r *MockAffiliateRepository) GetPayoutByID(ctx context.Context, id int64) (*domain.AffiliatePayout, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	p, ok := r.payouts[id]
+	if !ok { return nil, errors.New("not found") }
+	return p, nil
+}
+
+func (r *MockAffiliateRepository) UpdatePayout(ctx context.Context, p *domain.AffiliatePayout) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.payouts[p.ID] = p
+	return nil
 }

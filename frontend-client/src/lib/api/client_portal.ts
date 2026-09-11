@@ -136,4 +136,9 @@ export const clientPortalApi = {
   // Affiliate System
   getAffiliate: () => request<any>('/client/affiliate'),
   joinAffiliate: () => request<any>('/client/affiliate/join', { method: 'POST' }),
+  requestAffiliatePayout: (amount: number) =>
+    request<any>('/client/affiliate/payout', {
+      method: 'POST',
+      body: JSON.stringify({ amount })
+    }),
 };

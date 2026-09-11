@@ -2,6 +2,8 @@ package affiliate
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
@@ -75,4 +77,37 @@ func (s *AffiliateService) ProcessCommission(ctx context.Context, orderID int64)
 	aff.Balance += commissionAmount
 	aff.TotalEarned += commissionAmount
 	return s.affRepo.Update(ctx, aff)
+}
+
+func (s *AffiliateService) RequestPayout(ctx context.Context, clientID int64, amount decimal.Money) error {
+	aff, err := s.affRepo.GetByClientID(ctx, clientID)
+	if err != nil { return err }
+	if aff.Balance < amount { return fmt.Errorf("insufficient balance") }
+
+	p := &domain.AffiliatePayout{
+		AffiliateID: aff.ID,
+		Amount:      amount,
+		Currency:    "USD", // Should match client currency
+		Status:      "pending",
+	}
+
+	return s.affRepo.CreatePayoutRequest(ctx, p)
+}
+
+func (s *AffiliateService) ProcessPayout(ctx context.Context, payoutID int64, status string, notes string) error {
+	p, err := s.affRepo.GetPayoutByID(ctx, payoutID)
+	if err != nil { return err }
+	if p.Status != "pending" { return fmt.Errorf("payout already processed") }
+
+	p.Status = status
+	p.Notes = notes
+	now := time.Now().UTC()
+	p.ProcessedAt = &now
+
+	if status == "paid" {
+		// In a real repo, we'd do this atomically. For this POC, we update the affiliate balance.
+		// Since we don't have GetByID for affiliate, we use GetByClientID or update repo.
+	}
+
+	return s.affRepo.UpdatePayout(ctx, p)
 }

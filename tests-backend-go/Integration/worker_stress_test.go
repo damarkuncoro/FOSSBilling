@@ -23,7 +23,7 @@ func TestWorkerStress_ComparePerformance(t *testing.T) {
 	ir, cr, pr, cor := memory.NewMockInvoiceRepository(), memory.NewMockClientRepository(), memory.NewMockProductRepository(), memory.NewMockCompanyRepository()
 	is := billing.NewInvoiceService(ir, cr, cor, billing.NewTaxCalculator(nil), plugins.NewHookManager())
 	os := order.NewOrderService(slow, pr, nil, nil)
-	cs := scheduler.NewCronService(slow, os, is, nil, memory.NewMockSupportRepository(), memory.NewMockMassMailRepository(), cr, &lock.LocalLocker{}, nil, "")
+	cs := scheduler.NewCronService(slow, os, is, ir, nil, nil, memory.NewMockSupportRepository(), memory.NewMockMassMailRepository(), cr, &lock.LocalLocker{}, nil, "")
 
 	_ = cr.Create(ctx, &domain.Client{ID: 1, Email: "a@e.com", Currency: "USD"})
 	due := time.Now().UTC().AddDate(0, 0, 5)

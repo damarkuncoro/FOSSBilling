@@ -26,6 +26,7 @@ func clientAccountRoutes(mux *http.ServeMux, h *AppHandlers, cAuth func(http.Han
 	mux.Handle("DELETE /api/v1/client/api-keys/{id}", cAuth(http.HandlerFunc(h.ClientAPIKey.Revoke)))
 	mux.Handle("GET /api/v1/client/affiliate", cAuth(http.HandlerFunc(h.ClientAffiliate.GetMyAffiliate)))
 	mux.Handle("POST /api/v1/client/affiliate/join", cAuth(http.HandlerFunc(h.ClientAffiliate.Join)))
+	mux.Handle("POST /api/v1/client/affiliate/payout", cAuth(http.HandlerFunc(h.ClientAffiliate.RequestPayout)))
 }
 
 func clientBillingRoutes(mux *http.ServeMux, h *AppHandlers, cAuth func(http.Handler) http.Handler) {

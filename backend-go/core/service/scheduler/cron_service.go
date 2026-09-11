@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
@@ -18,6 +19,8 @@ type CronService struct {
 	orderRepo      domain.OrderRepository
 	orderService   *order.OrderService
 	invoiceService *billing.InvoiceService
+	invoiceRepo    domain.InvoiceRepository
+	emailService   *notification.EmailService
 	systemService  *system.SystemService
 	supportRepo    domain.SupportRepository
 	massMailRepo   domain.MassMailRepository
@@ -28,11 +31,13 @@ type CronService struct {
 	concurrency    int
 }
 
-func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billing.InvoiceService, sys *system.SystemService, sr domain.SupportRepository, mr domain.MassMailRepository, cr domain.ClientRepository, l lock.Locker, m mailer.Mailer, dbURL string) *CronService {
+func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billing.InvoiceService, ir domain.InvoiceRepository, es *notification.EmailService, sys *system.SystemService, sr domain.SupportRepository, mr domain.MassMailRepository, cr domain.ClientRepository, l lock.Locker, m mailer.Mailer, dbURL string) *CronService {
 	return &CronService{
 		orderRepo:      or,
 		orderService:   os,
 		invoiceService: is,
+		invoiceRepo:    ir,
+		emailService:   es,
 		systemService:  sys,
 		supportRepo:    sr,
 		massMailRepo:   mr,
@@ -170,6 +175,20 @@ func (s *CronService) AutoCloseInactiveTicketsBatch(ctx context.Context, days in
 		return nil, err
 	}
 	return &domain.CronTaskResult{TaskName: "TicketClose", ProcessedCount: count, SuccessCount: count, Duration: time.Since(start)}, nil
+}
+
+func (s *CronService) SendInvoiceRemindersBatch(ctx context.Context) (*domain.CronTaskResult, error) {
+	invoices, _, err := s.invoiceRepo.List(ctx, 10000, 0)
+	if err != nil { return nil, err }
+
+	return runTaskInParallel(ctx, invoices, s.concurrency, "Reminders", func(inv *domain.Invoice) error {
+		if inv.Status != domain.InvoiceStatusUnpaid { return nil }
+		c, _ := s.clientRepo.GetByID(ctx, inv.ClientID)
+		if c != nil && s.emailService != nil {
+			return s.emailService.SendInvoiceReminderEmail(ctx, c, inv)
+		}
+		return nil
+	}), nil
 }
 
 func (s *CronService) PerformAutomatedBackup(ctx context.Context) (*domain.CronTaskResult, error) {

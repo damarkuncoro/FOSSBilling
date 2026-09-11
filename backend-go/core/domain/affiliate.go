@@ -36,6 +36,17 @@ type AffiliateReferral struct {
 	CreatedAt   time.Time     `json:"created_at"`
 }
 
+type AffiliatePayout struct {
+	ID          int64         `json:"id"`
+	AffiliateID int64         `json:"affiliate_id"`
+	Amount      decimal.Money `json:"amount"`
+	Currency    string        `json:"currency"`
+	Status      string        `json:"status"` // pending, paid, rejected
+	Notes       string        `json:"notes,omitempty"`
+	CreatedAt   time.Time     `json:"created_at"`
+	ProcessedAt *time.Time    `json:"processed_at,omitempty"`
+}
+
 type AffiliateRepository interface {
 	GetByClientID(ctx context.Context, clientID int64) (*Affiliate, error)
 	Create(ctx context.Context, aff *Affiliate) error
@@ -43,4 +54,9 @@ type AffiliateRepository interface {
 
 	AddReferral(ctx context.Context, ref *AffiliateReferral) error
 	ListReferrals(ctx context.Context, affiliateID int64) ([]*AffiliateReferral, error)
+
+	CreatePayoutRequest(ctx context.Context, p *AffiliatePayout) error
+	ListPayoutRequests(ctx context.Context, affiliateID int64) ([]*AffiliatePayout, error)
+	GetPayoutByID(ctx context.Context, id int64) (*AffiliatePayout, error)
+	UpdatePayout(ctx context.Context, p *AffiliatePayout) error
 }

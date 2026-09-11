@@ -28,7 +28,7 @@ func setupCronService() (*scheduler.CronService, *memory.MockOrderRepository, *m
 	invService := billing.NewInvoiceService(invRepo, clientRepo, companyRepo, taxCalc, plugins.NewHookManager())
 	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil)
 
-	cronService := scheduler.NewCronService(orderRepo, orderService, invService, nil, supportRepo, massMailRepo, clientRepo, &lock.LocalLocker{}, nil, "")
+	cronService := scheduler.NewCronService(orderRepo, orderService, invService, invRepo, nil, nil, supportRepo, massMailRepo, clientRepo, &lock.LocalLocker{}, nil, "")
 	return cronService, orderRepo, invRepo, clientRepo
 }
 

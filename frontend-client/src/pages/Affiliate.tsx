@@ -21,6 +21,11 @@ export const Affiliate: React.FC = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client', 'affiliate'] }),
   });
 
+  const payoutMutation = useMutation({
+    mutationFn: (amount: number) => api.requestAffiliatePayout(amount),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client', 'affiliate'] }),
+  });
+
   if (isLoading) return <div className="p-8 text-center">Loading affiliate portal...</div>;
 
   if (error || !aff) {
@@ -79,8 +84,14 @@ export const Affiliate: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-black">{formatMoney(aff.balance)}</div>
-            <Button variant="secondary" size="sm" className="mt-4 w-full font-bold bg-white text-primary hover:bg-indigo-50">
-              Request Payout
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-4 w-full font-bold bg-white text-primary hover:bg-indigo-50"
+              onClick={() => payoutMutation.mutate(aff.balance)}
+              disabled={payoutMutation.isPending || aff.balance <= 0}
+            >
+              {payoutMutation.isPending ? 'Requesting...' : 'Request Payout'}
             </Button>
           </CardContent>
         </Card>

@@ -104,3 +104,19 @@ const lowStockTemplate = `
   </div>
 </body>
 </html>`
+
+const invoiceReminderTemplate = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    <h2 style="color: #f59e0b;">Pengingat Tagihan Terhutang #{{.InvoiceNr}}</h2>
+    <p>Halo {{.FirstName}},</p>
+    <p>Kami ingin mengingatkan bahwa tagihan Anda <strong>#{{.InvoiceNr}}</strong> sebesar <strong>{{.Total}}</strong> akan atau telah melewati jatuh tempo pada {{.DueAt}}.</p>
+    <p>Mohon segera selesaikan pembayaran untuk menghindari gangguan layanan.</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="font-size: 12px; color: #888;">&copy; {{.AppName}}</p>
+  </div>
+</body>
+</html>`

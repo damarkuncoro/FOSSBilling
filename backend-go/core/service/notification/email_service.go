@@ -76,3 +76,9 @@ func (s *EmailService) SendLowStockWarning(ctx context.Context, adm string, pid 
 	data := map[string]any{"AppName": s.app, "ProductID": pid, "ProductName": nm, "CurrentStock": st}
 	return s.send(ctx, adm, s.exec(sub, data), s.exec(body, data))
 }
+
+func (s *EmailService) SendInvoiceReminderEmail(ctx context.Context, c *domain.Client, i *domain.Invoice) error {
+	sub, body := s.getTmpl(ctx, "invoice_reminder", "Pengingat Tagihan: #{{.InvoiceNr}}", invoiceReminderTemplate)
+	data := map[string]any{"AppName": s.app, "FirstName": c.FirstName, "InvoiceNr": i.Nr, "Total": i.Total.String(), "DueAt": i.DueAt.Format("02 Jan 2006")}
+	return s.send(ctx, c.Email, s.exec(sub, data), s.exec(body, data))
+}

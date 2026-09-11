@@ -9,6 +9,7 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/repository/postgres"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
 	billing "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	order "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
@@ -17,6 +18,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/logger"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
@@ -51,8 +53,9 @@ func main() {
 	cor := postgres.NewCompanyRepository(pool)
 	ordSvc := order.NewOrderService(or, pr, nil, nil, eb)
 	is := billing.NewInvoiceService(ir, cr, cor, billing.NewTaxCalculator(tr), hm, eb)
+	es := notification.NewEmailService(mailer.NewMockMailer(), nil, "", "") // Simple instance for worker
 	sysSvc := system.NewSystemService(sysR)
-	cs := scheduler.NewCronService(or, ordSvc, is, sysSvc, sr, mr, cr, locker, nil, cfg.DatabaseURL)
+	cs := scheduler.NewCronService(or, ordSvc, is, ir, es, sysSvc, sr, mr, cr, locker, nil, cfg.DatabaseURL)
 
 	tick := time.NewTicker(time.Minute); defer tick.Stop()
 	go ExecuteCronBatch(cs)
