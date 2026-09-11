@@ -18,6 +18,8 @@ func guestAuthRoutes(mux *http.ServeMux, h *AppHandlers, arl *middleware.RateLim
 	mux.Handle("POST /api/v1/guest/auth/register", arl.RateLimit(http.HandlerFunc(h.GuestAuth.Register)))
 	mux.Handle("POST /api/v1/guest/auth/login", arl.RateLimit(http.HandlerFunc(h.GuestAuth.Login)))
 	mux.Handle("POST /api/v1/guest/auth/verify-2fa", arl.RateLimit(http.HandlerFunc(h.GuestAuth.VerifyTwoFactor)))
+	mux.Handle("GET /api/v1/guest/auth/google", http.HandlerFunc(h.GuestOAuth.LoginGoogle))
+	mux.Handle("GET /api/v1/guest/auth/google/callback", http.HandlerFunc(h.GuestOAuth.GoogleCallback))
 }
 
 func guestCatalogRoutes(mux *http.ServeMux, h *AppHandlers, rl *middleware.RateLimiter) {

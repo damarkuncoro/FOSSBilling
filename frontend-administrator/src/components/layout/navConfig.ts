@@ -29,6 +29,7 @@ import {
   Code2,
   ArrowRightLeft,
   Palette,
+  Trophy,
 } from 'lucide-react';
 
 export interface NavGroup {
@@ -68,6 +69,7 @@ export const navGroups: NavGroup[] = [
   {
     groupName: 'Content & Growth',
     items: [
+      { name: 'Affiliate Program', path: '/affiliates', icon: Trophy },
       { name: 'Pages & KB (CMS)', path: '/pages', icon: BookOpen },
       { name: 'News & Articles', path: '/news', icon: Newspaper },
       { name: 'Mass Mailer', path: '/mass-mail', icon: Send },

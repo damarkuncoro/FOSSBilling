@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/listener"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/guest"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/notification"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/payment/gateways"
@@ -87,6 +88,7 @@ type Services struct {
 	Theme         *themeUsecase.ThemeService
 	SEO           *seoUsecase.SEOService
 	Widget        *widgetUsecase.WidgetService
+	OAuth         *guest.OAuthHandler
 	Tax           *billingUsecase.TaxCalculator
 	Health        *systemUsecase.HealthUsecase
 	Gateways      *payment.GatewayRegistry
@@ -184,6 +186,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 	adminNotifService := notificationUsecase.NewAdminNotificationService(repos.AdminNotification)
 	healthService := systemUsecase.NewHealthUsecase(pool, appCache)
 	massMailService := massmailUsecase.NewMassMailService(repos.MassMail, repos.Client, appMailer, cfg.MailFromAddr, cfg.MailFromName)
+	oauthHandler := guest.NewOAuthHandler(authUc, cfg)
 
 	// 7. Event Listeners
 	orderListener := listener.NewOrderListener(emailService, repos.Order, repos.Product, repos.Client, orderService, affiliateService, registrarRegistry, provisionerRegistry)
@@ -249,6 +252,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 		Theme:         themeUsecase.NewThemeService(repos.Theme),
 		SEO:           seoUsecase.NewSEOService(repos.Page, repos.News, repos.Product),
 		Widget:        widgetUsecase.NewWidgetService(),
+		OAuth:         oauthHandler,
 		Gateways:      gatewayRegistry,
 		Hooks:         hookManager,
 		Cache:         appCache,

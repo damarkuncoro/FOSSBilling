@@ -26,6 +26,7 @@ func InitHandlers(services *Services, repos *Repositories) *AppHandlers {
 		GuestSEO:           guest.NewSEOHandler(services.SEO),
 		GuestWidget:        guest.NewWidgetHandler(services.Widget),
 		GuestSystem:        guest.NewSystemHandler(services.Health),
+		GuestOAuth:         services.OAuth,
 		ClientProfile:      client.NewProfileHandler(services.Auth, services.Password),
 		ClientOrder:        client.NewOrderHandler(services.Order),
 		ClientDomain:       client.NewDomainHandler(services.Domain),

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
@@ -98,4 +99,33 @@ func (u *AuthUsecase) DisableTwoFactor(ctx context.Context, id int64) error {
 func (u *AuthUsecase) AdminImpersonateClient(ctx context.Context, id int64) (string, error) {
 	c, err := u.clientRepo.GetByID(ctx, id); if err != nil { return "", err }
 	return auth.GenerateTokenExt(u.jwtSecret, c.ID, c.Email, "client", time.Hour, true)
+}
+
+func (u *AuthUsecase) OAuthLoginOrRegister(ctx context.Context, provider, oauthID, email, name string) (*AuthResponse, error) {
+	c, err := u.clientRepo.GetByOAuth(ctx, provider, oauthID)
+	if err == nil {
+		if c.Status != domain.ClientStatusActive { return nil, errors.New("inactive") }
+		return u.res(c), nil
+	}
+
+	// Try by email
+	c, err = u.clientRepo.GetByEmail(ctx, email)
+	if err == nil {
+		// Link account
+		c.OAuthProvider = provider
+		c.OAuthID = oauthID
+		_ = u.clientRepo.Update(ctx, c)
+		return u.res(c), nil
+	}
+
+	// Register new
+	names := strings.SplitN(name, " ", 2)
+	fname := names[0]; lname := ""; if len(names) > 1 { lname = names[1] }
+	hp, _ := auth.HashPassword(security.GenerateTOTPSecret()) // Random password for OAuth users
+	c = &domain.Client{
+		Email: email, PasswordHash: hp, FirstName: fname, LastName: lname,
+		OAuthProvider: provider, OAuthID: oauthID, Status: domain.ClientStatusActive,
+	}
+	if err := u.clientRepo.Create(ctx, c); err != nil { return nil, err }
+	return u.res(c), nil
 }

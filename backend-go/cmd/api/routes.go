@@ -34,6 +34,7 @@ type AppHandlers struct {
 	GuestSEO           *guest.SEOHandler
 	GuestWidget        *guest.WidgetHandler
 	GuestSystem        *guest.SystemHandler
+	GuestOAuth         *guest.OAuthHandler
 	ClientProfile      *client.ProfileHandler
 	ClientOrder        *client.OrderHandler
 	ClientDomain       *client.DomainHandler

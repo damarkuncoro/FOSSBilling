@@ -44,6 +44,8 @@ type Client struct {
 	ReferredBy       string       `json:"referred_by,omitempty"`
 	TaxExempt        bool         `json:"tax_exempt"`
 	Status           ClientStatus `json:"status"`
+	OAuthProvider    string       `json:"oauth_provider,omitempty"`
+	OAuthID          string       `json:"oauth_id,omitempty"`
 	TwoFactorEnabled bool         `json:"two_factor_enabled"`
 	TwoFactorSecret  *string      `json:"-"`
 	Custom1          string       `json:"custom_1,omitempty"`
@@ -90,6 +92,7 @@ type ClientBalance struct {
 type ClientRepository interface {
 	GetByID(ctx context.Context, id int64) (*Client, error)
 	GetByEmail(ctx context.Context, email string) (*Client, error)
+	GetByOAuth(ctx context.Context, provider, oauthID string) (*Client, error)
 	List(ctx context.Context, limit, offset int) ([]*Client, int, error)
 	Create(ctx context.Context, client *Client) error
 	Update(ctx context.Context, client *Client) error

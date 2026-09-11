@@ -51,6 +51,19 @@ func (r *MockClientRepository) GetByEmail(ctx context.Context, email string) (*d
 	return nil, appErrors.ErrNotFound
 }
 
+func (r *MockClientRepository) GetByOAuth(ctx context.Context, provider, oauthID string) (*domain.Client, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, c := range r.clients {
+		if c.OAuthProvider == provider && c.OAuthID == oauthID {
+			cp := *c
+			return &cp, nil
+		}
+	}
+	return nil, appErrors.ErrNotFound
+}
+
 func (r *MockClientRepository) List(ctx context.Context, limit, offset int) ([]*domain.Client, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

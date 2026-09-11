@@ -19,6 +19,7 @@ import { Servers } from '@/pages/Servers';
 import { PaymentGateways } from '@/pages/PaymentGateways';
 import { Coupons } from '@/pages/Coupons';
 import { Currencies } from '@/pages/Currencies';
+import { Affiliates } from '@/pages/Affiliates';
 import { Pages } from '@/pages/Pages';
 import { News } from '@/pages/News';
 import { MassMail } from '@/pages/MassMail';
@@ -74,6 +75,7 @@ export const App: React.FC = () => {
                 <Route path="/gateways" element={<PaymentGateways />} />
                 <Route path="/coupons" element={<Coupons />} />
                 <Route path="/currencies" element={<Currencies />} />
+                <Route path="/affiliates" element={<Affiliates />} />
                 <Route path="/pages" element={<Pages />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/mass-mail" element={<MassMail />} />
