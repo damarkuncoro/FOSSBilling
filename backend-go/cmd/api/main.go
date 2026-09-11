@@ -39,6 +39,14 @@ func main() {
 	}
 
 	eb, hm := events.NewEventBus(), plugins.NewHookManager()
+
+	// Initialize Dynamic Lua Engine
+	luaEngine := plugins.NewLuaEngine("extensions")
+	if err := luaEngine.LoadExtensions(); err == nil {
+		hm = plugins.NewHookManager(luaEngine)
+		defer luaEngine.Close()
+	}
+
 	rs := InitRepositories(ctx, cfg, pool)
 	ss := InitServices(cfg, rs, pool, eb, appCache, hm)
 	hs := InitHandlers(ss, rs)
