@@ -25,7 +25,12 @@ func (h *ClientManagementHandler) ListClients(w http.ResponseWriter, r *http.Req
 	if !check(w, r, h.staffService, "clients", "read") { return }
 	l, o := request.GetLimitOffset(r)
 	cls, tot, err := h.clientRepo.List(r.Context(), l, o)
-	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	if err != nil {
+		// Log specific error for debugging
+		println("❌ [API] ListClients Error:", err.Error())
+		response.Error(w, 500, "ERR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, 200, cls, &response.Meta{Total: tot, Limit: l, Offset: o})
 }
 
@@ -45,7 +50,11 @@ func (h *ClientManagementHandler) CreateClient(w http.ResponseWriter, r *http.Re
 	ph, _ := pkgAuth.HashPassword(req.Password); if req.Password == "" { ph, _ = pkgAuth.HashPassword("Password123!") }
 	c := &domain.Client{Email: req.Email, PasswordHash: ph, FirstName: security.SanitizeAlphaNumeric(req.FirstName), LastName: security.SanitizeAlphaNumeric(req.LastName), Company: security.SanitizeHTML(req.Company), Country: security.SanitizeAlphaNumeric(req.Country), Currency: req.Currency, Status: domain.ClientStatus(req.Status), CreatedAt: time.Now().UTC()}
 	if c.Currency == "" { c.Currency = "USD" }; if c.Status == "" { c.Status = "active" }
-	if err := h.clientRepo.Create(r.Context(), c); err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	if err := h.clientRepo.Create(r.Context(), c); err != nil {
+		println("❌ [API] CreateClient Error:", err.Error())
+		response.Error(w, 500, "ERR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, 201, c, nil)
 }
 
@@ -59,7 +68,11 @@ func (h *ClientManagementHandler) UpdateClient(w http.ResponseWriter, r *http.Re
 	if req.Country != "" { c.Country = req.Country }; if req.Currency != "" { c.Currency = req.Currency }
 	if req.Status != "" { c.Status = domain.ClientStatus(req.Status) }
 	if req.Password != "" { c.PasswordHash, _ = pkgAuth.HashPassword(req.Password) }
-	if err := h.clientRepo.Update(r.Context(), c); err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	if err := h.clientRepo.Update(r.Context(), c); err != nil {
+		println("❌ [API] UpdateClient Error:", err.Error())
+		response.Error(w, 500, "ERR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, 200, c, nil)
 }
 

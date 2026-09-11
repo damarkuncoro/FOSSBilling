@@ -28,7 +28,7 @@ func NewWSHub() *WSHub {
 func (h *WSHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
+		log.Printf("[WSHub] Upgrade failed: %v", err)
 		return
 	}
 
@@ -36,16 +36,21 @@ func (h *WSHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	h.clients[conn] = true
 	h.mu.Unlock()
 
+	log.Printf("[WSHub] Client connected. Total clients: %d", len(h.clients))
+
 	defer func() {
 		h.mu.Lock()
 		delete(h.clients, conn)
 		h.mu.Unlock()
 		conn.Close()
+		log.Printf("[WSHub] Client disconnected. Total clients: %d", len(h.clients))
 	}()
 
 	// Keep connection alive, listen for nothing for now
 	for {
-		if _, _, err := conn.ReadMessage(); err != nil {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("[WSHub] ReadMessage error: %v", err)
 			break
 		}
 	}

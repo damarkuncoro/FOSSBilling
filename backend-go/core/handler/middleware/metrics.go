@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/metrics"
@@ -11,6 +12,10 @@ import (
 func Metrics() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/ws") {
+				next.ServeHTTP(w, r)
+				return
+			}
 			start := time.Now()
 
 			rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}

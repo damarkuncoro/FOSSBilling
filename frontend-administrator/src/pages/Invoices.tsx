@@ -72,7 +72,7 @@ export const Invoices: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Settled Invoices</p>
-              <p className="text-xl font-bold">{stats?.paid_invoices || invoices.filter((i) => i.status === 'paid').length}</p>
+              <p className="text-xl font-bold">{stats?.paid_invoices ?? invoices.filter((i) => i.status === 'paid').length}</p>
             </div>
           </CardContent>
         </Card>
@@ -83,7 +83,7 @@ export const Invoices: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Unpaid Invoices</p>
-              <p className="text-xl font-bold">{stats?.unpaid_invoices || invoices.filter((i) => i.status === 'unpaid').length}</p>
+              <p className="text-xl font-bold">{stats?.unpaid_invoices ?? invoices.filter((i) => i.status === 'unpaid').length}</p>
             </div>
           </CardContent>
         </Card>
@@ -94,7 +94,7 @@ export const Invoices: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Revenue Collected</p>
-              <p className="text-xl font-bold">{formatMoney(stats?.total_revenue || 843600, 'IDR')}</p>
+              <p className="text-xl font-bold">{formatMoney(stats?.total_revenue ?? 0, 'IDR')}</p>
             </div>
           </CardContent>
         </Card>

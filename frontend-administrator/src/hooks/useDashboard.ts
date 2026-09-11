@@ -35,10 +35,10 @@ export function useDashboard() {
 
   return {
     stats: stats as DashboardStats,
-    recentLogs: recentLogs as AuditLog[],
+    recentLogs: (recentLogs || []) as AuditLog[],
     systemStatus,
     activityTrend,
-    revenueProjections,
+    revenueProjections: revenueProjections || {},
     loading: statsLoading || logsLoading || statusLoading || trendLoading || projectionsLoading,
     error: statsError ? (statsError as Error).message : null,
     fetchStats,

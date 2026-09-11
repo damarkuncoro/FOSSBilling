@@ -22,18 +22,18 @@ export class AdminGatewayRepository implements IAdminGatewayRepository {
   }
 
   async getTaxRules(): Promise<TaxRuleItem[]> {
-    return request<TaxRuleItem[]>('/admin/taxes');
+    return request<TaxRuleItem[]>('/admin/tax-rules');
   }
 
   async createTaxRule(dto: Partial<TaxRuleItem>): Promise<TaxRuleItem> {
-    return request<TaxRuleItem>('/admin/taxes', {
+    return request<TaxRuleItem>('/admin/tax-rules', {
       method: 'POST',
       body: JSON.stringify(dto),
     });
   }
 
   async deleteTaxRule(id: number): Promise<any> {
-    return request<any>(`/admin/taxes/${id}`, {
+    return request<any>(`/admin/tax-rules/${id}`, {
       method: 'DELETE',
     });
   }

@@ -131,9 +131,10 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 	// 2. Auth Middlewares
 	clientAuth := middleware.RequireAuth(cfg.JWTSecret, "client", "admin", "superadmin")
 	adminAuth := middleware.RequireAuth(cfg.JWTSecret, "admin", "superadmin", "support", "billing")
+	optAuth := middleware.OptionalAuth(cfg.JWTSecret)
 
 	// 3. Register Role-Scoped Routes
-	registerGuestRoutes(mux, h, rateLimiter, authRateLimiter)
+	registerGuestRoutes(mux, h, optAuth, rateLimiter, authRateLimiter)
 	registerClientRoutes(mux, h, clientAuth)
 	registerAdminRoutes(mux, h, adminAuth, rateLimiter, authRateLimiter)
 
@@ -142,5 +143,26 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 		registerDevRoutes(mux, h)
 	}
 
-	return middleware.Recovery(middleware.SecurityHeaders(middleware.AdminGeofence(cfg.AllowedCountries)(middleware.Metrics()(middleware.Logger(middleware.MaintenanceMode(h.AdminSystem.GetSystemService())(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux))))))))
+	// Handle WebSocket separately at the top level to avoid middleware wrapping
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/admin/system/ws" {
+			h.AdminSystem.HandleWebSocket(w, r)
+			return
+		}
+
+		// Apply middlewares for all other routes
+		handler := http.Handler(mux)
+		handler = i18n.LocaleMiddleware(handler)
+		handler = middleware.CORS(cfg.AllowedOrigins)(handler)
+		handler = middleware.MaintenanceMode(h.AdminSystem.GetSystemService())(handler)
+		handler = middleware.Logger(handler)
+		handler = middleware.Metrics()(handler)
+		handler = middleware.AdminGeofence(cfg.AllowedCountries)(handler)
+		handler = middleware.SecurityHeaders(handler)
+		handler = middleware.Recovery(handler)
+
+		handler.ServeHTTP(w, r)
+	})
+
+	return finalHandler
 }

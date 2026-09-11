@@ -8,9 +8,9 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
 
-func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, rl, arl *middleware.RateLimiter) {
+func registerGuestRoutes(mux *http.ServeMux, h *AppHandlers, optAuth func(http.Handler) http.Handler, rl, arl *middleware.RateLimiter) {
 	guestAuthRoutes(mux, h, arl)
-	guestCatalogRoutes(mux, h, rl)
+	guestCatalogRoutes(mux, h, optAuth, rl)
 	guestContentRoutes(mux, h, rl)
 }
 
@@ -22,10 +22,10 @@ func guestAuthRoutes(mux *http.ServeMux, h *AppHandlers, arl *middleware.RateLim
 	mux.Handle("GET /api/v1/guest/auth/google/callback", http.HandlerFunc(h.GuestOAuth.GoogleCallback))
 }
 
-func guestCatalogRoutes(mux *http.ServeMux, h *AppHandlers, rl *middleware.RateLimiter) {
+func guestCatalogRoutes(mux *http.ServeMux, h *AppHandlers, optAuth func(http.Handler) http.Handler, rl *middleware.RateLimiter) {
 	mux.Handle("GET /api/v1/guest/products", rl.RateLimit(http.HandlerFunc(h.GuestProduct.List)))
-	mux.Handle("POST /api/v1/guest/cart/calculate", rl.RateLimit(http.HandlerFunc(h.GuestCart.Calculate)))
-	mux.Handle("POST /api/v1/guest/cart/checkout", http.HandlerFunc(h.GuestCart.Checkout))
+	mux.Handle("POST /api/v1/guest/cart/calculate", rl.RateLimit(optAuth(http.HandlerFunc(h.GuestCart.Calculate))))
+	mux.Handle("POST /api/v1/guest/cart/checkout", optAuth(http.HandlerFunc(h.GuestCart.Checkout)))
 	mux.Handle("GET /api/v1/guest/currencies", rl.RateLimit(http.HandlerFunc(h.GuestCurrency.List)))
 	mux.Handle("GET /api/v1/guest/domains/check", rl.RateLimit(http.HandlerFunc(h.GuestDomain.CheckAvailability)))
 	mux.Handle("GET /api/v1/guest/forms/{id}", rl.RateLimit(http.HandlerFunc(h.GuestFormbuilder.GetForm)))

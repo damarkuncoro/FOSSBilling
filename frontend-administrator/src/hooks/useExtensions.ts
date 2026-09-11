@@ -18,7 +18,7 @@ export function useExtensions() {
   });
 
   const filtered = useMemo(() => {
-    return extensions.filter(e => {
+    return (extensions || []).filter(e => {
       const mS = (e.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (e.description || '').toLowerCase().includes(searchQuery.toLowerCase());
       const mT = selectedType === 'all' || e.type === selectedType;
       return mS && mT;
@@ -26,7 +26,7 @@ export function useExtensions() {
   }, [extensions, searchQuery, selectedType]);
 
   return {
-    extensions: filtered,
+    extensions: filtered || [],
     loading,
     fetchExtensions,
     searchQuery,

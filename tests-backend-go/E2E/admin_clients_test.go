@@ -90,9 +90,6 @@ func TestE2E_AdminClientsAndSupportTicketDetail(t *testing.T) {
 	tReq.Header.Set("Content-Type", "application/json")
 	tResp, _ := http.DefaultClient.Do(tReq)
 
-	var ticketData struct {
-		ID int64 `json:"id"`
-	}
 	// The response from OpenTicket is the ticket object itself wrapped in Data
 	var wrapData struct { Data struct { ID int64 `json:"id" `} `json:"data"`}
 	_ = json.NewDecoder(tResp.Body).Decode(&wrapData)

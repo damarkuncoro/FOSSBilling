@@ -25,6 +25,10 @@ func (h *CartHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	if id := middleware.GetClientID(r.Context()); id > 0 { c.ClientID = id }
 	if c.ClientID == 0 { response.Error(w, 401, "UNAUTHORIZED", "Login required", nil); return }
 	res, err := h.svc.Checkout(r.Context(), &c, r.RemoteAddr)
-	if err != nil { response.Error(w, 400, "ERR", err.Error(), nil); return }
+	if err != nil {
+		println("❌ [API] Checkout Error:", err.Error())
+		response.Error(w, 400, "ERR", err.Error(), nil)
+		return
+	}
 	response.JSON(w, 201, res, nil)
 }

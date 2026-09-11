@@ -64,8 +64,8 @@ export function useInvoices() {
 
   return {
     stats,
-    invoices,
-    clients,
+    invoices: invoices || [],
+    clients: clients || [],
     loading: invoicesLoading || clientsLoading,
     fetchInvoices,
     exportInvoicesToCSV,

@@ -154,9 +154,6 @@ func (s *StatsService) CalculateDashboard(ctx context.Context) (*DashboardStats,
 		mIdx := (int(currentMonth) - 1 - i + 12) % 12
 		mName := monthNames[mIdx]
 		rev := monthlyRevMap[mName].ToFloat()
-		if rev == 0 && i == 0 {
-			rev = stats.TotalRevenue.ToFloat()
-		}
 		stats.RevenueTrends = append(stats.RevenueTrends, RevenueTrend{
 			Month:   mName,
 			Revenue: rev,
@@ -264,7 +261,7 @@ func (s *StatsService) GetFinancialReports(ctx context.Context) (*FinancialRepor
 		})
 	}
 
-	report.ChurnRate = 1.2 // Mock constant for now
+	report.ChurnRate = 0.0
 	return report, nil
 }
 

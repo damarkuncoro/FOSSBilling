@@ -39,7 +39,7 @@ export function useRedirects() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'redirects'] }),
   });
 
-  const filtered = useMemo(() => redirects.filter(r => r.source_path.includes(search) || r.target_url.includes(search)), [redirects, search]);
+  const filtered = useMemo(() => (redirects || []).filter(r => r.source_path.includes(search) || r.target_url.includes(search)), [redirects, search]);
 
   return {
     redirects: filtered, loading, search, setSearch, isAddOpen, setIsAddOpen,

@@ -21,7 +21,7 @@ var SupportedLocales = []Locale{
 type I18n struct { mu sync.RWMutex; cats map[string]map[string]string; def string }
 var defMgr = &I18n{cats: map[string]map[string]string{
 	"en_US": {"welcome": "Welcome to :app", "invalid_credentials": "Invalid email or password", "order_created": "Order #:id created successfully", "items_count_one": ":count item in cart", "items_count_other": ":count items in cart"},
-	"id_ID": {"welcome": "Selamat datang di :app", "invalid_credentials": "Email atau sandi salah", "order_created": "Pesanan #:id berhasil dibuat", "items_count_one": ":count item di keranjang", "items_count_other": ":count item di keranjang"},
+	"id_ID": {"welcome": "Selamat datang di :app", "invalid_credentials": "Email atau kata sandi tidak valid", "order_created": "Pesanan #:id berhasil dibuat", "items_count_one": ":count item di keranjang", "items_count_other": ":count item di keranjang"},
 	"de_DE": {"welcome": "Willkommen bei :app"},
 	"fr_FR": {"welcome": "Bienvenue sur :app"},
 }, def: "en_US"}

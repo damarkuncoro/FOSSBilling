@@ -22,7 +22,9 @@ func main() {
 	pool, _ := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if pool != nil {
 		defer pool.Close()
-		_ = postgres.RunMigrations(ctx, pool, "migrations")
+		if err := postgres.RunMigrations(ctx, pool, "migrations"); err != nil {
+			logger.Error("Database migrations failed", err)
+		}
 	}
 
 	var appCache cache.Cache

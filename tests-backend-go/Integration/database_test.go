@@ -36,8 +36,9 @@ func TestDatabase_E2ECheckoutFlow(t *testing.T) {
 	tc := billing.NewTaxCalculator(nil); is := billing.NewInvoiceService(ir, cr, cor, tc, nil); pc := cart.NewPromoCalculator(pmr); fs := formbuilder.NewFormbuilderService(postgres.NewFormbuilderRepository(p))
 	cs := cart.NewCartService(pc, pmr, or, pr, cr, fs, tc, is, nil, nil)
 	em := fmt.Sprintf("c.%d@e.com", time.Now().UnixNano()); c := &domain.Client{Email: em, PasswordHash: "p", FirstName: "B", LastName: "P", Country: "US", Currency: "USD", Status: "active"}
-	_ = cr.Create(ctx, c); _ = pr.Create(ctx, &domain.Product{ID: 1, Title: "P1", PriceMonthly: 100000})
-	sc := &cart.Cart{ClientID: c.ID, Items: []cart.CartItem{{ProductID: 1, Title: "P1", Period: "1M", Price: 100000, Quantity: 1}}}
+	prod := &domain.Product{Title: "P1", Slug: fmt.Sprintf("p1-%d", time.Now().UnixNano()), PriceMonthly: 100000, Stock: 100, Status: "enabled"}
+	_ = pr.Create(ctx, prod)
+	sc := &cart.Cart{ClientID: c.ID, Items: []cart.CartItem{{ProductID: prod.ID, Title: "P1", Period: "1M", Price: 100000, Quantity: 1}}}
 	res, err := cs.Checkout(ctx, sc, "1.1.1.1"); if err != nil { t.Fatalf("Checkout failed: %v", err) }
 	if len(res.Orders) != 1 || res.Invoice == nil { t.Error("Failed to create orders/invoice") }
 }

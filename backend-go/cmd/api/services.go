@@ -162,6 +162,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 	gatewayRegistry.Register(gateways.NewStripeGateway(cfg.StripeSecretKey, cfg.StripePublicKey, ""))
 	gatewayRegistry.Register(gateways.NewMidtransGateway(cfg.MidtransServerKey, cfg.MidtransClientKey, cfg.AppEnv == "production"))
 	gatewayRegistry.Register(gateways.NewBankTransferGateway("Bank Transfer", "", cfg.CompanyName))
+	gatewayRegistry.Register(gateways.NewCustomGateway())
 
 	// 6. Rest of services
 	webhookService := paymentUsecase.NewWebhookService(repos.Transaction, repos.Invoice, gatewayRegistry, eventBus)

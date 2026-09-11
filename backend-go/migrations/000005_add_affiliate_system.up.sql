@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS affiliate_referrals (
     id BIGSERIAL PRIMARY KEY,
     affiliate_id BIGINT NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
     client_id BIGINT NOT NULL REFERENCES clients(id),
-    order_id BIGINT NOT NULL REFERENCES orders(id),
+    order_id BIGINT NOT NULL REFERENCES client_orders(id),
     amount BIGINT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL

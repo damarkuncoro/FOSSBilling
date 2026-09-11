@@ -34,5 +34,11 @@ func list[T any](ctx context.Context, p *pgxpool.Pool, q string, sc func(pgx.Row
 
 // Helper: total returns the row count for a given query
 func total(ctx context.Context, p *pgxpool.Pool, q string, args ...any) int {
-	var count int; _ = p.QueryRow(ctx, q, args...).Scan(&count); return count
+	var count int
+	err := p.QueryRow(ctx, q, args...).Scan(&count)
+	if err != nil {
+		log.Printf("⚠️  Database count query failed: %v (Query: %s)", err, q)
+		return 0
+	}
+	return count
 }

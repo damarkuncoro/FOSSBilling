@@ -5,6 +5,7 @@ import (
 
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/antispam"
 	authUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/auth"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/i18n"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/response"
 )
@@ -32,7 +33,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req authUsecase.LoginDTO; if request.Decode(r, &req) != nil { response.Error(w, 400, "BAD", "Invalid", nil); return }
 	res, err := h.authUsecase.Login(r.Context(), req)
-	if err != nil { response.Error(w, 401, "UNAUTHORIZED", err.Error(), nil); return }
+	if err != nil {
+		locale := i18n.LocaleFromContext(r.Context())
+		msg := i18n.T(locale, "invalid_credentials")
+		response.Error(w, 401, "UNAUTHORIZED", msg, nil)
+		return
+	}
 	response.JSON(w, 200, res, nil)
 }
 

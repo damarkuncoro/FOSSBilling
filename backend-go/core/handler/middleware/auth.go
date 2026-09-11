@@ -26,6 +26,30 @@ func RequireAuth(secret string, roles ...string) func(http.Handler) http.Handler
 	}
 }
 
+func OptionalAuth(secret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t := ""
+			ah := r.Header.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(ah), "bearer ") {
+				t = strings.TrimSpace(ah[7:])
+			}
+			if t == "" {
+				t = r.URL.Query().Get("token")
+			}
+			if t != "" {
+				if c, err := auth.ValidateToken(secret, t); err == nil && c != nil {
+					ctx := context.WithValue(r.Context(), "clientID", c.ClientID)
+					ctx = context.WithValue(ctx, "email", c.Email)
+					ctx = context.WithValue(ctx, "role", c.Role)
+					r = r.WithContext(ctx)
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func GetClientID(ctx context.Context) int64 { if v, ok := ctx.Value("clientID").(int64); ok { return v }; return 0 }
 func GetRole(ctx context.Context) string { if v, ok := ctx.Value("role").(string); ok { return v }; return "" }
 func WithClientID(ctx context.Context, id int64) context.Context { return context.WithValue(ctx, "clientID", id) }

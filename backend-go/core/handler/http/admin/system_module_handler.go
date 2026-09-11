@@ -1,13 +1,16 @@
 package admin
 
 import (
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/domain"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/page"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/auth"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/notifications"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/request"
@@ -62,6 +65,24 @@ func (h *SystemModuleHandler) GetSystemStatus(w http.ResponseWriter, r *http.Req
 }
 
 func (h *SystemModuleHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[WS] Incoming connection request from %s", r.RemoteAddr)
+	// Manual JWT Validation for WebSocket
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		log.Printf("[WS] Rejecting: Missing token")
+		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
+		return
+	}
+
+	cfg := config.Load()
+	claims, err := auth.ValidateToken(cfg.JWTSecret, token)
+	if err != nil || (claims.Role != "admin" && claims.Role != "superadmin") {
+		log.Printf("[WS] Rejecting: Invalid token or role (%v)", err)
+		http.Error(w, "Forbidden: Invalid token or role", http.StatusForbidden)
+		return
+	}
+
+	log.Printf("[WS] Handshake successful for user: %s", claims.Email)
 	if h.wsHub != nil {
 		h.wsHub.HandleWebSocket(w, r)
 	}

@@ -21,8 +21,8 @@ export function useAdminNotifications() {
   });
 
   return {
-    notifications,
-    unreadCount: notifications.filter((n: any) => !n.is_read).length,
+    notifications: notifications || [],
+    unreadCount: (notifications || []).filter((n: any) => !n.is_read).length,
     loading,
     markAsRead: markMutation.mutate,
     markAllRead: markAllMutation.mutate,

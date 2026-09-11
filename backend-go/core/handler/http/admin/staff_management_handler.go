@@ -44,6 +44,13 @@ func (h *StaffManagementHandler) ListOrders(w http.ResponseWriter, r *http.Reque
 	response.JSON(w, 200, os, &response.Meta{Total: tot, Limit: l, Offset: o})
 }
 
+func (h *StaffManagementHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
+	if !check(w, r, h.staffService, "orders", "read") { return }
+	o, err := h.orderRepo.GetByID(r.Context(), request.GetID(r))
+	if err != nil { response.Error(w, 404, "NOT_FOUND", "Order not found", nil); return }
+	response.JSON(w, 200, o, nil)
+}
+
 func (h *StaffManagementHandler) SuspendOrder(w http.ResponseWriter, r *http.Request) {
 	if !check(w, r, h.staffService, "orders", "write") { return }
 	var req struct{ Reason string }; _ = request.Decode(r, &req)

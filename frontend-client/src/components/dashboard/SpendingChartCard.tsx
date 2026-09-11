@@ -46,7 +46,7 @@ export const SpendingChartCard: React.FC<SpendingChartCardProps> = ({ data, curr
                 tickLine={false}
                 fontSize={11}
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                tickFormatter={(v) => `$${v}`}
+                tickFormatter={(v: number) => `$${v}`}
               />
               <Tooltip
                 formatter={(val: any) => [formatMoney(val, currency), 'Total Paid']}

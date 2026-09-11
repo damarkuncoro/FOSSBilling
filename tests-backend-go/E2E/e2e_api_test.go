@@ -309,13 +309,13 @@ func TestE2E_FullCheckoutAndPaymentFlow(t *testing.T) {
 	adminToken := adminData.Data.Token
 
 	productPayload := map[string]interface{}{
-		"id":          101, // Attempt to set ID 101 specifically
 		"type":        "hosting",
 		"name":        "Cloud VPS Starter E2E",
-		"slug":        fmt.Sprintf("cloud-vps-starter-e2e-%d", time.Now().Unix()),
+		"slug":        fmt.Sprintf("cloud-vps-starter-e2e-%d", time.Now().UnixNano()),
 		"description": "Auto-generated for E2E testing",
 		"status":      "enabled",
 		"setup_type":  "recurring",
+		"stock":       100,
 	}
 	prodBody, _ := json.Marshal(productPayload)
 	prodReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/products", bytes.NewBuffer(prodBody))

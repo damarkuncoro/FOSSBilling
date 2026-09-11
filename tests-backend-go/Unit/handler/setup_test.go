@@ -24,7 +24,9 @@ import (
 	orderUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	paymentUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/payment"
 	staffUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/staff"
+	statsUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/stats"
 	supportUsecase "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/support"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
@@ -95,6 +97,8 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	adminStaffAuthHandler := admin.NewStaffAuthHandler(staffService)
 	adminStaffMgmtHandler := admin.NewStaffManagementHandler(staffService, clientRepo, orderRepo, orderService, supportService)
 	adminInvHandler := admin.NewInvoiceManagementHandler(staffService, invoiceRepo, clientRepo, invoiceService)
+	statsService := statsUsecase.NewStatsService(clientRepo, orderRepo, invoiceRepo, supportRepo, cache.NewMemoryCache())
+	adminBillingHandler := admin.NewBillingModuleHandler(staffService, statsService, taxCalc, promoRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { response.JSON(w, 200, map[string]string{"status": "ok"}, nil) })
@@ -129,6 +133,14 @@ func setupTestServer() (*httptest.Server, *memory.MockPromoRepository, *memory.M
 	mux.Handle("POST /api/v1/admin/orders/{id}/activate", aa(http.HandlerFunc(adminStaffMgmtHandler.ActivateOrder)))
 	mux.Handle("GET /api/v1/admin/invoices", aa(http.HandlerFunc(adminInvHandler.ListInvoices)))
 	mux.Handle("POST /api/v1/admin/invoices", aa(http.HandlerFunc(adminInvHandler.CreateInvoice)))
+	mux.Handle("GET /api/v1/admin/tax-rules", aa(http.HandlerFunc(adminBillingHandler.ListTaxRules)))
+	mux.Handle("POST /api/v1/admin/tax-rules", aa(http.HandlerFunc(adminBillingHandler.CreateTaxRule)))
+	mux.Handle("PUT /api/v1/admin/tax-rules/{id}", aa(http.HandlerFunc(adminBillingHandler.UpdateTaxRule)))
+	mux.Handle("DELETE /api/v1/admin/tax-rules/{id}", aa(http.HandlerFunc(adminBillingHandler.DeleteTaxRule)))
+	mux.Handle("GET /api/v1/admin/taxes", aa(http.HandlerFunc(adminBillingHandler.ListTaxRules)))
+	mux.Handle("POST /api/v1/admin/taxes", aa(http.HandlerFunc(adminBillingHandler.CreateTaxRule)))
+	mux.Handle("PUT /api/v1/admin/taxes/{id}", aa(http.HandlerFunc(adminBillingHandler.UpdateTaxRule)))
+	mux.Handle("DELETE /api/v1/admin/taxes/{id}", aa(http.HandlerFunc(adminBillingHandler.DeleteTaxRule)))
 	mux.Handle("GET /api/v1/admin/support/tickets", aa(http.HandlerFunc(adminStaffMgmtHandler.ListTickets)))
 	mux.Handle("POST /api/v1/admin/support/tickets/{id}/reply", aa(http.HandlerFunc(adminStaffMgmtHandler.ReplyTicket)))
 	mux.Handle("GET /api/v1/admin/audit-logs", aa(http.HandlerFunc(adminStaffAuthHandler.GetAuditLogs)))

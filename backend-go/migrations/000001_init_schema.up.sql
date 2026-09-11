@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS clients (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_clients_email ON clients(email);
-CREATE INDEX idx_clients_status ON clients(status);
+CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
+CREATE INDEX IF NOT EXISTS idx_clients_status ON clients(status);
 
 -- 2. Client Balance Ledger
 CREATE TABLE IF NOT EXISTS client_balances (
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS client_balances (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_client_balances_client_id ON client_balances(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_balances_client_id ON client_balances(client_id);
 
 -- 3. Custom Forms Table (Formbuilder) - MOVED UP for Dependency
 CREATE TABLE IF NOT EXISTS forms (
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(form_id, name)
 );
-CREATE INDEX idx_form_fields_form_id ON form_fields(form_id);
+CREATE INDEX IF NOT EXISTS idx_form_fields_form_id ON form_fields(form_id);
 
 -- 5. Products Table
 CREATE TABLE IF NOT EXISTS products (
@@ -95,8 +95,8 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_products_slug ON products(slug);
-CREATE INDEX idx_products_type ON products(type);
+CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug);
+CREATE INDEX IF NOT EXISTS idx_products_type ON products(type);
 
 -- 6. Invoices Table
 CREATE TABLE IF NOT EXISTS invoices (
@@ -117,9 +117,9 @@ CREATE TABLE IF NOT EXISTS invoices (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_invoices_client_id ON invoices(client_id);
-CREATE INDEX idx_invoices_status ON invoices(status);
-CREATE INDEX idx_invoices_due_at ON invoices(due_at);
+CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON invoices(client_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_due_at ON invoices(due_at);
 
 -- 7. Invoice Items Table
 CREATE TABLE IF NOT EXISTS invoice_items (
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);
 
 -- 8. Orders Table
 CREATE TABLE IF NOT EXISTS client_orders (
@@ -158,9 +158,9 @@ CREATE TABLE IF NOT EXISTS client_orders (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_orders_client_id ON client_orders(client_id);
-CREATE INDEX idx_orders_status ON client_orders(status);
-CREATE INDEX idx_orders_next_due_date ON client_orders(next_due_date);
+CREATE INDEX IF NOT EXISTS idx_orders_client_id ON client_orders(client_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON client_orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_next_due_date ON client_orders(next_due_date);
 
 -- 9. Transactions Table
 CREATE TABLE IF NOT EXISTS transactions (
@@ -176,8 +176,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_transactions_invoice_id ON transactions(invoice_id);
-CREATE INDEX idx_transactions_txn_id ON transactions(txn_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_invoice_id ON transactions(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_txn_id ON transactions(txn_id);
 
 -- 10. Support Tickets Table
 CREATE TABLE IF NOT EXISTS support_tickets (
@@ -193,8 +193,8 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_tickets_client_id ON support_tickets(client_id);
-CREATE INDEX idx_tickets_status ON support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_client_id ON support_tickets(client_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets(status);
 
 -- 11. Ticket Messages Table
 CREATE TABLE IF NOT EXISTS support_ticket_messages (
@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS support_ticket_messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_ticket_messages_ticket_id ON support_ticket_messages(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_ticket_id ON support_ticket_messages(ticket_id);
 
 -- 12. Admin Groups Table
 CREATE TABLE IF NOT EXISTS admin_groups (
@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS staff (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_staff_email ON staff(email);
+CREATE INDEX IF NOT EXISTS idx_staff_email ON staff(email);
 
 -- 14. Audit Logs Table
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -247,8 +247,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_audit_logs_staff_id ON audit_logs(staff_id);
-CREATE INDEX idx_audit_logs_module ON audit_logs(module);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_staff_id ON audit_logs(staff_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_module ON audit_logs(module);
 
 -- 15. Activity Logs Table
 CREATE TABLE IF NOT EXISTS activity_logs (
@@ -262,8 +262,8 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_activity_logs_client_id ON activity_logs(client_id);
-CREATE INDEX idx_activity_logs_type ON activity_logs(type);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_client_id ON activity_logs(client_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_type ON activity_logs(type);
 
 -- 16. Promos Table
 CREATE TABLE IF NOT EXISTS promos (
@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS promos (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_promos_code ON promos(code);
+CREATE INDEX IF NOT EXISTS idx_promos_code ON promos(code);
 
 -- 17. Promo Redemptions Table
 CREATE TABLE IF NOT EXISTS promo_redemptions (
@@ -306,8 +306,8 @@ CREATE TABLE IF NOT EXISTS currencies (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_currencies_default ON currencies(is_default);
-CREATE INDEX idx_currencies_code ON currencies(code);
+CREATE INDEX IF NOT EXISTS idx_currencies_default ON currencies(is_default);
+CREATE INDEX IF NOT EXISTS idx_currencies_code ON currencies(code);
 
 -- 19. News Posts Table
 CREATE TABLE IF NOT EXISTS news_posts (
@@ -322,8 +322,8 @@ CREATE TABLE IF NOT EXISTS news_posts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_news_slug ON news_posts(slug);
-CREATE INDEX idx_news_status ON news_posts(status);
+CREATE INDEX IF NOT EXISTS idx_news_slug ON news_posts(slug);
+CREATE INDEX IF NOT EXISTS idx_news_status ON news_posts(status);
 
 -- 20. Downloadable Files Table
 CREATE TABLE IF NOT EXISTS downloadable_files (
@@ -339,7 +339,7 @@ CREATE TABLE IF NOT EXISTS downloadable_files (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_downloadable_product_id ON downloadable_files(product_id);
+CREATE INDEX IF NOT EXISTS idx_downloadable_product_id ON downloadable_files(product_id);
 
 -- 21. API Keys Table
 CREATE TABLE IF NOT EXISTS api_keys (
@@ -353,8 +353,8 @@ CREATE TABLE IF NOT EXISTS api_keys (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_api_keys_client_id ON api_keys(client_id);
-CREATE INDEX idx_api_keys_key ON api_keys(key);
+CREATE INDEX IF NOT EXISTS idx_api_keys_client_id ON api_keys(client_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_key ON api_keys(key);
 
 -- 22. Mass Mail Campaigns Table
 CREATE TABLE IF NOT EXISTS mass_mail_campaigns (
@@ -368,7 +368,7 @@ CREATE TABLE IF NOT EXISTS mass_mail_campaigns (
     sent_at TIMESTAMP WITH TIME ZONE NULL
 );
 
-CREATE INDEX idx_mass_mail_status ON mass_mail_campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_mass_mail_status ON mass_mail_campaigns(status);
 
 -- 23. Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_notifications_client_id ON notifications(client_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_client_id ON notifications(client_id);
 
 -- 24. Product Categories Table
 CREATE TABLE IF NOT EXISTS product_categories (
@@ -456,8 +456,8 @@ CREATE TABLE IF NOT EXISTS kb_articles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_kb_articles_category ON kb_articles(category_id);
-CREATE INDEX idx_kb_articles_slug ON kb_articles(slug);
+CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category_id);
+CREATE INDEX IF NOT EXISTS idx_kb_articles_slug ON kb_articles(slug);
 
 -- 30. Company Settings Table
 CREATE TABLE IF NOT EXISTS company_settings (
@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS blocked_ips (
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_blocked_ips_ip ON blocked_ips(ip);
+CREATE INDEX IF NOT EXISTS idx_blocked_ips_ip ON blocked_ips(ip);
 
 -- 33. Extensions Table
 CREATE TABLE IF NOT EXISTS extensions (
@@ -517,8 +517,8 @@ CREATE TABLE IF NOT EXISTS extensions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_extensions_type ON extensions(type);
-CREATE INDEX idx_extensions_status ON extensions(status);
+CREATE INDEX IF NOT EXISTS idx_extensions_type ON extensions(type);
+CREATE INDEX IF NOT EXISTS idx_extensions_status ON extensions(status);
 
 -- 34. Redirects Table
 CREATE TABLE IF NOT EXISTS redirects (
@@ -531,7 +531,7 @@ CREATE TABLE IF NOT EXISTS redirects (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_redirects_path ON redirects(path);
+CREATE INDEX IF NOT EXISTS idx_redirects_path ON redirects(path);
 
 -- 35. Admin Notifications Table
 CREATE TABLE IF NOT EXISTS admin_notifications (
@@ -544,7 +544,7 @@ CREATE TABLE IF NOT EXISTS admin_notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_admin_notifications_read ON admin_notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_read ON admin_notifications(is_read);
 
 -- 36. Tax Rules Table
 CREATE TABLE IF NOT EXISTS tax_rules (
@@ -559,7 +559,7 @@ CREATE TABLE IF NOT EXISTS tax_rules (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_tax_rules_country ON tax_rules(country);
+CREATE INDEX IF NOT EXISTS idx_tax_rules_country ON tax_rules(country);
 
 -- Seed Data
 -- Super Admin Group & Staff

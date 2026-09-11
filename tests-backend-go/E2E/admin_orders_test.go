@@ -67,14 +67,27 @@ func TestE2E_AdminOrdersManagement(t *testing.T) {
 	clientToken := regData.Data.Token
 	clientID := regData.Data.Client.ID
 
-	// Get a product ID
-	listProdReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/admin/products", nil)
-	listProdReq.Header.Set("Authorization", "Bearer "+adminToken)
-	listProdResp, _ := http.DefaultClient.Do(listProdReq)
-	var prodData struct { Data []struct { ID int64 `json:"id"` } `json:"data"` }
-	_ = json.NewDecoder(listProdResp.Body).Decode(&prodData)
-	if len(prodData.Data) == 0 { t.Fatal("No products available for checkout test") }
-	productID := prodData.Data[0].ID
+	// Create a new product with stock to avoid "insufficient stock" error
+	uniqueSlug := fmt.Sprintf("test-prod-%d", time.Now().UnixNano())
+	productPayload := map[string]interface{}{
+		"type":        "hosting",
+		"name":        "Test Product E2E",
+		"slug":        uniqueSlug,
+		"status":      "enabled",
+		"setup_type":  "recurring",
+		"stock":       100,
+	}
+	prodBody, _ := json.Marshal(productPayload)
+	createProdReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/products", bytes.NewBuffer(prodBody))
+	createProdReq.Header.Set("Authorization", "Bearer "+adminToken)
+	createProdReq.Header.Set("Content-Type", "application/json")
+	createProdResp, err := http.DefaultClient.Do(createProdReq)
+	if err != nil { t.Fatalf("Failed to create product: %v", err) }
+
+	var createdProdData struct { Data struct { ID int64 `json:"id"` } `json:"data"` }
+	_ = json.NewDecoder(createProdResp.Body).Decode(&createdProdData)
+	productID := createdProdData.Data.ID
+	if productID == 0 { t.Fatal("Failed to get ID of created product") }
 
 	checkoutPayload := map[string]interface{}{
 		"client_id": clientID,

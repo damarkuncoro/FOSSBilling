@@ -45,14 +45,16 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold tracking-tight">
-            {formatMoney(stats?.total_revenue || 0)}
+            {formatMoney(stats?.total_revenue ?? 0)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <span className="text-emerald-500 font-medium inline-flex items-center">
-              +18.4% <ArrowUpRight className="h-3 w-3" />
-            </span>
-            from settled invoices
-          </p>
+          {stats?.total_revenue > 0 && (
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <span className="text-emerald-500 font-medium inline-flex items-center">
+                +18.4% <ArrowUpRight className="h-3 w-3" />
+              </span>
+              from settled invoices
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -68,14 +70,16 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold tracking-tight">
-            {formatMoney(stats?.mrr || 0)}
+            {formatMoney(stats?.mrr ?? 0)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-            <span className="text-indigo-500 font-medium inline-flex items-center">
-              +12.1% <ArrowUpRight className="h-3 w-3" />
-            </span>
-            active subscription run-rate
-          </p>
+          {stats?.mrr > 0 && (
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <span className="text-indigo-500 font-medium inline-flex items-center">
+                +12.1% <ArrowUpRight className="h-3 w-3" />
+              </span>
+              active subscription run-rate
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -91,7 +95,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold tracking-tight">
-            {stats?.total_clients || 0}
+            {stats?.total_clients ?? 0}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Verified customer accounts</p>
         </CardContent>
@@ -109,7 +113,7 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ stats, loadi
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold tracking-tight">
-            {stats?.active_orders || 0}
+            {stats?.active_orders ?? 0}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {stats?.suspended_orders || 0} suspended accounts

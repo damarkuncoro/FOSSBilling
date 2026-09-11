@@ -1,6 +1,6 @@
 module github.com/damarkuncoro/FOSSBilling/backend-go
 
-go 1.26.0
+go 1.25.0
 
 require (
 	github.com/go-chi/chi/v5 v5.3.2
@@ -13,7 +13,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/crypto v0.26.0
-	golang.org/x/oauth2 v0.37.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (

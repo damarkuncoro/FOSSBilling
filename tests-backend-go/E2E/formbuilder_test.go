@@ -92,10 +92,11 @@ func TestE2E_FormbuilderAndCheckoutFlow(t *testing.T) {
 		"type":        "hosting",
 		"name":        "Cloud VPS with Form E2E",
 		"slug":        fmt.Sprintf("vps-form-e2e-%d", time.Now().Unix()),
-		"status":      "enabled",
-		"form_id":     formID,
-		"setup_type":  "recurring",
+		"status":        "enabled",
+		"form_id":       formID,
+		"setup_type":    "recurring",
 		"price_monthly": 15.00,
+		"stock":         100,
 	}
 	prodBody, _ := json.Marshal(productPayload)
 	prodReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/products", bytes.NewBuffer(prodBody))
@@ -130,19 +131,23 @@ func TestE2E_FormbuilderAndCheckoutFlow(t *testing.T) {
 	}
 	var regData struct {
 		Data struct {
-			Token string `json:"token"`
+			Token  string `json:"token"`
+			Client struct {
+				ID int64 `json:"id"`
+			} `json:"client"`
 		} `json:"data"`
 	}
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
 	token := regData.Data.Token
+	clientID := regData.Data.Client.ID
 
 	// 6. Checkout with Custom Config
 	configPayload := map[string]string{
 		"hostname": "vps.myserver.com",
 	}
-	configBytes, _ := json.Marshal(configPayload)
 
 	checkoutPayload := map[string]interface{}{
+		"client_id": clientID,
 		"items": []map[string]interface{}{
 			{
 				"product_id": productID,
@@ -150,7 +155,7 @@ func TestE2E_FormbuilderAndCheckoutFlow(t *testing.T) {
 				"period":     "1M",
 				"price":      15.00,
 				"quantity":   1,
-				"config":     configBytes,
+				"config":     configPayload,
 			},
 		},
 	}

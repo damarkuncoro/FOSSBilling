@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export interface ToastProps {
   title?: string;
@@ -9,7 +9,7 @@ export interface ToastProps {
 export function useToast() {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
 
-  const toast = ({ title, description, variant = 'default' }: ToastProps) => {
+  const toast = useCallback(({ title, description, variant = 'default' }: ToastProps) => {
     console.log(`[Toast] ${title}: ${description} (${variant})`);
     // Simple implementation for now
     setToasts((prev) => [...prev, { title, description, variant }]);
@@ -18,7 +18,7 @@ export function useToast() {
     setTimeout(() => {
       setToasts((prev) => prev.slice(1));
     }, 3000);
-  };
+  }, []);
 
   return { toast, toasts };
 }
