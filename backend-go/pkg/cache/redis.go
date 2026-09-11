@@ -59,3 +59,7 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
 func (r *RedisCache) Flush(ctx context.Context) error {
 	return r.client.FlushAll(ctx).Err()
 }
+
+func (r *RedisCache) GetClient() *redis.Client {
+	return r.client
+}

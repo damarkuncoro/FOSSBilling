@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/config"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/admin"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/handler/http/client"
@@ -94,6 +95,7 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 			},
 		}, nil)
 	})
+	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		data, err := os.ReadFile("docs/openapi.json")
@@ -137,5 +139,5 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 		registerDevRoutes(mux, h)
 	}
 
-	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.MaintenanceMode(h.AdminSystem.GetSystemService())(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux))))))
+	return middleware.Recovery(middleware.SecurityHeaders(middleware.AdminGeofence(cfg.AllowedCountries)(middleware.Metrics()(middleware.Logger(middleware.MaintenanceMode(h.AdminSystem.GetSystemService())(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux))))))))
 }

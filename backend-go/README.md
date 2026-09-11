@@ -37,6 +37,7 @@ Create a `.env` file or provide environment variables:
 | `APP_ENV` | `development` | Environment (`development` / `production`) |
 | `DATABASE_URL` | `postgres://...` | PostgreSQL connection string (auto-fallback to In-Memory if offline) |
 | `JWT_SECRET` | `secret-key-32-chars` | Secret key for signing JWT tokens and HMAC URLs |
+| `REDIS_URL` | `""` | Redis connection string for caching & distributed locking |
 | `TURNSTILE_SECRET`| `""` | Optional Cloudflare Turnstile captcha secret |
 
 ---
@@ -50,12 +51,13 @@ go run ./cmd/api
 * **Interactive Docs (Scalar):** [http://localhost:8080/docs](http://localhost:8080/docs)
 * **OpenAPI Spec:** `http://localhost:8080/openapi.json`
 * **Health Check:** `http://localhost:8080/health`
+* **Prometheus Metrics:** `http://localhost:8080/metrics`
 
 ### 2. Background Worker & Scheduler
 ```bash
 go run ./cmd/worker
 ```
-Handles automatic renewal invoice generation and overdue service auto-suspension.
+Handles automatic renewal invoice generation and overdue service auto-suspension. **Distributed Locking** enabled via Redis for horizontal scalability.
 
 ### 3. Docker Compose Stack
 ```bash

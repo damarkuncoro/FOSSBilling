@@ -19,22 +19,37 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 	ticketAutoClose := cronService.GetSystemService().GetIntSetting(jobCtx, "support", "auto_close_days", 7)
 
 	// 1. Invoice Renewal Job
-	tasks.RunInvoiceRenewalsTask(jobCtx, cronService, renewalDays)
+	_ = cronService.RunLocked(jobCtx, "task:renewals", time.Minute, func() error {
+		tasks.RunInvoiceRenewalsTask(jobCtx, cronService, renewalDays)
+		return nil
+	})
 
 	// 2. Automated Provisioning Job
-	cronService.ProcessPendingProvisioningBatch(jobCtx)
+	_ = cronService.RunLocked(jobCtx, "task:provisioning", 30*time.Second, func() error {
+		_, err := cronService.ProcessPendingProvisioningBatch(jobCtx)
+		return err
+	})
 
 	// 3. Overdue Order Auto-Suspension Job
-	tasks.RunOverdueSuspensionsTask(jobCtx, cronService, suspensionGrace)
+	_ = cronService.RunLocked(jobCtx, "task:suspensions", time.Minute, func() error {
+		tasks.RunOverdueSuspensionsTask(jobCtx, cronService, suspensionGrace)
+		return nil
+	})
 
 	// 3. Inactive Support Tickets Auto-Close
-	tasks.RunTicketAutoCloseTask(jobCtx, cronService, ticketAutoClose)
+	_ = cronService.RunLocked(jobCtx, "task:tickets_close", time.Hour, func() error {
+		tasks.RunTicketAutoCloseTask(jobCtx, cronService, ticketAutoClose)
+		return nil
+	})
 
 	// 4. Housekeeping & Maintenance
 	tasks.RunSystemMaintenanceTask(jobCtx)
 
 	// 5. Automated Daily Backup (Runs at 02:00 UTC)
 	if time.Now().Hour() == 2 {
-		_, _ = cronService.PerformAutomatedBackup(jobCtx)
+		_ = cronService.RunLocked(jobCtx, "task:daily_backup", 2*time.Hour, func() error {
+			_, err := cronService.PerformAutomatedBackup(jobCtx)
+			return err
+		})
 	}
 }

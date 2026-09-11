@@ -10,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/service/scheduler"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
@@ -21,7 +22,8 @@ func TestWorkerStress_ComparePerformance(t *testing.T) {
 	bor := memory.NewMockOrderRepository(); slow := &SlowOrderRepo{MockOrderRepository: bor, lat: lat}
 	ir, cr, pr, cor := memory.NewMockInvoiceRepository(), memory.NewMockClientRepository(), memory.NewMockProductRepository(), memory.NewMockCompanyRepository()
 	is := billing.NewInvoiceService(ir, cr, cor, billing.NewTaxCalculator(nil), plugins.NewHookManager())
-	os := order.NewOrderService(slow, pr, nil, nil); cs := scheduler.NewCronService(slow, os, is, nil, memory.NewMockSupportRepository(), memory.NewMockMassMailRepository(), cr, nil, "")
+	os := order.NewOrderService(slow, pr, nil, nil)
+	cs := scheduler.NewCronService(slow, os, is, nil, memory.NewMockSupportRepository(), memory.NewMockMassMailRepository(), cr, &lock.LocalLocker{}, nil, "")
 
 	_ = cr.Create(ctx, &domain.Client{ID: 1, Email: "a@e.com", Currency: "USD"})
 	due := time.Now().UTC().AddDate(0, 0, 5)

@@ -11,6 +11,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/metrics"
 )
 
 type OrderService struct {
@@ -61,6 +62,7 @@ func (s *OrderService) Activate(ctx context.Context, id int64, from time.Time) (
 	})
 
 	if err := s.orderRepo.Update(ctx, o); err != nil { return nil, err }
+	metrics.ActiveOrders.Inc()
 	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventOrderActivated, Payload: domain.OrderActivatedPayload{OrderID: o.ID, ClientID: o.ClientID, ProductID: o.ProductID, Title: o.Title, ActivatedAt: *o.ActivatedAt}}) }
 	return o, nil
 }
@@ -70,6 +72,7 @@ func (s *OrderService) Suspend(ctx context.Context, id int64, reason string) (*d
 	if err != nil || o.Status != domain.OrderStatusActive { return nil, errors.New("cannot suspend") }
 	_ = s.callProv(ctx, o, func(p domain.ServiceProvisioner) error { return p.Suspend(ctx, o, reason) })
 	if err := s.orderRepo.UpdateStatus(ctx, id, domain.OrderStatusSuspended, &reason); err != nil { return nil, err }
+	metrics.ActiveOrders.Dec()
 	if s.eventBus != nil { s.eventBus.PublishAsync(ctx, events.Event{Type: events.EventOrderSuspended, Payload: domain.OrderSuspendedPayload{OrderID: o.ID, ClientID: o.ClientID, Reason: reason, SuspendedAt: time.Now().UTC()}}) }
 	return s.orderRepo.GetByID(ctx, id)
 }
@@ -145,6 +148,7 @@ func (s *OrderService) PublishProvisioningFailure(ctx context.Context, orderID i
 	if s.eventBus == nil { return }
 	o, _ := s.orderRepo.GetByID(ctx, orderID)
 	if o == nil { return }
+	metrics.ProvisioningFailures.Inc()
 	s.eventBus.PublishAsync(ctx, events.Event{
 		Type: events.EventOrderProvisioningFailed,
 		Payload: domain.OrderProvisioningFailedPayload{

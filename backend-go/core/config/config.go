@@ -14,6 +14,7 @@ type Config struct {
 	AppURL          string
 	DefaultCurrency string
 	AllowedOrigins  string
+	AllowedCountries string
 	WorkerConcurrency int
 
 	// Mailer
@@ -55,6 +56,7 @@ func Load() *Config {
 		AppURL:          getEnv("APP_URL", "http://localhost:8080"),
 		DefaultCurrency: getEnv("DEFAULT_CURRENCY", "USD"),
 		AllowedOrigins:  getEnv("ALLOWED_ORIGINS", "*"),
+		AllowedCountries: getEnv("ALLOWED_ADMIN_COUNTRIES", ""),
 		WorkerConcurrency: getEnvInt("WORKER_CONCURRENCY", 20),
 
 		MailDriver:   getEnv("MAIL_DRIVER", "mock"),

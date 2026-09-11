@@ -9,6 +9,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
 	appErrors "github.com/damarkuncoro/FOSSBilling/backend-go/pkg/errors"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/metrics"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/pdf"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
@@ -125,6 +126,10 @@ func (s *InvoiceService) PayWithBalance(ctx context.Context, cID, iID int64) (*d
 	if err := s.invoiceRepo.MarkAsPaid(ctx, inv.ID, now); err != nil {
 		return nil, err
 	}
+
+	metrics.InvoicesPaidTotal.Inc()
+	metrics.RevenueTotal.WithLabelValues(inv.Currency).Add(inv.Total.ToFloat())
+
 	if s.eventBus != nil {
 		_ = s.eventBus.Publish(ctx, events.Event{Type: events.EventInvoicePaid, Payload: domain.InvoicePaidPayload{InvoiceID: inv.ID, ClientID: inv.ClientID, Amount: inv.Total, Currency: inv.Currency, PaidAt: now}})
 	}

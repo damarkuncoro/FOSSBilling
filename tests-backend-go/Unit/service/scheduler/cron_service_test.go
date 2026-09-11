@@ -11,6 +11,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/decimal"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
 
@@ -27,7 +28,7 @@ func setupCronService() (*scheduler.CronService, *memory.MockOrderRepository, *m
 	invService := billing.NewInvoiceService(invRepo, clientRepo, companyRepo, taxCalc, plugins.NewHookManager())
 	orderService := order.NewOrderService(orderRepo, productRepo, nil, nil)
 
-	cronService := scheduler.NewCronService(orderRepo, orderService, invService, nil, supportRepo, massMailRepo, clientRepo, nil, "")
+	cronService := scheduler.NewCronService(orderRepo, orderService, invService, nil, supportRepo, massMailRepo, clientRepo, &lock.LocalLocker{}, nil, "")
 	return cronService, orderRepo, invRepo, clientRepo
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/mailer"
 )
 
@@ -21,12 +22,13 @@ type CronService struct {
 	supportRepo    domain.SupportRepository
 	massMailRepo   domain.MassMailRepository
 	clientRepo     domain.ClientRepository
+	locker         lock.Locker
 	mailer         mailer.Mailer
 	dbURL          string
 	concurrency    int
 }
 
-func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billing.InvoiceService, sys *system.SystemService, sr domain.SupportRepository, mr domain.MassMailRepository, cr domain.ClientRepository, m mailer.Mailer, dbURL string) *CronService {
+func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billing.InvoiceService, sys *system.SystemService, sr domain.SupportRepository, mr domain.MassMailRepository, cr domain.ClientRepository, l lock.Locker, m mailer.Mailer, dbURL string) *CronService {
 	return &CronService{
 		orderRepo:      or,
 		orderService:   os,
@@ -35,6 +37,7 @@ func NewCronService(or domain.OrderRepository, os *order.OrderService, is *billi
 		supportRepo:    sr,
 		massMailRepo:   mr,
 		clientRepo:     cr,
+		locker:         l,
 		mailer:         m,
 		dbURL:          dbURL,
 		concurrency:    20,
@@ -182,6 +185,23 @@ func (s *CronService) PerformAutomatedBackup(ctx context.Context) (*domain.CronT
 }
 
 func (s *CronService) GetSystemService() *system.SystemService { return s.systemService }
+
+func (s *CronService) RunLocked(ctx context.Context, key string, ttl time.Duration, fn func() error) error {
+	if s.locker == nil {
+		return fn()
+	}
+
+	ok, err := s.locker.Acquire(ctx, key, ttl)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil // Silently skip if locked
+	}
+
+	defer s.locker.Release(ctx, key)
+	return fn()
+}
 
 func pointer[T any](v T) *T { return &v }
 func min(a, b int) int      { if a < b { return a }; return b }

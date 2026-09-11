@@ -13,7 +13,9 @@ import (
 	billing "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/billing"
 	order "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/order"
 	system "github.com/damarkuncoro/FOSSBilling/backend-go/core/usecase/system"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/cache"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/events"
+	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/lock"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/logger"
 	"github.com/damarkuncoro/FOSSBilling/backend-go/pkg/plugins"
 )
@@ -28,13 +30,29 @@ func main() {
 		_ = postgres.RunMigrations(ctx, pool, "migrations")
 	}
 
+	var appCache cache.Cache
+	var locker lock.Locker
+	if cfg.RedisURL != "" {
+		rc, err := cache.NewRedisCache(cfg.RedisURL)
+		if err == nil {
+			appCache = rc
+			locker = lock.NewRedisLocker(rc.GetClient())
+			logger.Info("Worker connected to Redis", "url", cfg.RedisURL)
+		}
+	}
+	if appCache == nil {
+		appCache = cache.NewMemoryCache()
+		locker = &lock.LocalLocker{}
+		logger.Warn("Redis not available, using local memory for worker")
+	}
+
 	eb, hm := events.NewEventBus(), plugins.NewHookManager()
 	or, pr, cr, ir, sr, mr, tr, sysR := postgres.NewOrderRepository(pool), postgres.NewProductRepository(pool), postgres.NewClientRepository(pool), postgres.NewInvoiceRepository(pool), postgres.NewSupportRepository(pool), postgres.NewMassMailRepository(pool), postgres.NewTaxRepository(pool), postgres.NewSystemRepository(pool)
 	cor := postgres.NewCompanyRepository(pool)
 	ordSvc := order.NewOrderService(or, pr, nil, nil, eb)
 	is := billing.NewInvoiceService(ir, cr, cor, billing.NewTaxCalculator(tr), hm, eb)
 	sysSvc := system.NewSystemService(sysR)
-	cs := scheduler.NewCronService(or, ordSvc, is, sysSvc, sr, mr, cr, nil, cfg.DatabaseURL)
+	cs := scheduler.NewCronService(or, ordSvc, is, sysSvc, sr, mr, cr, locker, nil, cfg.DatabaseURL)
 
 	tick := time.NewTicker(time.Minute); defer tick.Stop()
 	go ExecuteCronBatch(cs)
