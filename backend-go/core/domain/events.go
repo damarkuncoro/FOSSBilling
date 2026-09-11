@@ -49,3 +49,10 @@ type TicketOpenedPayload struct {
 	Priority  string    `json:"priority"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type OrderProvisioningFailedPayload struct {
+	OrderID   int64  `json:"order_id"`
+	ProductID int64  `json:"product_id"`
+	ClientID  int64  `json:"client_id"`
+	Error     string `json:"error"`
+}

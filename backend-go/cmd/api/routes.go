@@ -137,5 +137,5 @@ func setupRoutes(cfg *config.Config, h *AppHandlers, rateLimiter, authRateLimite
 		registerDevRoutes(mux, h)
 	}
 
-	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux)))))
+	return middleware.Recovery(middleware.SecurityHeaders(middleware.Logger(middleware.MaintenanceMode(h.AdminSystem.GetSystemService())(middleware.CORS(cfg.AllowedOrigins)(i18n.LocaleMiddleware(mux))))))
 }

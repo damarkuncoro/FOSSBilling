@@ -30,7 +30,7 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 	var cfg map[string]any; _ = json.Unmarshal(o.Config, &cfg); if cfg == nil { cfg = make(map[string]any) }
 	if len(p.Config) > 0 { var pc map[string]any; if err := json.Unmarshal(p.Config, &pc); err == nil { for k, v := range pc { if _, ex := cfg[k]; !ex { cfg[k] = v } } } }
 
-	ok := true
+	var provErr error
 	if p.Type == domain.ProductTypeDomain && l.rr != nil {
 		rid, _ := cfg["registrar"].(string); if rid == "" { rid = "rdap" }
 		if reg, _ := l.rr.Get(rid); reg != nil {
@@ -39,18 +39,23 @@ func (l *OrderListener) HandleOrderActivated(ctx context.Context, e events.Event
 			dnm, _ := cfg["domain_name"].(string)
 			if res, err := reg.RegisterDomain(ctx, provisioning.DomainRegistrationRequest{DomainName: dnm, Years: 1, ContactInfo: con}); err == nil {
 				cfg["remote_id"], cfg["status"] = res.AuthCode, "active"
-			} else { ok = false }
+			} else { provErr = err }
 		}
 	} else if p.Type == domain.ProductTypeHosting && l.prr != nil {
 		did, _ := cfg["server_type"].(string); if did == "" { did = "cpanel" }
 		if prov, _ := l.prr.Get(did); prov != nil {
 			if res, err := prov.Create(ctx, o); err == nil {
 				cfg["remote_id"], cfg["account_details"] = res.RemoteID, res.AccountDetails
-			} else { ok = false }
+			} else { provErr = err }
 		}
 	}
 
-	if !ok { return l.or.UpdateStatus(ctx, o.ID, domain.OrderStatusPendingSetup, nil) }
+	if provErr != nil {
+		if l.os != nil { // Publish failure event
+			l.os.PublishProvisioningFailure(ctx, o.ID, provErr.Error())
+		}
+		return l.or.UpdateStatus(ctx, o.ID, domain.OrderStatusPendingSetup, nil)
+	}
 	o.Config, _ = json.Marshal(cfg); _ = l.or.Update(ctx, o)
 	c, _ := l.cr.GetByID(ctx, o.ClientID); if c != nil { _ = l.es.SendServiceActivatedEmail(ctx, c, o) }
 	return nil

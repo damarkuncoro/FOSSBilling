@@ -10,6 +10,7 @@ const (
 	EventClientRegistered EventType = "client.registered"; EventInvoiceCreated EventType = "invoice.created"; EventInvoicePaid EventType = "invoice.paid"
 	EventOrderActivated EventType = "order.activated"; EventOrderSuspended EventType = "order.suspended"; EventTicketOpened EventType = "ticket.opened"
 	EventTicketReplied EventType = "ticket.replied"; EventTicketClosed EventType = "ticket.closed"; EventLowStock EventType = "system.low_stock"
+	EventOrderProvisioningFailed EventType = "order.provisioning_failed"
 )
 
 type Event struct { Type EventType `json:"type"`; Payload any `json:"payload"` }

@@ -140,4 +140,20 @@ func (s *OrderService) CheckGracePeriodOverdue(o *domain.Order, grace int, now t
 }
 
 func (s *OrderService) ListByClientID(ctx context.Context, cID int64, l, o int) ([]*domain.Order, int, error) { return s.orderRepo.ListByClientID(ctx, cID, l, o) }
+
+func (s *OrderService) PublishProvisioningFailure(ctx context.Context, orderID int64, errStr string) {
+	if s.eventBus == nil { return }
+	o, _ := s.orderRepo.GetByID(ctx, orderID)
+	if o == nil { return }
+	s.eventBus.PublishAsync(ctx, events.Event{
+		Type: events.EventOrderProvisioningFailed,
+		Payload: domain.OrderProvisioningFailedPayload{
+			OrderID:   o.ID,
+			ProductID: o.ProductID,
+			ClientID:  o.ClientID,
+			Error:     errStr,
+		},
+	})
+}
+
 func pointer[T any](v T) *T { return &v }

@@ -203,6 +203,7 @@ func InitServices(cfg *config.Config, repos *Repositories, pool *pgxpool.Pool, e
 	adminAlertListener := listener.NewAdminAlertListener(adminNotifService, telegramService, wsHub)
 	eventBus.Subscribe(events.EventInvoicePaid, adminAlertListener.HandleInvoicePaid)
 	eventBus.Subscribe(events.EventTicketOpened, adminAlertListener.HandleTicketOpened)
+	eventBus.Subscribe(events.EventOrderProvisioningFailed, adminAlertListener.HandleOrderProvisioningFailed)
 
 	systemListener := listener.NewSystemListener(emailService, cfg.MailFromAddr)
 	eventBus.Subscribe(events.EventLowStock, systemListener.HandleLowStock)

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useClientDashboard } from '@/hooks/useClientDashboard';
 import { Button } from '@/components/ui/button';
 import { DashboardStatsGrid } from '@/components/dashboard/DashboardStatsGrid';
+import { SpendingChartCard } from '@/components/dashboard/SpendingChartCard';
 import { ActiveServicesList } from '@/components/dashboard/ActiveServicesList';
 import { RecentInvoicesList } from '@/components/dashboard/RecentInvoicesList';
 
@@ -18,6 +19,7 @@ export const Dashboard: React.FC = () => {
     tickets,
     unpaidInvoices,
     activeOrders,
+    spendingTrends,
   } = useClientDashboard();
 
   return (
@@ -73,11 +75,16 @@ export const Dashboard: React.FC = () => {
         activeOrders={activeOrders}
       />
 
-      {/* Services & Invoices Quick View */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ActiveServicesList orders={orders} />
-        <RecentInvoicesList invoices={invoices} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <SpendingChartCard data={spendingTrends} currency={user?.currency} />
+        </div>
+        <div className="space-y-6">
+           <ActiveServicesList orders={orders} />
+        </div>
       </div>
+
+      <RecentInvoicesList invoices={invoices} />
     </div>
   );
 };

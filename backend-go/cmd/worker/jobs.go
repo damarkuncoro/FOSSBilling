@@ -13,17 +13,22 @@ func ExecuteCronBatch(cronService *scheduler.CronService) {
 	jobCtx, jobCancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer jobCancel()
 
-	// 1. Invoice Renewal Job (14 days advance notice)
-	tasks.RunInvoiceRenewalsTask(jobCtx, cronService, 14)
+	// Fetch dynamic settings for billing cycles
+	renewalDays := cronService.GetSystemService().GetIntSetting(jobCtx, "billing", "invoice_renewal_days", 14)
+	suspensionGrace := cronService.GetSystemService().GetIntSetting(jobCtx, "billing", "suspension_grace_days", 7)
+	ticketAutoClose := cronService.GetSystemService().GetIntSetting(jobCtx, "support", "auto_close_days", 7)
 
-	// 2. Automated Provisioning Job (Process paid pending orders)
+	// 1. Invoice Renewal Job
+	tasks.RunInvoiceRenewalsTask(jobCtx, cronService, renewalDays)
+
+	// 2. Automated Provisioning Job
 	cronService.ProcessPendingProvisioningBatch(jobCtx)
 
-	// 3. Overdue Order Auto-Suspension Job (7 days grace period)
-	tasks.RunOverdueSuspensionsTask(jobCtx, cronService, 7)
+	// 3. Overdue Order Auto-Suspension Job
+	tasks.RunOverdueSuspensionsTask(jobCtx, cronService, suspensionGrace)
 
-	// 3. Inactive Support Tickets Auto-Close (7 days inactive)
-	tasks.RunTicketAutoCloseTask(jobCtx, cronService, 7)
+	// 3. Inactive Support Tickets Auto-Close
+	tasks.RunTicketAutoCloseTask(jobCtx, cronService, ticketAutoClose)
 
 	// 4. Housekeeping & Maintenance
 	tasks.RunSystemMaintenanceTask(jobCtx)

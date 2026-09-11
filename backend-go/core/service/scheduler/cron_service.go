@@ -181,5 +181,7 @@ func (s *CronService) PerformAutomatedBackup(ctx context.Context) (*domain.CronT
 	return &domain.CronTaskResult{TaskName: "DBBackup", SuccessCount: 1, Duration: time.Since(start)}, nil
 }
 
+func (s *CronService) GetSystemService() *system.SystemService { return s.systemService }
+
 func pointer[T any](v T) *T { return &v }
 func min(a, b int) int      { if a < b { return a }; return b }

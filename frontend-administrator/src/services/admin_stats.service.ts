@@ -15,6 +15,10 @@ export class AdminStatsService {
   async getIncomeSummary(): Promise<any> {
     return this.repo.getIncomeSummary();
   }
+
+  async getRevenueProjections(): Promise<Record<string, number>> {
+    return this.repo.getRevenueProjections();
+  }
 }
 
 export const adminStatsService = new AdminStatsService();

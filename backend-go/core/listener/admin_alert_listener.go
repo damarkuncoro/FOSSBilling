@@ -64,3 +64,18 @@ func (l *AdminAlertListener) HandleTicketOpened(ctx context.Context, e events.Ev
 	}
 	return nil
 }
+
+func (l *AdminAlertListener) HandleOrderProvisioningFailed(ctx context.Context, e events.Event) error {
+	p, ok := e.Payload.(domain.OrderProvisioningFailedPayload); if !ok { return nil }
+	m := fmt.Sprintf("Order #%d failed to provision: %s", p.OrderID, p.Error)
+
+	if l.wsHub != nil {
+		_ = l.wsHub.Broadcast(ctx, map[string]any{"type": "provisioning_failed", "title": "❌ Provisioning Failed", "message": m, "priority": "high"})
+	}
+
+	if l.ts != nil {
+		_ = l.ts.SendAlert("Provisioning Failed", m, true)
+	}
+
+	return l.ans.CreateAlert(ctx, "❌ Provisioning Error", m, "danger", "orders")
+}

@@ -98,6 +98,8 @@ func (h *SystemModuleHandler) CreatePage(w http.ResponseWriter, r *http.Request)
 	response.JSON(w, 201, p, nil)
 }
 
+func (h *SystemModuleHandler) GetSystemService() *system.SystemService { return h.systemService }
+
 func (h *SystemModuleHandler) DeletePage(w http.ResponseWriter, r *http.Request) {
 	if !check(w, r, h.staffService, "system", "delete") { return }
 	_ = h.pageService.DeletePage(r.Context(), request.GetID(r))

@@ -268,6 +268,26 @@ func (s *StatsService) GetFinancialReports(ctx context.Context) (*FinancialRepor
 	return report, nil
 }
 
+// GetRevenueProjection calculates expected incoming revenue based on active order renewal dates
+func (s *StatsService) GetRevenueProjection(ctx context.Context, days int) (map[string]float64, error) {
+	if days <= 0 { days = 30 }
+	orders, _, err := s.orderRepo.List(ctx, 10000, 0)
+	if err != nil { return nil, err }
+
+	projection := make(map[string]float64)
+	horizon := time.Now().UTC().AddDate(0, 0, days)
+
+	for _, o := range orders {
+		if o.Status == domain.OrderStatusActive && o.NextDueDate != nil {
+			if o.NextDueDate.Before(horizon) && o.NextDueDate.After(time.Now().UTC()) {
+				key := o.NextDueDate.Format("2006-01-02")
+				projection[key] += o.Price.ToFloat()
+			}
+		}
+	}
+	return projection, nil
+}
+
 // GenerateInvoicesCSV returns a CSV string of all invoices for accounting
 func (s *StatsService) GenerateInvoicesCSV(ctx context.Context) (string, error) {
 	invoices, _, err := s.invoiceRepo.List(ctx, 50000, 0)

@@ -28,12 +28,18 @@ export function useDashboard() {
     queryFn: () => adminSystemService.getActivityTrend(7),
   });
 
+  const { data: revenueProjections = {}, isLoading: projectionsLoading } = useQuery({
+    queryKey: ['admin', 'dashboard', 'projections'],
+    queryFn: () => adminStatsService.getRevenueProjections(),
+  });
+
   return {
     stats: stats as DashboardStats,
     recentLogs: recentLogs as AuditLog[],
     systemStatus,
     activityTrend,
-    loading: statsLoading || logsLoading || statusLoading || trendLoading,
+    revenueProjections,
+    loading: statsLoading || logsLoading || statusLoading || trendLoading || projectionsLoading,
     error: statsError ? (statsError as Error).message : null,
     fetchStats,
     revenueTrends: stats?.revenue_trends || [],

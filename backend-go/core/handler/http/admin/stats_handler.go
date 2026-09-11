@@ -20,3 +20,10 @@ func (h *StatsHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
 	response.JSON(w, 200, d, nil)
 }
+
+func (h *StatsHandler) GetRevenueProjection(w http.ResponseWriter, r *http.Request) {
+	if !check(w, r, h.staffSvc, "billing", "read") { return }
+	res, err := h.svc.GetRevenueProjection(r.Context(), 30)
+	if err != nil { response.Error(w, 500, "ERR", err.Error(), nil); return }
+	response.JSON(w, 200, res, nil)
+}

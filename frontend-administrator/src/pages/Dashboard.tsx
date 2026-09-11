@@ -5,6 +5,7 @@ import { useDashboard } from '@/hooks/useDashboard';
 import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
 import { RevenueChartCard } from '@/components/dashboard/RevenueChartCard';
 import { SystemActivityChartCard } from '@/components/dashboard/SystemActivityChartCard';
+import { ProjectionChartCard } from '@/components/dashboard/ProjectionChartCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ import { formatDate } from '@/lib/utils';
 
 export const Dashboard: React.FC = () => {
   const { t } = useTranslation();
-  const { stats, recentLogs, systemStatus, activityTrend, loading, error, fetchStats, revenueTrends } = useDashboard();
+  const { stats, recentLogs, systemStatus, activityTrend, revenueProjections, loading, error, fetchStats, revenueTrends } = useDashboard();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -127,6 +128,8 @@ export const Dashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          <ProjectionChartCard data={revenueProjections} />
 
           <SystemActivityChartCard data={activityTrend} />
 

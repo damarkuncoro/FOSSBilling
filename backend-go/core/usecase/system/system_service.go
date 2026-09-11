@@ -79,3 +79,10 @@ func (s *SystemService) GetSystemStatus(ctx context.Context) *domain.SystemStatu
 		MemoryUsage: fmt.Sprintf("%s (Alloc) / %s (Sys)", st.MemoryAlloc, st.MemorySys), Uptime: st.Uptime,
 	}
 }
+
+func (s *SystemService) GetIntSetting(ctx context.Context, sec, k string, def int) int {
+	ss, err := s.repo.GetSetting(ctx, sec, k)
+	if err != nil { return def }
+	var v int; if err := json.Unmarshal(ss.Value, &v); err == nil { return v }
+	return def
+}

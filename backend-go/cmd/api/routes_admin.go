@@ -73,6 +73,7 @@ func catalogRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) 
 func systemRoutes(mux *http.ServeMux, h *AppHandlers, aAuth func(http.Handler) http.Handler) {
 	mux.Handle("GET /api/v1/admin/system/ws", aAuth(http.HandlerFunc(h.AdminSystem.HandleWebSocket)))
 	mux.Handle("GET /api/v1/admin/stats/dashboard", aAuth(http.HandlerFunc(h.AdminStats.GetDashboard)))
+	mux.Handle("GET /api/v1/admin/stats/projections", aAuth(http.HandlerFunc(h.AdminStats.GetRevenueProjection)))
 	mux.Handle("GET /api/v1/admin/system/status", aAuth(http.HandlerFunc(h.AdminSystem.GetSystemStatus)))
 	mux.Handle("POST /api/v1/admin/system/cron/run", aAuth(http.HandlerFunc(h.AdminSystem.TriggerCron)))
 	mux.Handle("POST /api/v1/admin/system/cache/clear", aAuth(http.HandlerFunc(h.AdminSystem.ClearCache)))

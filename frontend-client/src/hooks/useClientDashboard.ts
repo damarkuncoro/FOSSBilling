@@ -23,15 +23,32 @@ export function useClientDashboard() {
   const unpaidInvoices = invoices.filter((inv) => inv.status === 'unpaid');
   const activeOrders = orders.filter((o) => o.status === 'active');
 
+  // Calculate monthly spending from paid invoices
+  const spendingTrends = (() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonth = new Date().getMonth();
+    const result = [];
+    for (let i = 5; i >= 0; i--) {
+      const idx = (currentMonth - i + 12) % 12;
+      const monthName = months[idx];
+      const monthPaid = invoices
+        .filter(inv => inv.status === 'paid' && new Date(inv.created_at).getMonth() === idx)
+        .reduce((sum, inv) => sum + (inv.total || 0), 0);
+      result.push({ month: monthName, amount: monthPaid });
+    }
+    return result;
+  })();
+
   return {
     user,
     balance,
     orders,
     invoices,
     tickets,
-    loading: ordersLoading || invoicesLoading || ticketsLoading,
     unpaidInvoices,
     activeOrders,
+    spendingTrends,
+    loading: ordersLoading || invoicesLoading || ticketsLoading,
     fetchDashboardData: () => {
       fetchOrders();
       fetchInvoices();
